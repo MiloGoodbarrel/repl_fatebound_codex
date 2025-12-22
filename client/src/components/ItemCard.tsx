@@ -73,6 +73,8 @@ export function ItemCard({ item, index }: ItemCardProps) {
         <span>{item.rarity}</span>
         <span>•</span>
         <span>{item.category}</span>
+        <span>•</span>
+        <span>{item.version}</span>
       </div>
 
       {/* Divider */}
@@ -86,13 +88,18 @@ export function ItemCard({ item, index }: ItemCardProps) {
       </div>
 
       {/* Footer / Meta */}
-      {item.meta && (
-        <div className="mt-4 pt-3 border-t border-border/50">
+      <div className="mt-4 pt-3 border-t border-border/50 space-y-2">
+        {item.attunement && (
+          <p className="text-xs text-amber-400/90 font-serif text-center bg-amber-900/20 py-1 rounded">
+            {item.attunement}
+          </p>
+        )}
+        {item.meta && (
           <p className="text-xs text-primary/80 font-mono text-center bg-primary/5 py-1 rounded">
             {item.meta}
           </p>
-        </div>
-      )}
+        )}
+      </div>
     </motion.div>
   );
 }

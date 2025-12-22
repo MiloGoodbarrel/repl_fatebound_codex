@@ -7,69 +7,69 @@ import { insertItemSchema } from "@shared/schema";
 
 const seedData = [
   // Weapons
-  { name: "Dagger", category: "Weapons", rarity: "Common", description: "A simple blade.", meta: "1d4 piercing, finesse, light" },
-  { name: "Longsword", category: "Weapons", rarity: "Common", description: "A versatile blade.", meta: "1d8 slashing (1d10 versatile)" },
-  { name: "Shortbow", category: "Weapons", rarity: "Common", description: "A small bow.", meta: "1d6 piercing, range 80/320" },
-  { name: "Greataxe", category: "Weapons", rarity: "Common", description: "A massive axe.", meta: "1d12 slashing, heavy, two-handed" },
-  { name: "Flame Tongue", category: "Weapons", rarity: "Rare", description: "Bursting with flame.", meta: "Requires Attunement" },
-  { name: "Holy Avenger", category: "Weapons", rarity: "Legendary", description: "A powerful paladin weapon.", meta: "Requires Attunement by Paladin" },
-  { name: "Vorpal Sword", category: "Weapons", rarity: "Legendary", description: "Decapitates on a crit.", meta: "Requires Attunement" },
-  { name: "Sun Blade", category: "Weapons", rarity: "Rare", description: "A blade of pure light.", meta: "Requires Attunement" },
-  { name: "Javelin of Lightning", category: "Weapons", rarity: "Uncommon", description: "Transforms into a bolt of lightning.", meta: "" },
+  { name: "Dagger", category: "Weapons", rarity: "Common", description: "A simple blade.", version: "5e", attunement: "", meta: "1d4 piercing, finesse, light" },
+  { name: "Longsword", category: "Weapons", rarity: "Common", description: "A versatile blade.", version: "5e", attunement: "", meta: "1d8 slashing (1d10 versatile)" },
+  { name: "Shortbow", category: "Weapons", rarity: "Common", description: "A small bow.", version: "5e", attunement: "", meta: "1d6 piercing, range 80/320" },
+  { name: "Greataxe", category: "Weapons", rarity: "Common", description: "A massive axe.", version: "5e", attunement: "", meta: "1d12 slashing, heavy, two-handed" },
+  { name: "Flame Tongue", category: "Weapons", rarity: "Rare", description: "Bursting with flame.", version: "5e", attunement: "Requires Attunement", meta: "" },
+  { name: "Holy Avenger", category: "Weapons", rarity: "Legendary", description: "A powerful paladin weapon.", version: "5e", attunement: "Requires Attunement by Paladin", meta: "" },
+  { name: "Vorpal Sword", category: "Weapons", rarity: "Legendary", description: "Decapitates on a crit.", version: "5e", attunement: "Requires Attunement", meta: "" },
+  { name: "Sun Blade", category: "Weapons", rarity: "Rare", description: "A blade of pure light.", version: "5e", attunement: "Requires Attunement", meta: "" },
+  { name: "Javelin of Lightning", category: "Weapons", rarity: "Uncommon", description: "Transforms into a bolt of lightning.", version: "5e", attunement: "", meta: "" },
   
   // Armor
-  { name: "Leather Armor", category: "Armor", rarity: "Common", description: "Basic light armor.", meta: "AC 11 + Dex" },
-  { name: "Chain Mail", category: "Armor", rarity: "Common", description: "Heavy metal rings.", meta: "AC 16, Str 13, Stealth Disadv" },
-  { name: "Plate Armor", category: "Armor", rarity: "Common", description: "Full plate protection.", meta: "AC 18, Str 15, Stealth Disadv" },
-  { name: "Shield", category: "Armor", rarity: "Common", description: "A standard shield.", meta: "+2 AC" },
-  { name: "Adamantine Armor", category: "Armor", rarity: "Uncommon", description: "Immune to critical hits.", meta: "Medium or Heavy" },
-  { name: "Mithral Armor", category: "Armor", rarity: "Uncommon", description: "Light and stealthy.", meta: "No Stealth Disadv" },
-  { name: "Armor of Invulnerability", category: "Armor", rarity: "Legendary", description: "Immune to non-magical damage.", meta: "Requires Attunement" },
+  { name: "Leather Armor", category: "Armor", rarity: "Common", description: "Basic light armor.", version: "5e", attunement: "", meta: "AC 11 + Dex" },
+  { name: "Chain Mail", category: "Armor", rarity: "Common", description: "Heavy metal rings.", version: "5e", attunement: "", meta: "AC 16, Str 13, Stealth Disadv" },
+  { name: "Plate Armor", category: "Armor", rarity: "Common", description: "Full plate protection.", version: "5e", attunement: "", meta: "AC 18, Str 15, Stealth Disadv" },
+  { name: "Shield", category: "Armor", rarity: "Common", description: "A standard shield.", version: "5e", attunement: "", meta: "+2 AC" },
+  { name: "Adamantine Armor", category: "Armor", rarity: "Uncommon", description: "Immune to critical hits.", version: "5e", attunement: "", meta: "Medium or Heavy" },
+  { name: "Mithral Armor", category: "Armor", rarity: "Uncommon", description: "Light and stealthy.", version: "5e", attunement: "", meta: "No Stealth Disadv" },
+  { name: "Armor of Invulnerability", category: "Armor", rarity: "Legendary", description: "Immune to non-magical damage.", version: "5e", attunement: "Requires Attunement", meta: "" },
   
   // Potions
-  { name: "Potion of Healing", category: "Potions", rarity: "Common", description: "Restores 2d4+2 HP.", meta: "Consumable" },
-  { name: "Potion of Greater Healing", category: "Potions", rarity: "Uncommon", description: "Restores 4d4+4 HP.", meta: "Consumable" },
-  { name: "Potion of Invisibility", category: "Potions", rarity: "Very Rare", description: "Become invisible for 1 hour.", meta: "Consumable" },
-  { name: "Potion of Speed", category: "Potions", rarity: "Very Rare", description: "Gain the Haste effect.", meta: "Consumable" },
-  { name: "Elixir of Health", category: "Potions", rarity: "Rare", description: "Cures diseases and conditions.", meta: "Consumable" },
+  { name: "Potion of Healing", category: "Potions", rarity: "Common", description: "Restores 2d4+2 HP.", version: "5e", attunement: "", meta: "Consumable" },
+  { name: "Potion of Greater Healing", category: "Potions", rarity: "Uncommon", description: "Restores 4d4+4 HP.", version: "5e", attunement: "", meta: "Consumable" },
+  { name: "Potion of Invisibility", category: "Potions", rarity: "Very Rare", description: "Become invisible for 1 hour.", version: "5e", attunement: "", meta: "Consumable" },
+  { name: "Potion of Speed", category: "Potions", rarity: "Very Rare", description: "Gain the Haste effect.", version: "5e", attunement: "", meta: "Consumable" },
+  { name: "Elixir of Health", category: "Potions", rarity: "Rare", description: "Cures diseases and conditions.", version: "5e", attunement: "", meta: "Consumable" },
 
   // Rings
-  { name: "Ring of Protection", category: "Rings", rarity: "Rare", description: "Bonus to AC and Saves.", meta: "+1 AC/Saves, Attunement" },
-  { name: "Ring of Invisibility", category: "Rings", rarity: "Legendary", description: "Turn invisible at will.", meta: "Requires Attunement" },
-  { name: "Ring of Water Walking", category: "Rings", rarity: "Uncommon", description: "Walk on liquid surfaces.", meta: "" },
-  { name: "Ring of Regeneration", category: "Rings", rarity: "Very Rare", description: "Regenerate HP slowly.", meta: "Requires Attunement" },
+  { name: "Ring of Protection", category: "Rings", rarity: "Rare", description: "Bonus to AC and Saves.", version: "5e", attunement: "Requires Attunement", meta: "+1 AC/Saves" },
+  { name: "Ring of Invisibility", category: "Rings", rarity: "Legendary", description: "Turn invisible at will.", version: "5e", attunement: "Requires Attunement", meta: "" },
+  { name: "Ring of Water Walking", category: "Rings", rarity: "Uncommon", description: "Walk on liquid surfaces.", version: "5e", attunement: "", meta: "" },
+  { name: "Ring of Regeneration", category: "Rings", rarity: "Very Rare", description: "Regenerate HP slowly.", version: "5e", attunement: "Requires Attunement", meta: "" },
 
   // Wondrous
-  { name: "Bag of Holding", category: "Wondrous", rarity: "Uncommon", description: "Larger on the inside.", meta: "Holds 500 lbs" },
-  { name: "Cloak of Elvenkind", category: "Wondrous", rarity: "Uncommon", description: "Grants advantage on stealth.", meta: "Requires Attunement" },
-  { name: "Winged Boots", category: "Wondrous", rarity: "Uncommon", description: "Fly speed equal to walking speed.", meta: "Requires Attunement" },
-  { name: "Apparatus of Kwalish", category: "Wondrous", rarity: "Legendary", description: "A mechanical crab vehicle.", meta: "" },
+  { name: "Bag of Holding", category: "Wondrous", rarity: "Uncommon", description: "Larger on the inside.", version: "5e", attunement: "", meta: "Holds 500 lbs" },
+  { name: "Cloak of Elvenkind", category: "Wondrous", rarity: "Uncommon", description: "Grants advantage on stealth.", version: "5e", attunement: "Requires Attunement", meta: "" },
+  { name: "Winged Boots", category: "Wondrous", rarity: "Uncommon", description: "Fly speed equal to walking speed.", version: "5e", attunement: "Requires Attunement", meta: "" },
+  { name: "Apparatus of Kwalish", category: "Wondrous", rarity: "Legendary", description: "A mechanical crab vehicle.", version: "5e", attunement: "", meta: "" },
 
   // Rods
-  { name: "Rod of the Pact Keeper +1", category: "Rods", rarity: "Uncommon", description: "Bonus to Warlock spells.", meta: "Requires Attunement by Warlock" },
-  { name: "Rod of Lordly Might", category: "Rods", rarity: "Legendary", description: "Multi-function tool and weapon.", meta: "Requires Attunement" },
-  { name: "Immovable Rod", category: "Rods", rarity: "Uncommon", description: "Stays fixed in space.", meta: "" },
+  { name: "Rod of the Pact Keeper +1", category: "Rods", rarity: "Uncommon", description: "Bonus to Warlock spells.", version: "5e", attunement: "Requires Attunement by Warlock", meta: "" },
+  { name: "Rod of Lordly Might", category: "Rods", rarity: "Legendary", description: "Multi-function tool and weapon.", version: "5e", attunement: "Requires Attunement", meta: "" },
+  { name: "Immovable Rod", category: "Rods", rarity: "Uncommon", description: "Stays fixed in space.", version: "5e", attunement: "", meta: "" },
 
   // Scrolls
-  { name: "Spell Scroll (Cantrip)", category: "Scrolls", rarity: "Common", description: "Cast a cantrip once.", meta: "Consumable" },
-  { name: "Spell Scroll (1st Level)", category: "Scrolls", rarity: "Common", description: "Cast a 1st level spell once.", meta: "Consumable" },
-  { name: "Scroll of Protection", category: "Scrolls", rarity: "Rare", description: "Protection from creature types.", meta: "Consumable" },
-  { name: "Scroll of Tarrasque Summoning", category: "Scrolls", rarity: "Legendary", description: "Do not read this.", meta: "Consumable (Hopefully)" },
+  { name: "Spell Scroll (Cantrip)", category: "Scrolls", rarity: "Common", description: "Cast a cantrip once.", version: "5e", attunement: "", meta: "Consumable" },
+  { name: "Spell Scroll (1st Level)", category: "Scrolls", rarity: "Common", description: "Cast a 1st level spell once.", version: "5e", attunement: "", meta: "Consumable" },
+  { name: "Scroll of Protection", category: "Scrolls", rarity: "Rare", description: "Protection from creature types.", version: "5e", attunement: "", meta: "Consumable" },
+  { name: "Scroll of Tarrasque Summoning", category: "Scrolls", rarity: "Legendary", description: "Do not read this.", version: "5e", attunement: "", meta: "Consumable (Hopefully)" },
 
   // Staves
-  { name: "Staff of Power", category: "Staves", rarity: "Very Rare", description: "Immense magical power.", meta: "Requires Attunement" },
-  { name: "Staff of the Magi", category: "Staves", rarity: "Legendary", description: "The ultimate spellcaster staff.", meta: "Requires Attunement" },
-  { name: "Staff of Healing", category: "Staves", rarity: "Rare", description: "Heals wounds.", meta: "Requires Attunement by Bard, Cleric, Druid" },
-  { name: "Staff of the Python", category: "Staves", rarity: "Uncommon", description: "Becomes a giant snake.", meta: "Requires Attunement by Cleric, Druid, Warlock" },
+  { name: "Staff of Power", category: "Staves", rarity: "Very Rare", description: "Immense magical power.", version: "5e", attunement: "Requires Attunement", meta: "" },
+  { name: "Staff of the Magi", category: "Staves", rarity: "Legendary", description: "The ultimate spellcaster staff.", version: "5e", attunement: "Requires Attunement", meta: "" },
+  { name: "Staff of Healing", category: "Staves", rarity: "Rare", description: "Heals wounds.", version: "5e", attunement: "Requires Attunement by Bard, Cleric, Druid", meta: "" },
+  { name: "Staff of the Python", category: "Staves", rarity: "Uncommon", description: "Becomes a giant snake.", version: "5e", attunement: "Requires Attunement by Cleric, Druid, Warlock", meta: "" },
 
   // Wands
-  { name: "Wand of Magic Missiles", category: "Wands", rarity: "Uncommon", description: "Casts Magic Missile.", meta: "" },
-  { name: "Wand of Fireballs", category: "Wands", rarity: "Rare", description: "Casts Fireball.", meta: "Requires Attunement" },
-  { name: "Wand of Wonder", category: "Wands", rarity: "Rare", description: "Unpredictable magical effects.", meta: "Requires Attunement" },
+  { name: "Wand of Magic Missiles", category: "Wands", rarity: "Uncommon", description: "Casts Magic Missile.", version: "5e", attunement: "", meta: "" },
+  { name: "Wand of Fireballs", category: "Wands", rarity: "Rare", description: "Casts Fireball.", version: "5e", attunement: "Requires Attunement", meta: "" },
+  { name: "Wand of Wonder", category: "Wands", rarity: "Rare", description: "Unpredictable magical effects.", version: "5e", attunement: "Requires Attunement", meta: "" },
 
   // Magical (General catch-all or specific items not in other cats)
-  { name: "Bead of Force", category: "Magical", rarity: "Rare", description: "Explodes in a sphere of force.", meta: "Consumable" },
-  { name: "Dust of Disappearance", category: "Magical", rarity: "Uncommon", description: "Invisibility dust.", meta: "Consumable" }
+  { name: "Bead of Force", category: "Magical", rarity: "Rare", description: "Explodes in a sphere of force.", version: "5e", attunement: "", meta: "Consumable" },
+  { name: "Dust of Disappearance", category: "Magical", rarity: "Uncommon", description: "Invisibility dust.", version: "5e", attunement: "", meta: "Consumable" }
 ];
 
 interface DnD5eEquipment {
@@ -106,7 +106,9 @@ function mapEquipmentToItem(equipment: DnD5eEquipment) {
     name: equipment.name,
     category: mappedCategory,
     rarity: "Common",
+    version: "5e",
     description: `SRD equipment item: ${equipment.name}`,
+    attunement: "",
     meta: "From D&D 5e SRD",
   };
 }
@@ -129,7 +131,9 @@ function mapMagicItemToItem(item: DnD5eMagicItem) {
     name: item.name,
     category: "Magical",
     rarity: mappedRarity,
+    version: "5e",
     description: `SRD magic item: ${item.name}`,
+    attunement: "",
     meta: "From D&D 5e SRD",
   };
 }
@@ -163,6 +167,7 @@ async function syncItemsFromApi() {
     
     if (allItems.length > 0) {
       // Clear existing items and insert new ones
+      await storage.clearItems();
       await storage.createItems(allItems);
       console.log(`Successfully synced ${allItems.length} items from D&D 5e API`);
     }
@@ -170,6 +175,47 @@ async function syncItemsFromApi() {
   } catch (error) {
     console.error("Error syncing items from D&D 5e API:", error);
   }
+}
+
+// Parse CSV and validate
+function parseCSV(csvText: string): any[] {
+  const lines = csvText.trim().split('\n');
+  if (lines.length < 2) throw new Error("CSV must have at least a header row and one data row");
+  
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+  const requiredHeaders = ['item name', 'item description', 'category', 'rarity', 'version', 'attunement'];
+  
+  // Check that all required headers are present
+  for (const required of requiredHeaders) {
+    if (!headers.includes(required)) {
+      throw new Error(`Missing required CSV header: ${required}`);
+    }
+  }
+  
+  const items = [];
+  for (let i = 1; i < lines.length; i++) {
+    const values = lines[i].split(',').map(v => v.trim());
+    if (values.some(v => !v)) continue; // Skip empty rows
+    
+    const itemNameIdx = headers.indexOf('item name');
+    const descIdx = headers.indexOf('item description');
+    const catIdx = headers.indexOf('category');
+    const rarityIdx = headers.indexOf('rarity');
+    const versionIdx = headers.indexOf('version');
+    const attunementIdx = headers.indexOf('attunement');
+    
+    items.push({
+      name: values[itemNameIdx],
+      description: values[descIdx],
+      category: values[catIdx],
+      rarity: values[rarityIdx],
+      version: values[versionIdx],
+      attunement: values[attunementIdx] || "",
+      meta: "",
+    });
+  }
+  
+  return items;
 }
 
 export async function registerRoutes(
@@ -207,6 +253,48 @@ export async function registerRoutes(
   app.post("/api/sync-items", async (req, res) => {
     await syncItemsFromApi();
     res.json({ message: "Items synced successfully" });
+  });
+
+  // CSV upload endpoint
+  app.post("/api/import-homebrew", async (req, res) => {
+    try {
+      let csvText = '';
+      
+      // Collect data from request body or stream
+      req.setEncoding('utf8');
+      req.on('data', chunk => {
+        csvText += chunk;
+      });
+      
+      req.on('end', async () => {
+        try {
+          const parsedItems = parseCSV(csvText);
+          const itemsToInsert = parsedItems.map(item => ({
+            name: item.name,
+            category: item.category,
+            rarity: item.rarity,
+            description: item.description,
+            version: item.version,
+            attunement: item.attunement || "",
+            meta: "",
+          }));
+          
+          await storage.createItems(itemsToInsert);
+          res.json({ 
+            message: `Successfully imported ${itemsToInsert.length} homebrew items`,
+            count: itemsToInsert.length
+          });
+        } catch (err) {
+          res.status(400).json({ 
+            message: err instanceof Error ? err.message : "Error parsing CSV" 
+          });
+        }
+      });
+    } catch (err) {
+      res.status(400).json({ 
+        message: err instanceof Error ? err.message : "Error processing upload" 
+      });
+    }
   });
 
   return httpServer;

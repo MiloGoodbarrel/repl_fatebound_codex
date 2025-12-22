@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { type DrawOptions } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Sparkles, Dices, Layers } from "lucide-react";
+import { Sparkles, Dices, Layers, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 const CATEGORIES = [
   "Weapons", "Armor", "Potions", "Rings", "Wands", 
@@ -13,6 +14,7 @@ const CATEGORIES = [
 ];
 
 const RARITIES = ["Common", "Uncommon", "Rare", "Very Rare", "Legendary"];
+const VERSIONS = ["OD&D", "AD&D", "3rd Edition", "4th Edition", "5e", "One D&D"];
 
 interface ControlsProps {
   onDraw: (options: DrawOptions) => void;
@@ -22,7 +24,11 @@ interface ControlsProps {
 export function Controls({ onDraw, isDrawing }: ControlsProps) {
   const [categories, setCategories] = useState<string[]>(CATEGORIES);
   const [rarities, setRarities] = useState<string[]>(RARITIES);
+  const [versions, setVersions] = useState<string[]>(["5e"]);
   const [count, setCount] = useState([5]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const toggleCategory = (cat: string) => {
     setCategories(prev => 
@@ -44,12 +50,65 @@ export function Controls({ onDraw, isDrawing }: ControlsProps) {
     );
   };
 
+  const toggleVersion = (ver: string) => {
+    setVersions(prev => 
+      prev.includes(ver) ? prev.filter(v => v !== ver) : [...prev, ver]
+    );
+  };
+
+  const toggleAllVersions = () => {
+    if (versions.length === VERSIONS.length) {
+      setVersions([]);
+    } else {
+      setVersions(VERSIONS);
+    }
+  };
+
   const handleDraw = () => {
     onDraw({
       categories,
       rarities,
+      versions,
       count: count[0]
     });
+  };
+
+  const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploading(true);
+      const text = await file.text();
+      const response = await fetch("/api/import-homebrew", {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: text,
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: `Imported ${data.count} homebrew items`,
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: data.message,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to import CSV",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   return (
@@ -152,11 +211,70 @@ export function Controls({ onDraw, isDrawing }: ControlsProps) {
           </div>
         </div>
 
+        {/* Versions */}
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <Label className="font-display text-lg">D&D Versions</Label>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={toggleAllVersions}
+              className="h-6 text-xs text-muted-foreground hover:text-primary"
+            >
+              {versions.length === VERSIONS.length ? "Clear All" : "Select All"}
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 gap-2 bg-background/30 p-4 rounded-lg border border-border/50">
+            {VERSIONS.map(ver => (
+              <div key={ver} className="flex items-center space-x-2">
+                <Checkbox 
+                  id={`ver-${ver}`}
+                  checked={versions.includes(ver)}
+                  onCheckedChange={() => toggleVersion(ver)}
+                  className="border-muted-foreground data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                />
+                <label 
+                  htmlFor={`ver-${ver}`}
+                  className="text-sm font-medium leading-none cursor-pointer text-muted-foreground peer-data-[state=checked]:text-foreground transition-colors"
+                >
+                  {ver}
+                </label>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* CSV Import */}
+        <div className="space-y-2 bg-background/30 p-4 rounded-lg border border-dashed border-border/50">
+          <Label className="font-display text-sm">Import Homebrew (CSV)</Label>
+          <p className="text-xs text-muted-foreground">Headers: Item Name, Item Description, Category, Rarity, Version, Attunement</p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            onChange={handleCSVUpload}
+            className="hidden"
+            disabled={uploading}
+            data-testid="input-csv-upload"
+          />
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            variant="outline"
+            size="sm"
+            className="w-full"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            {uploading ? "Importing..." : "Choose CSV File"}
+          </Button>
+        </div>
+
         {/* Action Button */}
         <Button 
           onClick={handleDraw}
-          disabled={isDrawing || categories.length === 0 || rarities.length === 0}
+          disabled={isDrawing || categories.length === 0 || rarities.length === 0 || versions.length === 0}
           className="w-full h-14 text-lg font-display font-bold uppercase tracking-widest relative overflow-hidden group shadow-lg hover:shadow-primary/20 transition-all"
+          data-testid="button-draw-cards"
         >
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700" />
           {isDrawing ? (

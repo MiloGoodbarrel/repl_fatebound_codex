@@ -7,6 +7,7 @@ export interface IStorage {
   createItem(item: InsertItem): Promise<Item>;
   createItems(items: InsertItem[]): Promise<Item[]>;
   drawItems(options: DrawOptions): Promise<Item[]>;
+  clearItems(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -20,27 +21,33 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createItems(insertItems: InsertItem[]): Promise<Item[]> {
+    if (insertItems.length === 0) return [];
     return await db.insert(items).values(insertItems).returning();
   }
 
   async drawItems(options: DrawOptions): Promise<Item[]> {
-    const { categories, rarities, count } = options;
+    const { categories, rarities, versions, count } = options;
     
     // Select random items matching criteria
-    // Postgres random() is simple enough for this use case
     const drawnItems = await db
       .select()
       .from(items)
       .where(
         and(
           inArray(items.category, categories),
-          inArray(items.rarity, rarities)
+          inArray(items.rarity, rarities),
+          inArray(items.version, versions)
         )
       )
       .orderBy(sql`RANDOM()`)
       .limit(count);
 
     return drawnItems;
+  }
+
+  async clearItems(): Promise<void> {
+    // Delete all items from the table
+    await db.delete(items);
   }
 }
 
