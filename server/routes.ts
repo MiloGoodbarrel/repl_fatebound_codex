@@ -66,6 +66,16 @@ const seedData = [
   { name: "Wand of Magic Missiles", category: "Wands", rarity: "Uncommon", description: "Casts Magic Missile.", version: "5e", attunement: "", meta: "" },
   { name: "Wand of Fireballs", category: "Wands", rarity: "Rare", description: "Casts Fireball.", version: "5e", attunement: "Requires Attunement", meta: "" },
   { name: "Wand of Wonder", category: "Wands", rarity: "Rare", description: "Unpredictable magical effects.", version: "5e", attunement: "Requires Attunement", meta: "" },
+
+  // 5e - Magical
+  { name: "Bead of Force", category: "Magical", rarity: "Rare", description: "Explodes in a sphere of force.", version: "5e", attunement: "", meta: "Consumable" },
+  { name: "Dust of Disappearance", category: "Magical", rarity: "Uncommon", description: "Invisibility dust.", version: "5e", attunement: "", meta: "Consumable" },
+  { name: "Alchemy Jug", category: "Magical", rarity: "Uncommon", description: "Produces magical liquids.", version: "5e", attunement: "", meta: "" },
+  { name: "Decanter of Endless Water", category: "Magical", rarity: "Uncommon", description: "Produces water endlessly.", version: "5e", attunement: "", meta: "" },
+  { name: "Eversmoking Bottle", category: "Magical", rarity: "Uncommon", description: "Creates perpetual smoke.", version: "5e", attunement: "", meta: "" },
+  { name: "Necklace of Fireballs", category: "Magical", rarity: "Rare", description: "Launches fireballs.", version: "5e", attunement: "", meta: "Consumable" },
+  { name: "Dust of Sneezing and Choking", category: "Magical", rarity: "Uncommon", description: "Causes sneezing fits.", version: "5e", attunement: "", meta: "Consumable" },
+  { name: "Crystal Ball", category: "Magical", rarity: "Very Rare", description: "Scrying device.", version: "5e", attunement: "Requires Attunement", meta: "" },
   
   // 3rd Edition items
   { name: "Iron Bands of Bilarro", category: "Wondrous Items", rarity: "Uncommon", description: "Magical bindings from 3e.", version: "3rd Edition", attunement: "", meta: "3e Classic" },
