@@ -6,7 +6,7 @@ import { z } from "zod";
 import { insertItemSchema } from "@shared/schema";
 
 const seedData = [
-  // Weapons
+  // 5e - Weapons
   { name: "Dagger", category: "Weapons", rarity: "Common", description: "A simple blade.", version: "5e", attunement: "", meta: "1d4 piercing, finesse, light" },
   { name: "Longsword", category: "Weapons", rarity: "Common", description: "A versatile blade.", version: "5e", attunement: "", meta: "1d8 slashing (1d10 versatile)" },
   { name: "Shortbow", category: "Weapons", rarity: "Common", description: "A small bow.", version: "5e", attunement: "", meta: "1d6 piercing, range 80/320" },
@@ -17,7 +17,7 @@ const seedData = [
   { name: "Sun Blade", category: "Weapons", rarity: "Rare", description: "A blade of pure light.", version: "5e", attunement: "Requires Attunement", meta: "" },
   { name: "Javelin of Lightning", category: "Weapons", rarity: "Uncommon", description: "Transforms into a bolt of lightning.", version: "5e", attunement: "", meta: "" },
   
-  // Armor
+  // 5e - Armor
   { name: "Leather Armor", category: "Armor", rarity: "Common", description: "Basic light armor.", version: "5e", attunement: "", meta: "AC 11 + Dex" },
   { name: "Chain Mail", category: "Armor", rarity: "Common", description: "Heavy metal rings.", version: "5e", attunement: "", meta: "AC 16, Str 13, Stealth Disadv" },
   { name: "Plate Armor", category: "Armor", rarity: "Common", description: "Full plate protection.", version: "5e", attunement: "", meta: "AC 18, Str 15, Stealth Disadv" },
@@ -26,50 +26,74 @@ const seedData = [
   { name: "Mithral Armor", category: "Armor", rarity: "Uncommon", description: "Light and stealthy.", version: "5e", attunement: "", meta: "No Stealth Disadv" },
   { name: "Armor of Invulnerability", category: "Armor", rarity: "Legendary", description: "Immune to non-magical damage.", version: "5e", attunement: "Requires Attunement", meta: "" },
   
-  // Potions
+  // 5e - Potions
   { name: "Potion of Healing", category: "Potions", rarity: "Common", description: "Restores 2d4+2 HP.", version: "5e", attunement: "", meta: "Consumable" },
   { name: "Potion of Greater Healing", category: "Potions", rarity: "Uncommon", description: "Restores 4d4+4 HP.", version: "5e", attunement: "", meta: "Consumable" },
   { name: "Potion of Invisibility", category: "Potions", rarity: "Very Rare", description: "Become invisible for 1 hour.", version: "5e", attunement: "", meta: "Consumable" },
   { name: "Potion of Speed", category: "Potions", rarity: "Very Rare", description: "Gain the Haste effect.", version: "5e", attunement: "", meta: "Consumable" },
   { name: "Elixir of Health", category: "Potions", rarity: "Rare", description: "Cures diseases and conditions.", version: "5e", attunement: "", meta: "Consumable" },
 
-  // Rings
+  // 5e - Rings
   { name: "Ring of Protection", category: "Rings", rarity: "Rare", description: "Bonus to AC and Saves.", version: "5e", attunement: "Requires Attunement", meta: "+1 AC/Saves" },
   { name: "Ring of Invisibility", category: "Rings", rarity: "Legendary", description: "Turn invisible at will.", version: "5e", attunement: "Requires Attunement", meta: "" },
   { name: "Ring of Water Walking", category: "Rings", rarity: "Uncommon", description: "Walk on liquid surfaces.", version: "5e", attunement: "", meta: "" },
   { name: "Ring of Regeneration", category: "Rings", rarity: "Very Rare", description: "Regenerate HP slowly.", version: "5e", attunement: "Requires Attunement", meta: "" },
 
-  // Wondrous
+  // 5e - Wondrous
   { name: "Bag of Holding", category: "Wondrous", rarity: "Uncommon", description: "Larger on the inside.", version: "5e", attunement: "", meta: "Holds 500 lbs" },
   { name: "Cloak of Elvenkind", category: "Wondrous", rarity: "Uncommon", description: "Grants advantage on stealth.", version: "5e", attunement: "Requires Attunement", meta: "" },
   { name: "Winged Boots", category: "Wondrous", rarity: "Uncommon", description: "Fly speed equal to walking speed.", version: "5e", attunement: "Requires Attunement", meta: "" },
   { name: "Apparatus of Kwalish", category: "Wondrous", rarity: "Legendary", description: "A mechanical crab vehicle.", version: "5e", attunement: "", meta: "" },
 
-  // Rods
+  // 5e - Rods
   { name: "Rod of the Pact Keeper +1", category: "Rods", rarity: "Uncommon", description: "Bonus to Warlock spells.", version: "5e", attunement: "Requires Attunement by Warlock", meta: "" },
   { name: "Rod of Lordly Might", category: "Rods", rarity: "Legendary", description: "Multi-function tool and weapon.", version: "5e", attunement: "Requires Attunement", meta: "" },
   { name: "Immovable Rod", category: "Rods", rarity: "Uncommon", description: "Stays fixed in space.", version: "5e", attunement: "", meta: "" },
 
-  // Scrolls
+  // 5e - Scrolls
   { name: "Spell Scroll (Cantrip)", category: "Scrolls", rarity: "Common", description: "Cast a cantrip once.", version: "5e", attunement: "", meta: "Consumable" },
   { name: "Spell Scroll (1st Level)", category: "Scrolls", rarity: "Common", description: "Cast a 1st level spell once.", version: "5e", attunement: "", meta: "Consumable" },
   { name: "Scroll of Protection", category: "Scrolls", rarity: "Rare", description: "Protection from creature types.", version: "5e", attunement: "", meta: "Consumable" },
   { name: "Scroll of Tarrasque Summoning", category: "Scrolls", rarity: "Legendary", description: "Do not read this.", version: "5e", attunement: "", meta: "Consumable (Hopefully)" },
 
-  // Staves
+  // 5e - Staves
   { name: "Staff of Power", category: "Staves", rarity: "Very Rare", description: "Immense magical power.", version: "5e", attunement: "Requires Attunement", meta: "" },
   { name: "Staff of the Magi", category: "Staves", rarity: "Legendary", description: "The ultimate spellcaster staff.", version: "5e", attunement: "Requires Attunement", meta: "" },
   { name: "Staff of Healing", category: "Staves", rarity: "Rare", description: "Heals wounds.", version: "5e", attunement: "Requires Attunement by Bard, Cleric, Druid", meta: "" },
   { name: "Staff of the Python", category: "Staves", rarity: "Uncommon", description: "Becomes a giant snake.", version: "5e", attunement: "Requires Attunement by Cleric, Druid, Warlock", meta: "" },
 
-  // Wands
+  // 5e - Wands
   { name: "Wand of Magic Missiles", category: "Wands", rarity: "Uncommon", description: "Casts Magic Missile.", version: "5e", attunement: "", meta: "" },
   { name: "Wand of Fireballs", category: "Wands", rarity: "Rare", description: "Casts Fireball.", version: "5e", attunement: "Requires Attunement", meta: "" },
   { name: "Wand of Wonder", category: "Wands", rarity: "Rare", description: "Unpredictable magical effects.", version: "5e", attunement: "Requires Attunement", meta: "" },
 
-  // Magical (General catch-all or specific items not in other cats)
+  // 5e - Magical
   { name: "Bead of Force", category: "Magical", rarity: "Rare", description: "Explodes in a sphere of force.", version: "5e", attunement: "", meta: "Consumable" },
-  { name: "Dust of Disappearance", category: "Magical", rarity: "Uncommon", description: "Invisibility dust.", version: "5e", attunement: "", meta: "Consumable" }
+  { name: "Dust of Disappearance", category: "Magical", rarity: "Uncommon", description: "Invisibility dust.", version: "5e", attunement: "", meta: "Consumable" },
+  
+  // 3rd Edition items
+  { name: "Iron Bands of Bilarro", category: "Wondrous", rarity: "Uncommon", description: "Magical bindings from 3e.", version: "3rd Edition", attunement: "", meta: "3e Classic" },
+  { name: "Amulet of Health", category: "Wondrous", rarity: "Rare", description: "Boosts constitution.", version: "3rd Edition", attunement: "Requires Attunement", meta: "3e Classic" },
+  { name: "Cloak of Charisma", category: "Armor", rarity: "Very Rare", description: "Enhances personal magnetism.", version: "3rd Edition", attunement: "Requires Attunement", meta: "3e Classic" },
+  { name: "Boots of Speed", category: "Armor", rarity: "Uncommon", description: "Travel faster.", version: "3rd Edition", attunement: "Requires Attunement", meta: "3e Classic" },
+  
+  // 4th Edition items
+  { name: "Flaming Longsword +1", category: "Weapons", rarity: "Rare", description: "Infused with fire.", version: "4th Edition", attunement: "", meta: "4e Magic Item" },
+  { name: "Cloak of Protection +1", category: "Armor", rarity: "Uncommon", description: "Enhances defense.", version: "4th Edition", attunement: "", meta: "4e Magic Item" },
+  { name: "Potion of Healing", category: "Potions", rarity: "Common", description: "Restores health.", version: "4th Edition", attunement: "", meta: "4e Consumable" },
+  
+  // AD&D items
+  { name: "Holy Avenger Sword", category: "Weapons", rarity: "Very Rare", description: "Ancient paladin weapon.", version: "AD&D", attunement: "", meta: "AD&D Artifact" },
+  { name: "Bag of Holding", category: "Wondrous", rarity: "Rare", description: "Extradimensional storage.", version: "AD&D", attunement: "", meta: "AD&D Wondrous" },
+  
+  // OD&D items
+  { name: "Wand of Wonder", category: "Wands", rarity: "Rare", description: "Original D&D wand.", version: "OD&D", attunement: "", meta: "OD&D Classic" },
+  { name: "Ring of Invisibility", category: "Rings", rarity: "Very Rare", description: "Ancient invisibility ring.", version: "OD&D", attunement: "", meta: "OD&D Classic" },
+  
+  // One D&D items
+  { name: "Blade of Broken Bonds", category: "Weapons", rarity: "Uncommon", description: "One D&D era weapon.", version: "One D&D", attunement: "Requires Attunement", meta: "One D&D" },
+  { name: "Cloak of the Manta Ray", category: "Armor", rarity: "Uncommon", description: "Allows water travel.", version: "One D&D", attunement: "", meta: "One D&D" },
+  { name: "Scroll of Fireball", category: "Scrolls", rarity: "Uncommon", description: "Ancient spell knowledge.", version: "One D&D", attunement: "", meta: "One D&D" }
 ];
 
 interface DnD5eEquipment {
@@ -142,29 +166,38 @@ function mapMagicItemToItem(item: DnD5eMagicItem) {
 // Fetch and sync items from D&D 5e API
 async function syncItemsFromApi() {
   try {
-    console.log("Syncing items from D&D 5e API...");
+    console.log("Syncing items from D&D 5e API and seed data...");
+    await storage.clearItems();
     
-    const magicItemsRes = await fetch("https://www.dnd5eapi.co/api/2014/magic-items");
-    const magicItemsData = await magicItemsRes.json();
+    // First, add all seed data
+    await storage.createItems(seedData);
+    console.log(`Added ${seedData.length} seed items`);
     
-    const allItems = [];
-    
-    // Map magic items - these have detailed rarity info
-    if (magicItemsData.results && Array.isArray(magicItemsData.results)) {
-      for (const item of magicItemsData.results) {
-        allItems.push(mapMagicItemToItem(item));
+    // Then try to fetch additional items from API
+    try {
+      const magicItemsRes = await fetch("https://www.dnd5eapi.co/api/2014/magic-items");
+      const magicItemsData = await magicItemsRes.json();
+      
+      const apiItems = [];
+      if (magicItemsData.results && Array.isArray(magicItemsData.results)) {
+        for (const item of magicItemsData.results) {
+          apiItems.push(mapMagicItemToItem(item));
+        }
       }
+      
+      if (apiItems.length > 0) {
+        await storage.createItems(apiItems);
+        console.log(`Added ${apiItems.length} items from D&D 5e API`);
+      }
+    } catch (apiError) {
+      console.warn("Could not sync from D&D 5e API, using seed data only:", apiError);
     }
     
-    if (allItems.length > 0) {
-      // Clear existing items and insert new ones
-      await storage.clearItems();
-      await storage.createItems(allItems);
-      console.log(`Successfully synced ${allItems.length} items from D&D 5e API`);
-    }
+    const totalItems = await storage.getItems();
+    console.log(`Total items in database: ${totalItems.length}`);
     
   } catch (error) {
-    console.error("Error syncing items from D&D 5e API:", error);
+    console.error("Error syncing items:", error);
   }
 }
 
