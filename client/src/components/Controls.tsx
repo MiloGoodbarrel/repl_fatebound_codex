@@ -50,6 +50,14 @@ export function Controls({ onDraw, isDrawing }: ControlsProps) {
     );
   };
 
+  const toggleAllRarities = () => {
+    if (rarities.length === RARITIES.length) {
+      setRarities([]);
+    } else {
+      setRarities(RARITIES);
+    }
+  };
+
   const toggleVersion = (ver: string) => {
     setVersions(prev => 
       prev.includes(ver) ? prev.filter(v => v !== ver) : [...prev, ver]
@@ -178,9 +186,19 @@ export function Controls({ onDraw, isDrawing }: ControlsProps) {
 
         {/* Rarities */}
         <div className="space-y-4">
-          <Label className="font-display text-lg flex items-center gap-2">
-            <CrownIcon className="w-4 h-4" /> Rarities
-          </Label>
+          <div className="flex justify-between items-center">
+            <Label className="font-display text-lg flex items-center gap-2">
+              <CrownIcon className="w-4 h-4" /> Rarities
+            </Label>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={toggleAllRarities}
+              className="h-6 text-xs text-muted-foreground hover:text-primary"
+            >
+              {rarities.length === RARITIES.length ? "Clear All" : "Select All"}
+            </Button>
+          </div>
           <div className="space-y-2 bg-background/30 p-4 rounded-lg border border-border/50">
             {RARITIES.map(rar => (
               <div key={rar} className="flex items-center space-x-2">
