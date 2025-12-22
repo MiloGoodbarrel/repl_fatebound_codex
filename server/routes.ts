@@ -39,11 +39,11 @@ const seedData = [
   { name: "Ring of Water Walking", category: "Rings", rarity: "Uncommon", description: "Walk on liquid surfaces.", version: "5e", attunement: "", meta: "" },
   { name: "Ring of Regeneration", category: "Rings", rarity: "Very Rare", description: "Regenerate HP slowly.", version: "5e", attunement: "Requires Attunement", meta: "" },
 
-  // 5e - Wondrous
-  { name: "Bag of Holding", category: "Wondrous", rarity: "Uncommon", description: "Larger on the inside.", version: "5e", attunement: "", meta: "Holds 500 lbs" },
-  { name: "Cloak of Elvenkind", category: "Wondrous", rarity: "Uncommon", description: "Grants advantage on stealth.", version: "5e", attunement: "Requires Attunement", meta: "" },
-  { name: "Winged Boots", category: "Wondrous", rarity: "Uncommon", description: "Fly speed equal to walking speed.", version: "5e", attunement: "Requires Attunement", meta: "" },
-  { name: "Apparatus of Kwalish", category: "Wondrous", rarity: "Legendary", description: "A mechanical crab vehicle.", version: "5e", attunement: "", meta: "" },
+  // 5e - Wondrous Items
+  { name: "Bag of Holding", category: "Wondrous Items", rarity: "Uncommon", description: "Larger on the inside.", version: "5e", attunement: "", meta: "Holds 500 lbs" },
+  { name: "Cloak of Elvenkind", category: "Wondrous Items", rarity: "Uncommon", description: "Grants advantage on stealth.", version: "5e", attunement: "Requires Attunement", meta: "" },
+  { name: "Winged Boots", category: "Wondrous Items", rarity: "Uncommon", description: "Fly speed equal to walking speed.", version: "5e", attunement: "Requires Attunement", meta: "" },
+  { name: "Apparatus of Kwalish", category: "Wondrous Items", rarity: "Legendary", description: "A mechanical crab vehicle.", version: "5e", attunement: "", meta: "" },
 
   // 5e - Rods
   { name: "Rod of the Pact Keeper +1", category: "Rods", rarity: "Uncommon", description: "Bonus to Warlock spells.", version: "5e", attunement: "Requires Attunement by Warlock", meta: "" },
@@ -66,14 +66,10 @@ const seedData = [
   { name: "Wand of Magic Missiles", category: "Wands", rarity: "Uncommon", description: "Casts Magic Missile.", version: "5e", attunement: "", meta: "" },
   { name: "Wand of Fireballs", category: "Wands", rarity: "Rare", description: "Casts Fireball.", version: "5e", attunement: "Requires Attunement", meta: "" },
   { name: "Wand of Wonder", category: "Wands", rarity: "Rare", description: "Unpredictable magical effects.", version: "5e", attunement: "Requires Attunement", meta: "" },
-
-  // 5e - Magical
-  { name: "Bead of Force", category: "Magical", rarity: "Rare", description: "Explodes in a sphere of force.", version: "5e", attunement: "", meta: "Consumable" },
-  { name: "Dust of Disappearance", category: "Magical", rarity: "Uncommon", description: "Invisibility dust.", version: "5e", attunement: "", meta: "Consumable" },
   
   // 3rd Edition items
-  { name: "Iron Bands of Bilarro", category: "Wondrous", rarity: "Uncommon", description: "Magical bindings from 3e.", version: "3rd Edition", attunement: "", meta: "3e Classic" },
-  { name: "Amulet of Health", category: "Wondrous", rarity: "Rare", description: "Boosts constitution.", version: "3rd Edition", attunement: "Requires Attunement", meta: "3e Classic" },
+  { name: "Iron Bands of Bilarro", category: "Wondrous Items", rarity: "Uncommon", description: "Magical bindings from 3e.", version: "3rd Edition", attunement: "", meta: "3e Classic" },
+  { name: "Amulet of Health", category: "Wondrous Items", rarity: "Rare", description: "Boosts constitution.", version: "3rd Edition", attunement: "Requires Attunement", meta: "3e Classic" },
   { name: "Cloak of Charisma", category: "Armor", rarity: "Very Rare", description: "Enhances personal magnetism.", version: "3rd Edition", attunement: "Requires Attunement", meta: "3e Classic" },
   { name: "Boots of Speed", category: "Armor", rarity: "Uncommon", description: "Travel faster.", version: "3rd Edition", attunement: "Requires Attunement", meta: "3e Classic" },
   
@@ -84,7 +80,7 @@ const seedData = [
   
   // AD&D items
   { name: "Holy Avenger Sword", category: "Weapons", rarity: "Very Rare", description: "Ancient paladin weapon.", version: "AD&D", attunement: "", meta: "AD&D Artifact" },
-  { name: "Bag of Holding", category: "Wondrous", rarity: "Rare", description: "Extradimensional storage.", version: "AD&D", attunement: "", meta: "AD&D Wondrous" },
+  { name: "Bag of Holding", category: "Wondrous Items", rarity: "Rare", description: "Extradimensional storage.", version: "AD&D", attunement: "", meta: "AD&D Wondrous" },
   
   // OD&D items
   { name: "Wand of Wonder", category: "Wands", rarity: "Rare", description: "Original D&D wand.", version: "OD&D", attunement: "", meta: "OD&D Classic" },
@@ -124,7 +120,7 @@ function mapMagicItemToItem(item: DnD5eMagicItem) {
   };
 
   // Categorize based on item name patterns
-  let category = "Wondrous";
+  let category = "Wondrous Items";
   const name = item.name.toLowerCase();
 
   if (name.includes("weapon") || name.includes("sword") || name.includes("axe") || 
