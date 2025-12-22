@@ -72,18 +72,113 @@ const seedData = [
   { name: "Dust of Disappearance", category: "Magical", rarity: "Uncommon", description: "Invisibility dust.", meta: "Consumable" }
 ];
 
+interface DnD5eEquipment {
+  index: string;
+  name: string;
+  equipment_category?: {
+    name: string;
+  };
+}
+
+interface DnD5eMagicItem {
+  index: string;
+  name: string;
+  rarity?: {
+    name: string;
+  };
+}
+
+// Map D&D 5e API equipment to our schema
+function mapEquipmentToItem(equipment: DnD5eEquipment) {
+  const categoryMap: Record<string, string> = {
+    "adventuring-gear": "Wondrous",
+    "armor": "Armor",
+    "weapon": "Weapons",
+    "melee-weapons": "Weapons",
+    "ranged-weapons": "Weapons",
+    "ammunition": "Weapons",
+  };
+
+  const category = equipment.equipment_category?.name || "Wondrous";
+  const mappedCategory = categoryMap[category.toLowerCase().replace(/ /g, "-")] || "Wondrous";
+
+  return {
+    name: equipment.name,
+    category: mappedCategory,
+    rarity: "Common",
+    description: `SRD equipment item: ${equipment.name}`,
+    meta: "From D&D 5e SRD",
+  };
+}
+
+// Map magic items to our schema
+function mapMagicItemToItem(item: DnD5eMagicItem) {
+  const rarityMap: Record<string, string> = {
+    "common": "Common",
+    "uncommon": "Uncommon",
+    "rare": "Rare",
+    "very rare": "Very Rare",
+    "legendary": "Legendary",
+    "artifact": "Legendary",
+  };
+
+  const rarity = item.rarity?.name || "Common";
+  const mappedRarity = rarityMap[rarity.toLowerCase()] || "Common";
+
+  return {
+    name: item.name,
+    category: "Magical",
+    rarity: mappedRarity,
+    description: `SRD magic item: ${item.name}`,
+    meta: "From D&D 5e SRD",
+  };
+}
+
+// Fetch and sync items from D&D 5e API
+async function syncItemsFromApi() {
+  try {
+    console.log("Syncing items from D&D 5e API...");
+    
+    const equipmentRes = await fetch("https://www.dnd5eapi.co/api/equipment");
+    const equipmentData = await equipmentRes.json();
+    
+    const magicItemsRes = await fetch("https://www.dnd5eapi.co/api/magic-items");
+    const magicItemsData = await magicItemsRes.json();
+    
+    const allItems = [];
+    
+    // Map equipment
+    if (equipmentData.results) {
+      for (const equipment of equipmentData.results) {
+        allItems.push(mapEquipmentToItem(equipment));
+      }
+    }
+    
+    // Map magic items
+    if (magicItemsData.results) {
+      for (const item of magicItemsData.results) {
+        allItems.push(mapMagicItemToItem(item));
+      }
+    }
+    
+    if (allItems.length > 0) {
+      // Clear existing items and insert new ones
+      await storage.createItems(allItems);
+      console.log(`Successfully synced ${allItems.length} items from D&D 5e API`);
+    }
+    
+  } catch (error) {
+    console.error("Error syncing items from D&D 5e API:", error);
+  }
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
 
-  // Seed data if empty
-  const existing = await storage.getItems();
-  if (existing.length === 0) {
-    console.log("Seeding database...");
-    await storage.createItems(seedData);
-    console.log("Seeding complete.");
-  }
+  // Sync on startup
+  await syncItemsFromApi();
 
   app.post(api.items.draw.path, async (req, res) => {
     try {
@@ -106,6 +201,12 @@ export async function registerRoutes(
   app.get(api.items.list.path, async (req, res) => {
       const items = await storage.getItems();
       res.json(items);
+  });
+
+  // Manual sync endpoint
+  app.post("/api/sync-items", async (req, res) => {
+    await syncItemsFromApi();
+    res.json({ message: "Items synced successfully" });
   });
 
   return httpServer;
