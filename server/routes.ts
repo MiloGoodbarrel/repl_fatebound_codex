@@ -88,32 +88,7 @@ interface DnD5eMagicItem {
   };
 }
 
-// Map D&D 5e API equipment to our schema
-function mapEquipmentToItem(equipment: DnD5eEquipment) {
-  const categoryMap: Record<string, string> = {
-    "adventuring-gear": "Wondrous",
-    "armor": "Armor",
-    "weapon": "Weapons",
-    "melee-weapons": "Weapons",
-    "ranged-weapons": "Weapons",
-    "ammunition": "Weapons",
-  };
-
-  const category = equipment.equipment_category?.name || "Wondrous";
-  const mappedCategory = categoryMap[category.toLowerCase().replace(/ /g, "-")] || "Wondrous";
-
-  return {
-    name: equipment.name,
-    category: mappedCategory,
-    rarity: "Common",
-    version: "5e",
-    description: `SRD equipment item: ${equipment.name}`,
-    attunement: "",
-    meta: "From D&D 5e SRD",
-  };
-}
-
-// Map magic items to our schema
+// Map magic items to our schema with better categorization
 function mapMagicItemToItem(item: DnD5eMagicItem) {
   const rarityMap: Record<string, string> = {
     "common": "Common",
@@ -124,12 +99,38 @@ function mapMagicItemToItem(item: DnD5eMagicItem) {
     "artifact": "Legendary",
   };
 
+  // Categorize based on item name patterns
+  let category = "Wondrous";
+  const name = item.name.toLowerCase();
+
+  if (name.includes("weapon") || name.includes("sword") || name.includes("axe") || 
+      name.includes("bow") || name.includes("mace") || name.includes("staff") ||
+      name.includes("wand") || name.includes("blade") || name.includes("hammer")) {
+    category = "Weapons";
+  } else if (name.includes("armor") || name.includes("mail") || name.includes("plate") ||
+             name.includes("leather") || name.includes("cloak") || name.includes("robe") ||
+             name.includes("boots") || name.includes("gloves") || name.includes("helm")) {
+    category = "Armor";
+  } else if (name.includes("ring")) {
+    category = "Rings";
+  } else if (name.includes("scroll")) {
+    category = "Scrolls";
+  } else if (name.includes("potion")) {
+    category = "Potions";
+  } else if (name.includes("rod")) {
+    category = "Rods";
+  } else if (name.includes("staff")) {
+    category = "Staves";
+  } else if (name.includes("wand")) {
+    category = "Wands";
+  }
+
   const rarity = item.rarity?.name || "Common";
   const mappedRarity = rarityMap[rarity.toLowerCase()] || "Common";
 
   return {
     name: item.name,
-    category: "Magical",
+    category,
     rarity: mappedRarity,
     version: "5e",
     description: `SRD magic item: ${item.name}`,
@@ -143,23 +144,13 @@ async function syncItemsFromApi() {
   try {
     console.log("Syncing items from D&D 5e API...");
     
-    const equipmentRes = await fetch("https://www.dnd5eapi.co/api/equipment");
-    const equipmentData = await equipmentRes.json();
-    
-    const magicItemsRes = await fetch("https://www.dnd5eapi.co/api/magic-items");
+    const magicItemsRes = await fetch("https://www.dnd5eapi.co/api/2014/magic-items");
     const magicItemsData = await magicItemsRes.json();
     
     const allItems = [];
     
-    // Map equipment
-    if (equipmentData.results) {
-      for (const equipment of equipmentData.results) {
-        allItems.push(mapEquipmentToItem(equipment));
-      }
-    }
-    
-    // Map magic items
-    if (magicItemsData.results) {
+    // Map magic items - these have detailed rarity info
+    if (magicItemsData.results && Array.isArray(magicItemsData.results)) {
       for (const item of magicItemsData.results) {
         allItems.push(mapMagicItemToItem(item));
       }
