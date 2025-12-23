@@ -227,65 +227,73 @@ async function fetchFromRoll20(itemName: string): Promise<{
   }
 }
 
-// Fetch and sync items from Roll20 Compendium
+// Fetch all items from 5etools
+async function fetchFrom5etools() {
+  try {
+    const url = 'https://raw.githubusercontent.com/TheGiddyLimit/TheGiddyLimit.github.io/master/data/items.json';
+    const response = await fetch(url);
+    
+    if (!response.ok) return [];
+    
+    const data = await response.json() as { item: Array<{
+      name: string;
+      rarity?: string;
+      source: string;
+      entries?: string[];
+      type?: string;
+    }> };
+    
+    const items = [];
+    const magicItems = data.item.filter(item => 
+      item.rarity && item.rarity !== 'none' && item.rarity !== 'unknown'
+    );
+    
+    for (const item of magicItems.slice(0, 100)) { // Limit to 100 to avoid duplicates
+      const description = item.entries 
+        ? item.entries.map((e: string) => extractDescription(e)).join(" ")
+        : "";
+      
+      items.push({
+        name: item.name,
+        category: categorizeItem(item.name),
+        rarity: mapRoll20Rarity(item.rarity || "none"),
+        version: "5e",
+        description: description || `A magical item from 5etools.`,
+        attunement: "",
+        meta: `5etools - ${item.source}`,
+      });
+    }
+    
+    return items;
+  } catch (error) {
+    console.warn("Could not fetch from 5etools:", error);
+    return [];
+  }
+}
+
+// Fetch and sync items from multiple sources
 async function syncItemsFromApi() {
   try {
-    console.log("Syncing items from seed data and Roll20 Compendium...");
+    console.log("Syncing items from seed data, Roll20 Compendium, and 5etools...");
     await storage.clearItems();
     
     // First, add all seed data with proper descriptions and rarities
     await storage.createItems(seedData);
     console.log(`Added ${seedData.length} seed items`);
     
-    // Then fetch additional 5e items from Roll20 Compendium
-    // Common 5e items from SRD
-    const commonItems = [
-      "Amulet of Health", "Bag of Holding", "Bag of Tricks", "Boots of Levitation", 
-      "Boots of Speed", "Bracers of Defense", "Cape of the Mountebank", "Chime of Opening",
-      "Cloak of Arachnida", "Cloak of Elvenkind", "Cloak of Protection", "Cloak of the Manta Ray",
-      "Cloak of Invisibility", "Decanter of Endless Water", "Dust of Dryness", "Dust of Sneezing",
-      "Eversmoking Bottle", "Eyes of Charming", "Eyes of the Eagle", "Figurines of Wondrous Power",
-      "Folding Boat", "Gauntlets of Ogre Power", "Gem of Brightness", "Gloves of Missile Snaring",
-      "Gloves of Swimming and Climbing", "Goggles of Night", "Harp of Charming", "Helm of Telepathy",
-      "Immovable Rod", "Iron Bands of Bilarro", "Alchemy Jug", "Arrow-Catching Shield",
-      "Bag of Beans", "Belt of Dwarvenkind", "Berserk Shield", "Boots of the Winterlands",
-      "Bowl of Commanding Water Elementals", "Brazier of Commanding Fire Elementals",
-      "Censer of Controlling Air Elementals", "Necklace of Fireballs", "Portable Hole",
-      "Ring of Animal Influence", "Ring of Feather Falling", "Ring of Free Action", "Ring of Protection",
-      "Ring of Resistance", "Ring of Swimming", "Ring of Warmth", "Robe of Useful Items",
-      "Rope of Entanglement", "Scabbard of Keen Edges", "Scarab of Protection",
-      "Scroll of Protection", "Spell Scroll", "Stone of Good Luck", "Wand of Magic Missiles",
-      "Wand of Wonder", "Weapon +1", "Weapon +2", "Weapon +3", "Longsword", "Dagger",
-      "Greatsword", "Shortsword", "Mace", "Mace +1", "Halberd", "Rapier", "Flail"
-    ];
-    
-    const apiItems = [];
+    // Fetch from 5etools (comprehensive)
+    const toolsItems = await fetchFrom5etools();
     const existingNames = new Set(seedData.map(item => item.name.toLowerCase()));
     
-    for (const itemName of commonItems) {
-      if (!existingNames.has(itemName.toLowerCase())) {
-        const roll20Data = await fetchFromRoll20(itemName);
-        
-        if (roll20Data) {
-          apiItems.push({
-            name: itemName,
-            category: categorizeItem(itemName),
-            rarity: roll20Data.rarity,
-            version: "5e",
-            description: roll20Data.description,
-            attunement: "",
-            meta: roll20Data.source,
-          });
-          existingNames.add(itemName.toLowerCase());
-        }
-      }
-      // Rate limiting
-      await new Promise(resolve => setTimeout(resolve, 50));
-    }
+    const uniqueToolsItems = toolsItems.filter(item => {
+      if (existingNames.has(item.name.toLowerCase())) return false;
+      existingNames.add(item.name.toLowerCase());
+      return true;
+    });
     
-    if (apiItems.length > 0) {
-      await storage.createItems(apiItems);
-      console.log(`Added ${apiItems.length} items from Roll20 Compendium`);
+    if (uniqueToolsItems.length > 0) {
+      await storage.createItems(uniqueToolsItems);
+      console.log(`Added ${uniqueToolsItems.length} items from 5etools`);
     }
     
     const totalItems = await storage.getItems();
