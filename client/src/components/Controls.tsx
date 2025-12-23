@@ -142,7 +142,7 @@ export function Controls({ onDraw, isDrawing }: ControlsProps) {
           <Slider 
             value={count} 
             onValueChange={setCount} 
-            max={50} 
+            max={100} 
             min={1} 
             step={1}
             className="cursor-pointer"
