@@ -22,7 +22,7 @@ export const drawOptionsSchema = z.object({
   categories: z.array(z.string()).min(1, "Select at least one category"),
   rarities: z.array(z.string()).min(1, "Select at least one rarity"),
   versions: z.array(z.string()).min(1, "Select at least one D&D version"),
-  count: z.coerce.number().min(1, "Draw at least one card").max(50, "Max 50 cards at a time"),
+  count: z.coerce.number().min(1, "Draw at least one card").max(100, "Max 100 cards at a time"),
 });
 
 export type DrawOptions = z.infer<typeof drawOptionsSchema>;
