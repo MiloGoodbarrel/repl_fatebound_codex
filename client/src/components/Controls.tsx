@@ -13,7 +13,7 @@ const CATEGORIES = [
   "Staves", "Scrolls", "Rods", "Wondrous Items", "Magical"
 ];
 
-const RARITIES = ["Common", "Uncommon", "Rare", "Very Rare", "Legendary"];
+const RARITIES = ["Common", "Uncommon", "Rare", "Very Rare", "Legendary", "Artifact", "Unknown"];
 const VERSIONS = ["OD&D", "AD&D", "3rd Edition", "4th Edition", "5e", "One D&D"];
 
 interface ControlsProps {

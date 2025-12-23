@@ -144,14 +144,15 @@ interface DnD5eMagicItem {
 }
 
 // Map magic items to our schema with better categorization and descriptions
-function mapMagicItemToItem(item: DnD5eMagicItem) {
+function mapMagicItemToItem(item: DnD5eMagicItem, description?: string, source?: string) {
   const rarityMap: Record<string, string> = {
     "common": "Common",
     "uncommon": "Uncommon",
     "rare": "Rare",
     "very rare": "Very Rare",
     "legendary": "Legendary",
-    "artifact": "Legendary",
+    "artifact": "Artifact",
+    "unknown": "Unknown",
   };
 
   // Categorize based on item name patterns
@@ -189,9 +190,9 @@ function mapMagicItemToItem(item: DnD5eMagicItem) {
     category,
     rarity: mappedRarity,
     version: "5e",
-    description: `A magical item from the D&D 5e SRD. ${item.name} is a ${mappedRarity.toLowerCase()} magical item suitable for adventurers of various levels.`,
+    description: description || `A magical item from the D&D 5e SRD. ${item.name} is a ${mappedRarity.toLowerCase()} magical item suitable for adventurers of various levels.`,
     attunement: "",
-    meta: "D&D 5e SRD",
+    meta: source ? `D&D 5e SRD - ${source}` : "D&D 5e SRD",
   };
 }
 
@@ -217,7 +218,19 @@ async function syncItemsFromApi() {
         for (const item of magicItemsData.results) {
           // Skip items that already exist in seed data
           if (!existingNames.has(item.name.toLowerCase())) {
-            apiItems.push(mapMagicItemToItem(item));
+            // Fetch full item details
+            try {
+              const detailRes = await fetch(`https://www.dnd5eapi.co/api/magic-items/${item.index}`);
+              const detailData = await detailRes.json();
+              
+              const description = detailData.desc?.join(" ") || detailData.text?.join(" ") || "";
+              const source = detailData.sources?.[0]?.source_book || "Unknown";
+              
+              apiItems.push(mapMagicItemToItem(item, description, source));
+            } catch (detailError) {
+              // Fallback to basic mapping if detail fetch fails
+              apiItems.push(mapMagicItemToItem(item));
+            }
           }
         }
       }
