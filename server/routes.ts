@@ -271,20 +271,86 @@ async function fetchFrom5etools() {
   }
 }
 
+// Fetch items from 5e-bits database
+async function fetchFrom5eBits() {
+  try {
+    const url = 'https://raw.githubusercontent.com/5e-bits/5e-database/main/src/5e-srd/magic_items.json';
+    const response = await fetch(url);
+    
+    if (!response.ok) return [];
+    
+    const magicItems = await response.json() as Array<{
+      index: string;
+      name: string;
+      rarity?: string;
+      url?: string;
+    }>;
+    
+    const items = [];
+    
+    for (const item of magicItems.slice(0, 50)) { // Limit to 50 to manage duplicates
+      // Fetch full item details
+      try {
+        const detailUrl = `https://www.dnd5eapi.co${item.url || `/api/magic-items/${item.index}`}`;
+        const detailRes = await fetch(detailUrl);
+        
+        if (detailRes.ok) {
+          const detail = await detailRes.json() as any;
+          const description = detail.desc?.join(" ") || detail.text?.join(" ") || "";
+          const rarity = detail.rarity?.name || item.rarity || "unknown";
+          
+          items.push({
+            name: item.name,
+            category: categorizeItem(item.name),
+            rarity: mapRoll20Rarity(rarity),
+            version: "5e",
+            description: description || `A magical item from the 5e SRD.`,
+            attunement: "",
+            meta: "5e-bits SRD",
+          });
+        }
+      } catch (detailError) {
+        // Fallback if detail fetch fails
+        items.push({
+          name: item.name,
+          category: categorizeItem(item.name),
+          rarity: mapRoll20Rarity(item.rarity || "unknown"),
+          version: "5e",
+          description: `A magical item from the 5e SRD.`,
+          attunement: "",
+          meta: "5e-bits SRD",
+        });
+      }
+      // Rate limiting
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    
+    return items;
+  } catch (error) {
+    console.warn("Could not fetch from 5e-bits:", error);
+    return [];
+  }
+}
+
 // Fetch and sync items from multiple sources
 async function syncItemsFromApi() {
   try {
-    console.log("Syncing items from seed data, Roll20 Compendium, and 5etools...");
+    console.log("Syncing items from seed data, 5etools, and 5e-bits...");
     await storage.clearItems();
     
     // First, add all seed data with proper descriptions and rarities
     await storage.createItems(seedData);
     console.log(`Added ${seedData.length} seed items`);
     
-    // Fetch from 5etools (comprehensive)
-    const toolsItems = await fetchFrom5etools();
+    // Fetch from both sources in parallel
+    const [toolsItems, bitsItems] = await Promise.all([
+      fetchFrom5etools(),
+      fetchFrom5eBits()
+    ]);
+    
     const existingNames = new Set(seedData.map(item => item.name.toLowerCase()));
     
+    // Process 5etools items
     const uniqueToolsItems = toolsItems.filter(item => {
       if (existingNames.has(item.name.toLowerCase())) return false;
       existingNames.add(item.name.toLowerCase());
@@ -294,6 +360,18 @@ async function syncItemsFromApi() {
     if (uniqueToolsItems.length > 0) {
       await storage.createItems(uniqueToolsItems);
       console.log(`Added ${uniqueToolsItems.length} items from 5etools`);
+    }
+    
+    // Process 5e-bits items
+    const uniqueBitsItems = bitsItems.filter(item => {
+      if (existingNames.has(item.name.toLowerCase())) return false;
+      existingNames.add(item.name.toLowerCase());
+      return true;
+    });
+    
+    if (uniqueBitsItems.length > 0) {
+      await storage.createItems(uniqueBitsItems);
+      console.log(`Added ${uniqueBitsItems.length} items from 5e-bits`);
     }
     
     const totalItems = await storage.getItems();
