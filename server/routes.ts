@@ -197,32 +197,12 @@ function mapMagicItemToItem(item: DnD5eMagicItem) {
 // Fetch and sync items from D&D 5e API
 async function syncItemsFromApi() {
   try {
-    console.log("Syncing items from D&D 5e API and seed data...");
+    console.log("Syncing items from seed data...");
     await storage.clearItems();
     
-    // First, add all seed data
+    // Add all seed data with proper descriptions and rarities
     await storage.createItems(seedData);
     console.log(`Added ${seedData.length} seed items`);
-    
-    // Then try to fetch additional items from API
-    try {
-      const magicItemsRes = await fetch("https://www.dnd5eapi.co/api/2014/magic-items");
-      const magicItemsData = await magicItemsRes.json();
-      
-      const apiItems = [];
-      if (magicItemsData.results && Array.isArray(magicItemsData.results)) {
-        for (const item of magicItemsData.results) {
-          apiItems.push(mapMagicItemToItem(item));
-        }
-      }
-      
-      if (apiItems.length > 0) {
-        await storage.createItems(apiItems);
-        console.log(`Added ${apiItems.length} items from D&D 5e API`);
-      }
-    } catch (apiError) {
-      console.warn("Could not sync from D&D 5e API, using seed data only:", apiError);
-    }
     
     const totalItems = await storage.getItems();
     console.log(`Total items in database: ${totalItems.length}`);
