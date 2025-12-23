@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { ItemResponse } from "@shared/routes";
-import { Crown, Sparkles, Shield, Sword, FlaskConical, Scroll, Gem, Wand2 } from "lucide-react";
+import { Crown, Sparkles, Shield, Sword, FlaskConical, Scroll, Gem, Wand2, Crosshair } from "lucide-react";
 
 interface ItemCardProps {
   item: ItemResponse;
@@ -31,7 +31,12 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 
 export function ItemCard({ item, index }: ItemCardProps) {
   const rarityStyle = RARITY_CONFIG[item.rarity] || RARITY_CONFIG["Common"];
-  const icon = CATEGORY_ICONS[item.category] || <Sparkles className="w-4 h-4" />;
+  
+  // Use bow icon for ranged weapons
+  let icon = CATEGORY_ICONS[item.category] || <Sparkles className="w-4 h-4" />;
+  if (item.category === "Weapons" && (item as any).weaponType?.includes("Ranged")) {
+    icon = <Crosshair className="w-4 h-4" />;
+  }
 
   return (
     <motion.div
