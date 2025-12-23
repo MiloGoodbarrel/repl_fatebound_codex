@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Sparkles, Dices, Layers, Upload } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Sparkles, Dices, Layers, Upload, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -19,6 +20,8 @@ const VERSIONS = ["OD&D", "AD&D", "3rd Edition", "4th Edition", "5e", "One D&D"]
 interface ControlsProps {
   onDraw: (options: DrawOptions) => void;
   isDrawing: boolean;
+  searchTerm?: string;
+  onSearchChange?: (term: string) => void;
 }
 
 export function Controls({ onDraw, isDrawing }: ControlsProps) {
