@@ -9,11 +9,13 @@ interface ItemCardProps {
 }
 
 const RARITY_CONFIG: Record<string, { color: string; border: string; glow: string }> = {
+  "Unknown": { color: "text-white", border: "border-slate-400", glow: "rarity-glow-unknown" },
   "Common": { color: "text-zinc-400", border: "border-zinc-600", glow: "rarity-glow-common" },
   "Uncommon": { color: "text-emerald-400", border: "border-emerald-600", glow: "rarity-glow-uncommon" },
   "Rare": { color: "text-blue-400", border: "border-blue-600", glow: "rarity-glow-rare" },
   "Very Rare": { color: "text-purple-400", border: "border-purple-600", glow: "rarity-glow-very-rare" },
   "Legendary": { color: "text-amber-400", border: "border-amber-600", glow: "rarity-glow-legendary" },
+  "Artifact": { color: "text-red-500", border: "border-red-700", glow: "rarity-glow-artifact" },
 };
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
