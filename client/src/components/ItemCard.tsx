@@ -106,9 +106,23 @@ export function ItemCard({ item, index }: ItemCardProps) {
           </p>
         )}
         {item.meta && (
-          <p className="text-xs text-primary/80 font-mono text-center bg-primary/5 py-1 rounded">
-            {item.meta}
-          </p>
+          <div className="text-xs text-center bg-primary/5 py-1 rounded">
+            {item.meta.includes("SRD") ? (
+              <a
+                href={`https://5e.tools/items.html#${item.name.replace(/\s+/g, "_").toLowerCase()}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary/80 hover:text-primary/100 font-mono underline decoration-dashed hover:decoration-solid transition-colors"
+                data-testid="link-srd-source"
+              >
+                {item.meta}
+              </a>
+            ) : (
+              <p className="text-primary/80 font-mono">
+                {item.meta}
+              </p>
+            )}
+          </div>
         )}
       </div>
     </motion.div>
