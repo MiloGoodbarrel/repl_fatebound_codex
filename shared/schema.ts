@@ -10,6 +10,7 @@ export const items = pgTable("items", {
   description: text("description").notNull(),
   version: text("version").notNull().default("5e"), // OD&D, AD&D, 3e, 4e, 5e, One D&D
   attunement: text("attunement"), // e.g., "Requires Attunement", "Requires Attunement by Wizard"
+  weaponType: text("weapon_type"), // Simple/Martial for weapons
   meta: text("meta"), // Additional metadata
 });
 

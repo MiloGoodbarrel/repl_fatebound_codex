@@ -73,6 +73,12 @@ export function ItemCard({ item, index }: ItemCardProps) {
         <span>{item.rarity}</span>
         <span>•</span>
         <span>{item.category}</span>
+        {(item as any).weaponType && (
+          <>
+            <span>•</span>
+            <span>{(item as any).weaponType}</span>
+          </>
+        )}
         <span>•</span>
         <span>{item.version}</span>
       </div>
