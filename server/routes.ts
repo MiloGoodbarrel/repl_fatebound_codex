@@ -135,112 +135,157 @@ interface DnD5eEquipment {
   };
 }
 
-interface DnD5eMagicItem {
-  index: string;
-  name: string;
-  rarity?: {
-    name: string;
-  };
+interface Roll20ItemData {
+  Name: string;
+  "Item Rarity"?: string;
+  data?: string;
+  [key: string]: any;
 }
 
-// Map magic items to our schema with better categorization and descriptions
-function mapMagicItemToItem(item: DnD5eMagicItem, description?: string, source?: string) {
+// Map Roll20 rarity to our system
+function mapRoll20Rarity(rarity: string): string {
   const rarityMap: Record<string, string> = {
+    "none": "Common",
     "common": "Common",
     "uncommon": "Uncommon",
     "rare": "Rare",
     "very rare": "Very Rare",
-    "legendary": "Legendary",
     "artifact": "Artifact",
+    "legendary": "Legendary",
     "unknown": "Unknown",
   };
-
-  // Categorize based on item name patterns
-  let category = "Magical";
-  const name = item.name.toLowerCase();
-
-  if (name.includes("weapon") || name.includes("sword") || name.includes("axe") || 
-      name.includes("bow") || name.includes("mace") || name.includes("blade") || 
-      name.includes("hammer") || name.includes("lance")) {
-    category = "Weapons";
-  } else if (name.includes("armor") || name.includes("mail") || name.includes("plate") ||
-             name.includes("leather") || name.includes("cloak") || name.includes("robe") ||
-             name.includes("boots") || name.includes("gloves") || name.includes("helm") ||
-             name.includes("gauntlets") || name.includes("bracers")) {
-    category = "Armor";
-  } else if (name.includes("ring")) {
-    category = "Rings";
-  } else if (name.includes("scroll")) {
-    category = "Scrolls";
-  } else if (name.includes("potion")) {
-    category = "Potions";
-  } else if (name.includes("rod")) {
-    category = "Rods";
-  } else if (name.includes("staff")) {
-    category = "Staves";
-  } else if (name.includes("wand")) {
-    category = "Wands";
-  }
-
-  const rarity = item.rarity?.name || "Common";
-  const mappedRarity = rarityMap[rarity.toLowerCase()] || "Common";
-
-  return {
-    name: item.name,
-    category,
-    rarity: mappedRarity,
-    version: "5e",
-    description: description || `A magical item from the D&D 5e SRD. ${item.name} is a ${mappedRarity.toLowerCase()} magical item suitable for adventurers of various levels.`,
-    attunement: "",
-    meta: source ? `D&D 5e SRD - ${source}` : "D&D 5e SRD",
-  };
+  return rarityMap[rarity.toLowerCase()] || "Common";
 }
 
-// Fetch and sync items from D&D 5e API
+// Categorize item based on name
+function categorizeItem(name: string): string {
+  const lowerName = name.toLowerCase();
+  
+  if (lowerName.includes("weapon") || lowerName.includes("sword") || lowerName.includes("axe") || 
+      lowerName.includes("bow") || lowerName.includes("mace") || lowerName.includes("blade") || 
+      lowerName.includes("hammer") || lowerName.includes("lance")) {
+    return "Weapons";
+  } else if (lowerName.includes("armor") || lowerName.includes("mail") || lowerName.includes("plate") ||
+             lowerName.includes("leather") || lowerName.includes("cloak") || lowerName.includes("robe") ||
+             lowerName.includes("boots") || lowerName.includes("gloves") || lowerName.includes("helm") ||
+             lowerName.includes("gauntlets") || lowerName.includes("bracers")) {
+    return "Armor";
+  } else if (lowerName.includes("ring")) {
+    return "Rings";
+  } else if (lowerName.includes("scroll")) {
+    return "Scrolls";
+  } else if (lowerName.includes("potion")) {
+    return "Potions";
+  } else if (lowerName.includes("rod")) {
+    return "Rods";
+  } else if (lowerName.includes("staff")) {
+    return "Staves";
+  } else if (lowerName.includes("wand")) {
+    return "Wands";
+  }
+  return "Magical";
+}
+
+// Extract plain text description from Roll20 HTML
+function extractDescription(htmlContent: string): string {
+  if (!htmlContent) return "";
+  // Remove HTML tags
+  let text = htmlContent.replace(/<[^>]*>/g, "");
+  // Decode HTML entities
+  text = text.replace(/&nbsp;/g, " ").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+  // Clean up whitespace
+  text = text.replace(/\s+/g, " ").trim();
+  return text.substring(0, 500); // Limit to 500 chars
+}
+
+// Fetch item from Roll20 Compendium
+async function fetchFromRoll20(itemName: string): Promise<{
+  description: string;
+  rarity: string;
+  source: string;
+} | null> {
+  try {
+    const encodedName = encodeURIComponent(itemName);
+    const url = `https://app.roll20.net/compendium/dnd5e/${encodedName}.json`;
+    const response = await fetch(url);
+    
+    if (!response.ok) return null;
+    
+    const data = await response.json() as Roll20ItemData;
+    
+    const description = data.data ? extractDescription(data.data) : "";
+    const rarity = data["Item Rarity"] || "None";
+    
+    return {
+      description: description || `A magical item from the D&D 5e SRD.`,
+      rarity: mapRoll20Rarity(rarity),
+      source: "D&D 5e SRD",
+    };
+  } catch (error) {
+    console.warn(`Could not fetch ${itemName} from Roll20:`, error);
+    return null;
+  }
+}
+
+// Fetch and sync items from Roll20 Compendium
 async function syncItemsFromApi() {
   try {
-    console.log("Syncing items from seed data and D&D 5e API...");
+    console.log("Syncing items from seed data and Roll20 Compendium...");
     await storage.clearItems();
     
     // First, add all seed data with proper descriptions and rarities
     await storage.createItems(seedData);
     console.log(`Added ${seedData.length} seed items`);
     
-    // Then fetch additional 5e items from API
-    try {
-      const magicItemsRes = await fetch("https://www.dnd5eapi.co/api/magic-items");
-      const magicItemsData = await magicItemsRes.json();
-      
-      const apiItems = [];
-      const existingNames = new Set(seedData.map(item => item.name.toLowerCase()));
-      
-      if (magicItemsData.results && Array.isArray(magicItemsData.results)) {
-        for (const item of magicItemsData.results) {
-          // Skip items that already exist in seed data
-          if (!existingNames.has(item.name.toLowerCase())) {
-            // Fetch full item details
-            try {
-              const detailRes = await fetch(`https://www.dnd5eapi.co/api/magic-items/${item.index}`);
-              const detailData = await detailRes.json();
-              
-              const description = detailData.desc?.join(" ") || detailData.text?.join(" ") || "";
-              const source = detailData.sources?.[0]?.source_book || "Unknown";
-              
-              apiItems.push(mapMagicItemToItem(item, description, source));
-            } catch (detailError) {
-              // Fallback to basic mapping if detail fetch fails
-              apiItems.push(mapMagicItemToItem(item));
-            }
-          }
+    // Then fetch additional 5e items from Roll20 Compendium
+    // Common 5e items from SRD
+    const commonItems = [
+      "Amulet of Health", "Bag of Holding", "Bag of Tricks", "Boots of Levitation", 
+      "Boots of Speed", "Bracers of Defense", "Cape of the Mountebank", "Chime of Opening",
+      "Cloak of Arachnida", "Cloak of Elvenkind", "Cloak of Protection", "Cloak of the Manta Ray",
+      "Cloak of Invisibility", "Decanter of Endless Water", "Dust of Dryness", "Dust of Sneezing",
+      "Eversmoking Bottle", "Eyes of Charming", "Eyes of the Eagle", "Figurines of Wondrous Power",
+      "Folding Boat", "Gauntlets of Ogre Power", "Gem of Brightness", "Gloves of Missile Snaring",
+      "Gloves of Swimming and Climbing", "Goggles of Night", "Harp of Charming", "Helm of Telepathy",
+      "Immovable Rod", "Iron Bands of Bilarro", "Alchemy Jug", "Arrow-Catching Shield",
+      "Bag of Beans", "Belt of Dwarvenkind", "Berserk Shield", "Boots of the Winterlands",
+      "Bowl of Commanding Water Elementals", "Brazier of Commanding Fire Elementals",
+      "Censer of Controlling Air Elementals", "Necklace of Fireballs", "Portable Hole",
+      "Ring of Animal Influence", "Ring of Feather Falling", "Ring of Free Action", "Ring of Protection",
+      "Ring of Resistance", "Ring of Swimming", "Ring of Warmth", "Robe of Useful Items",
+      "Rope of Entanglement", "Scabbard of Keen Edges", "Scarab of Protection",
+      "Scroll of Protection", "Spell Scroll", "Stone of Good Luck", "Wand of Magic Missiles",
+      "Wand of Wonder", "Weapon +1", "Weapon +2", "Weapon +3", "Longsword", "Dagger",
+      "Greatsword", "Shortsword", "Mace", "Mace +1", "Halberd", "Rapier", "Flail"
+    ];
+    
+    const apiItems = [];
+    const existingNames = new Set(seedData.map(item => item.name.toLowerCase()));
+    
+    for (const itemName of commonItems) {
+      if (!existingNames.has(itemName.toLowerCase())) {
+        const roll20Data = await fetchFromRoll20(itemName);
+        
+        if (roll20Data) {
+          apiItems.push({
+            name: itemName,
+            category: categorizeItem(itemName),
+            rarity: roll20Data.rarity,
+            version: "5e",
+            description: roll20Data.description,
+            attunement: "",
+            meta: roll20Data.source,
+          });
+          existingNames.add(itemName.toLowerCase());
         }
       }
-      
-      if (apiItems.length > 0) {
-        await storage.createItems(apiItems);
-        console.log(`Added ${apiItems.length} items from D&D 5e API`);
-      }
-    } catch (apiError) {
-      console.warn("Could not sync from D&D 5e API, using seed data only:", apiError);
+      // Rate limiting
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    
+    if (apiItems.length > 0) {
+      await storage.createItems(apiItems);
+      console.log(`Added ${apiItems.length} items from Roll20 Compendium`);
     }
     
     const totalItems = await storage.getItems();
