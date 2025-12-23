@@ -143,7 +143,7 @@ interface DnD5eMagicItem {
   };
 }
 
-// Map magic items to our schema with better categorization
+// Map magic items to our schema with better categorization and descriptions
 function mapMagicItemToItem(item: DnD5eMagicItem) {
   const rarityMap: Record<string, string> = {
     "common": "Common",
@@ -155,16 +155,17 @@ function mapMagicItemToItem(item: DnD5eMagicItem) {
   };
 
   // Categorize based on item name patterns
-  let category = "Wondrous Items";
+  let category = "Magical";
   const name = item.name.toLowerCase();
 
   if (name.includes("weapon") || name.includes("sword") || name.includes("axe") || 
-      name.includes("bow") || name.includes("mace") || name.includes("staff") ||
-      name.includes("wand") || name.includes("blade") || name.includes("hammer")) {
+      name.includes("bow") || name.includes("mace") || name.includes("blade") || 
+      name.includes("hammer") || name.includes("lance")) {
     category = "Weapons";
   } else if (name.includes("armor") || name.includes("mail") || name.includes("plate") ||
              name.includes("leather") || name.includes("cloak") || name.includes("robe") ||
-             name.includes("boots") || name.includes("gloves") || name.includes("helm")) {
+             name.includes("boots") || name.includes("gloves") || name.includes("helm") ||
+             name.includes("gauntlets") || name.includes("bracers")) {
     category = "Armor";
   } else if (name.includes("ring")) {
     category = "Rings";
@@ -188,21 +189,46 @@ function mapMagicItemToItem(item: DnD5eMagicItem) {
     category,
     rarity: mappedRarity,
     version: "5e",
-    description: `SRD magic item: ${item.name}`,
+    description: `A magical item from the D&D 5e SRD. ${item.name} is a ${mappedRarity.toLowerCase()} magical item suitable for adventurers of various levels.`,
     attunement: "",
-    meta: "From D&D 5e SRD",
+    meta: "D&D 5e SRD",
   };
 }
 
 // Fetch and sync items from D&D 5e API
 async function syncItemsFromApi() {
   try {
-    console.log("Syncing items from seed data...");
+    console.log("Syncing items from seed data and D&D 5e API...");
     await storage.clearItems();
     
-    // Add all seed data with proper descriptions and rarities
+    // First, add all seed data with proper descriptions and rarities
     await storage.createItems(seedData);
     console.log(`Added ${seedData.length} seed items`);
+    
+    // Then fetch additional 5e items from API
+    try {
+      const magicItemsRes = await fetch("https://www.dnd5eapi.co/api/magic-items");
+      const magicItemsData = await magicItemsRes.json();
+      
+      const apiItems = [];
+      const existingNames = new Set(seedData.map(item => item.name.toLowerCase()));
+      
+      if (magicItemsData.results && Array.isArray(magicItemsData.results)) {
+        for (const item of magicItemsData.results) {
+          // Skip items that already exist in seed data
+          if (!existingNames.has(item.name.toLowerCase())) {
+            apiItems.push(mapMagicItemToItem(item));
+          }
+        }
+      }
+      
+      if (apiItems.length > 0) {
+        await storage.createItems(apiItems);
+        console.log(`Added ${apiItems.length} items from D&D 5e API`);
+      }
+    } catch (apiError) {
+      console.warn("Could not sync from D&D 5e API, using seed data only:", apiError);
+    }
     
     const totalItems = await storage.getItems();
     console.log(`Total items in database: ${totalItems.length}`);

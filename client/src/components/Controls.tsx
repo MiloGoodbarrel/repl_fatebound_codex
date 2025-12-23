@@ -24,7 +24,7 @@ interface ControlsProps {
 export function Controls({ onDraw, isDrawing }: ControlsProps) {
   const [categories, setCategories] = useState<string[]>(CATEGORIES);
   const [rarities, setRarities] = useState<string[]>(RARITIES);
-  const [versions, setVersions] = useState<string[]>(["5e"]);
+  const [versions, setVersions] = useState<string[]>(VERSIONS);
   const [count, setCount] = useState([5]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
