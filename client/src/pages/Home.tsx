@@ -38,10 +38,10 @@ export default function Home() {
         />
       </div>
 
-      {/* Main Content Area - Wood Table Surface */}
-      <main className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-12 relative scrollbar-fantasy wood-table">
-        {/* Vignette effect */}
-        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_30%,hsl(20_30%_8%/0.6)_100%)]" />
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-12 relative scrollbar-fantasy">
+        {/* Animated Background Fog */}
+        <div className="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/10 via-background to-background" />
 
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="flex justify-between items-center mb-8">
@@ -61,14 +61,14 @@ export default function Home() {
                 transition={{ duration: 0.5 }}
                 className="flex flex-col items-center justify-center min-h-[50vh] text-center space-y-6"
               >
-                <div className="w-32 h-32 rounded-full parchment flex items-center justify-center shadow-2xl">
-                  <Scroll className="w-16 h-16 text-amber-700/70" />
+                <div className="w-32 h-32 rounded-full bg-card border-4 border-border flex items-center justify-center shadow-2xl shadow-primary/10">
+                  <Scroll className="w-16 h-16 text-muted-foreground" />
                 </div>
-                <div className="max-w-md space-y-2 parchment p-6 rounded-lg">
-                  <h1 className="text-3xl md:text-4xl font-display font-bold text-amber-800">
+                <div className="max-w-md space-y-2">
+                  <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground">
                     Awaiting Destiny
                   </h1>
-                  <p className="ink-faded font-serif text-lg">
+                  <p className="text-muted-foreground font-serif text-lg">
                     Select your criteria from the archives and draw your fate.
                     <br />
                     <span className="text-sm italic opacity-70">
@@ -88,7 +88,7 @@ export default function Home() {
           
           {items.length > 0 && (
             <div className="mt-12 text-center">
-              <p className="text-sm text-amber-200/60 font-mono uppercase tracking-widest flex items-center justify-center gap-2">
+              <p className="text-sm text-muted-foreground font-mono uppercase tracking-widest opacity-50 flex items-center justify-center gap-2">
                 <Sparkles className="w-3 h-3" />
                 {filteredItems.length} of {items.length} Artifacts Revealed
                 <Sparkles className="w-3 h-3" />
