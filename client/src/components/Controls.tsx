@@ -24,7 +24,7 @@ interface ControlsProps {
   onSearchChange?: (term: string) => void;
 }
 
-export function Controls({ onDraw, isDrawing }: ControlsProps) {
+export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }: ControlsProps) {
   const [categories, setCategories] = useState<string[]>(CATEGORIES);
   const [rarities, setRarities] = useState<string[]>(RARITIES);
   const [versions, setVersions] = useState<string[]>(VERSIONS);
@@ -134,6 +134,32 @@ export function Controls({ onDraw, isDrawing }: ControlsProps) {
           <p className="text-sm text-muted-foreground">
             Configure your mystical draw parameters below.
           </p>
+        </div>
+
+        {/* Search Input */}
+        <div className="space-y-2">
+          <Label className="font-display text-sm flex items-center gap-2">
+            <Search className="w-4 h-4" /> Search Drawn Items
+          </Label>
+          <div className="relative">
+            <Input
+              value={searchTerm}
+              onChange={(e) => onSearchChange?.(e.target.value)}
+              placeholder="Filter by name..."
+              className="pl-9 bg-background/50"
+            />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            {searchTerm && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                onClick={() => onSearchChange?.("")}
+              >
+                <X className="w-3 h-3" />
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Count Slider */}
