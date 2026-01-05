@@ -404,13 +404,31 @@ async function fetchMonstersFromApi(versions: string[]) {
                 index: m.index,
                 name: m.name,
                 hp: detail.hit_points || 0,
+                hit_dice: detail.hit_dice || "",
                 ac: detail.armor_class?.[0]?.value || 10,
                 cr: detail.challenge_rating?.toString() || "0",
                 type: detail.type || "unknown",
                 size: detail.size || "Medium",
+                speed: detail.speed || {},
+                str: detail.strength || 10,
+                dex: detail.dexterity || 10,
+                con: detail.constitution || 10,
+                int: detail.intelligence || 10,
+                wis: detail.wisdom || 10,
+                cha: detail.charisma || 10,
                 resistances: detail.damage_resistances || [],
                 immunities: detail.damage_immunities || [],
                 vulnerabilities: detail.damage_vulnerabilities || [],
+                actions: (detail.actions || []).map((a: any) => ({
+                  name: a.name,
+                  desc: a.desc,
+                  attack_bonus: a.attack_bonus,
+                  damage: a.damage?.map((d: any) => ({ damage_dice: d.damage_dice, damage_type: d.damage_type?.name })) || []
+                })),
+                special_abilities: (detail.special_abilities || []).map((a: any) => ({
+                  name: a.name,
+                  desc: a.desc
+                })),
                 source: "SRD"
               };
             }
@@ -436,13 +454,23 @@ async function fetchMonstersFromApi(versions: string[]) {
           index: `tob-${m.slug}`,
           name: m.name,
           hp: m.hit_points || 0,
+          hit_dice: m.hit_dice || "",
           ac: m.armor_class || 10,
           cr: m.challenge_rating || "0",
           type: m.type || "unknown",
           size: m.size || "Medium",
+          speed: m.speed || {},
+          str: m.strength || 10,
+          dex: m.dexterity || 10,
+          con: m.constitution || 10,
+          int: m.intelligence || 10,
+          wis: m.wisdom || 10,
+          cha: m.charisma || 10,
           resistances: m.damage_resistances ? m.damage_resistances.split(", ").filter(Boolean) : [],
           immunities: m.damage_immunities ? m.damage_immunities.split(", ").filter(Boolean) : [],
           vulnerabilities: m.damage_vulnerabilities ? m.damage_vulnerabilities.split(", ").filter(Boolean) : [],
+          actions: (m.actions || []).map((a: any) => ({ name: a.name, desc: a.desc })),
+          special_abilities: (m.special_abilities || []).map((a: any) => ({ name: a.name, desc: a.desc })),
           source: "Tome of Beasts"
         }));
         monsters.push(...tobMonsters);
@@ -456,13 +484,23 @@ async function fetchMonstersFromApi(versions: string[]) {
           index: `tob2-${m.slug}`,
           name: m.name,
           hp: m.hit_points || 0,
+          hit_dice: m.hit_dice || "",
           ac: m.armor_class || 10,
           cr: m.challenge_rating || "0",
           type: m.type || "unknown",
           size: m.size || "Medium",
+          speed: m.speed || {},
+          str: m.strength || 10,
+          dex: m.dexterity || 10,
+          con: m.constitution || 10,
+          int: m.intelligence || 10,
+          wis: m.wisdom || 10,
+          cha: m.charisma || 10,
           resistances: m.damage_resistances ? m.damage_resistances.split(", ").filter(Boolean) : [],
           immunities: m.damage_immunities ? m.damage_immunities.split(", ").filter(Boolean) : [],
           vulnerabilities: m.damage_vulnerabilities ? m.damage_vulnerabilities.split(", ").filter(Boolean) : [],
+          actions: (m.actions || []).map((a: any) => ({ name: a.name, desc: a.desc })),
+          special_abilities: (m.special_abilities || []).map((a: any) => ({ name: a.name, desc: a.desc })),
           source: "Tome of Beasts 2"
         }));
         monsters.push(...tob2Monsters);
@@ -476,13 +514,23 @@ async function fetchMonstersFromApi(versions: string[]) {
           index: `cc-${m.slug}`,
           name: m.name,
           hp: m.hit_points || 0,
+          hit_dice: m.hit_dice || "",
           ac: m.armor_class || 10,
           cr: m.challenge_rating || "0",
           type: m.type || "unknown",
           size: m.size || "Medium",
+          speed: m.speed || {},
+          str: m.strength || 10,
+          dex: m.dexterity || 10,
+          con: m.constitution || 10,
+          int: m.intelligence || 10,
+          wis: m.wisdom || 10,
+          cha: m.charisma || 10,
           resistances: m.damage_resistances ? m.damage_resistances.split(", ").filter(Boolean) : [],
           immunities: m.damage_immunities ? m.damage_immunities.split(", ").filter(Boolean) : [],
           vulnerabilities: m.damage_vulnerabilities ? m.damage_vulnerabilities.split(", ").filter(Boolean) : [],
+          actions: (m.actions || []).map((a: any) => ({ name: a.name, desc: a.desc })),
+          special_abilities: (m.special_abilities || []).map((a: any) => ({ name: a.name, desc: a.desc })),
           source: "Creature Codex"
         }));
         monsters.push(...ccMonsters);

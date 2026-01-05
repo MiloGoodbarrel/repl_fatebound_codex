@@ -20,10 +20,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Swords, Plus, Trash2, ChevronUp, ChevronDown, User, Heart, Shield, 
   RotateCcw, Home, Search, Play, SkipForward, Square, Skull, AlertCircle,
-  Loader2
+  Loader2, Zap
 } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
@@ -60,18 +66,63 @@ const CONDITION_COLORS: Record<string, string> = {
 
 const CONDITIONS = Object.keys(CONDITION_COLORS);
 
+interface MonsterAction {
+  name: string;
+  desc: string;
+  attack_bonus?: number;
+  damage?: Array<{ damage_dice: string; damage_type: string }>;
+}
+
 interface Monster {
   index: string;
   name: string;
   hp: number;
+  hit_dice?: string;
   ac: number;
   cr: string;
   type: string;
   size: string;
+  speed?: Record<string, string>;
+  str?: number;
+  dex?: number;
+  con?: number;
+  int?: number;
+  wis?: number;
+  cha?: number;
   resistances?: string[];
   immunities?: string[];
   vulnerabilities?: string[];
+  actions?: MonsterAction[];
+  special_abilities?: Array<{ name: string; desc: string }>;
   source?: string;
+}
+
+function rollMonsterHp(hitDice: string, avgHp: number): number {
+  try {
+    const match = hitDice.match(/(\d+)d(\d+)(?:\s*([+-])\s*(\d+))?/);
+    if (match) {
+      const numDice = parseInt(match[1]);
+      const dieSides = parseInt(match[2]);
+      const sign = match[3] || "+";
+      const modifier = match[4] ? parseInt(match[4]) : 0;
+      
+      let total = 0;
+      for (let i = 0; i < numDice; i++) {
+        total += Math.floor(Math.random() * dieSides) + 1;
+      }
+      return sign === "-" ? total - modifier : total + modifier;
+    }
+  } catch {
+    // Fall through to variance calculation
+  }
+  
+  const variance = Math.floor(avgHp * 0.15);
+  return Math.floor(Math.random() * (variance * 2 + 1)) + (avgHp - variance);
+}
+
+function getAbilityModifier(score: number): string {
+  const mod = Math.floor((score - 10) / 2);
+  return mod >= 0 ? `+${mod}` : `${mod}`;
 }
 
 type NPCStance = "ally" | "neutral" | "enemy";
@@ -173,12 +224,17 @@ export default function InitiativeTracker() {
       ));
     }
     
+    // Roll HP using dice formula if available, otherwise use average with variance
+    const rolledHp = selectedMonster.hit_dice 
+      ? rollMonsterHp(selectedMonster.hit_dice, selectedMonster.hp)
+      : rollMonsterHp("", selectedMonster.hp);
+    
     const newCombatant: Combatant = {
       id: Math.random().toString(36).substr(2, 9),
       name: displayName,
       initiative: 0,
-      hp: selectedMonster.hp,
-      maxHp: selectedMonster.hp,
+      hp: Math.max(1, rolledHp),
+      maxHp: Math.max(1, rolledHp),
       ac: selectedMonster.ac,
       isMonster: true,
       conditions: [],
@@ -656,16 +712,146 @@ export default function InitiativeTracker() {
                               ) : (
                                 <User className="w-5 h-5 text-blue-500 flex-shrink-0 ml-1" />
                               )}
-                              <h3 className="text-xl font-bold flex items-center gap-2" data-testid={`text-combatant-name-${combatant.id}`}>
-                                {combatant.isDown && <Skull className="w-5 h-5 text-destructive" />}
-                                <span style={{ 
-                                  color: combatant.isMonster 
-                                    ? STANCE_COLORS[combatant.stance || "enemy"] 
-                                    : "#60A5FA" 
-                                }}>
-                                  {combatant.name}
-                                </span>
-                              </h3>
+                              <HoverCard openDelay={200} closeDelay={100}>
+                                <HoverCardTrigger asChild>
+                                  <h3 className="text-xl font-bold flex items-center gap-2 cursor-help" data-testid={`text-combatant-name-${combatant.id}`}>
+                                    {combatant.isDown && <Skull className="w-5 h-5 text-destructive" />}
+                                    <span style={{ 
+                                      color: combatant.isMonster 
+                                        ? STANCE_COLORS[combatant.stance || "enemy"] 
+                                        : "#60A5FA" 
+                                    }}>
+                                      {combatant.name}
+                                    </span>
+                                  </h3>
+                                </HoverCardTrigger>
+                                <HoverCardContent className="w-96 p-0" side="right" align="start">
+                                  <ScrollArea className="h-[400px]">
+                                    <div className="p-4 space-y-3">
+                                      {combatant.isMonster && combatant.monsterData ? (
+                                        <>
+                                          {/* Header */}
+                                          <div className="border-b border-border pb-2">
+                                            <h4 className="text-lg font-bold text-primary">{combatant.monsterData.name}</h4>
+                                            <p className="text-xs text-muted-foreground">
+                                              {combatant.monsterData.size} {combatant.monsterData.type}, CR {combatant.monsterData.cr}
+                                            </p>
+                                            {combatant.monsterData.source && (
+                                              <Badge variant="outline" className="text-xs mt-1">{combatant.monsterData.source}</Badge>
+                                            )}
+                                          </div>
+                                          
+                                          {/* Core Stats */}
+                                          <div className="grid grid-cols-2 gap-2 text-sm">
+                                            <div><span className="font-semibold">AC:</span> {combatant.monsterData.ac}</div>
+                                            <div><span className="font-semibold">HP:</span> {combatant.hp}/{combatant.maxHp} {combatant.monsterData.hit_dice && <span className="text-muted-foreground">({combatant.monsterData.hit_dice})</span>}</div>
+                                          </div>
+                                          
+                                          {/* Speed */}
+                                          {combatant.monsterData.speed && Object.keys(combatant.monsterData.speed).length > 0 && (
+                                            <div className="text-sm">
+                                              <span className="font-semibold">Speed:</span>{" "}
+                                              {Object.entries(combatant.monsterData.speed).map(([type, value]) => 
+                                                `${type} ${value}`
+                                              ).join(", ")}
+                                            </div>
+                                          )}
+                                          
+                                          {/* Ability Scores */}
+                                          <div className="grid grid-cols-6 gap-1 text-center text-xs border border-border rounded-md p-2">
+                                            <div>
+                                              <div className="font-bold">STR</div>
+                                              <div>{combatant.monsterData.str || 10}</div>
+                                              <div className="text-muted-foreground">{getAbilityModifier(combatant.monsterData.str || 10)}</div>
+                                            </div>
+                                            <div>
+                                              <div className="font-bold">DEX</div>
+                                              <div>{combatant.monsterData.dex || 10}</div>
+                                              <div className="text-muted-foreground">{getAbilityModifier(combatant.monsterData.dex || 10)}</div>
+                                            </div>
+                                            <div>
+                                              <div className="font-bold">CON</div>
+                                              <div>{combatant.monsterData.con || 10}</div>
+                                              <div className="text-muted-foreground">{getAbilityModifier(combatant.monsterData.con || 10)}</div>
+                                            </div>
+                                            <div>
+                                              <div className="font-bold">INT</div>
+                                              <div>{combatant.monsterData.int || 10}</div>
+                                              <div className="text-muted-foreground">{getAbilityModifier(combatant.monsterData.int || 10)}</div>
+                                            </div>
+                                            <div>
+                                              <div className="font-bold">WIS</div>
+                                              <div>{combatant.monsterData.wis || 10}</div>
+                                              <div className="text-muted-foreground">{getAbilityModifier(combatant.monsterData.wis || 10)}</div>
+                                            </div>
+                                            <div>
+                                              <div className="font-bold">CHA</div>
+                                              <div>{combatant.monsterData.cha || 10}</div>
+                                              <div className="text-muted-foreground">{getAbilityModifier(combatant.monsterData.cha || 10)}</div>
+                                            </div>
+                                          </div>
+                                          
+                                          {/* Resistances/Immunities */}
+                                          {combatant.monsterData.resistances && combatant.monsterData.resistances.length > 0 && (
+                                            <div className="text-xs">
+                                              <span className="font-semibold">Resistances:</span> {combatant.monsterData.resistances.join(", ")}
+                                            </div>
+                                          )}
+                                          {combatant.monsterData.immunities && combatant.monsterData.immunities.length > 0 && (
+                                            <div className="text-xs">
+                                              <span className="font-semibold">Immunities:</span> {combatant.monsterData.immunities.join(", ")}
+                                            </div>
+                                          )}
+                                          
+                                          {/* Special Abilities */}
+                                          {combatant.monsterData.special_abilities && combatant.monsterData.special_abilities.length > 0 && (
+                                            <div className="space-y-1">
+                                              <h5 className="font-semibold text-sm border-b border-border">Special Abilities</h5>
+                                              {combatant.monsterData.special_abilities.slice(0, 3).map((ability, i) => (
+                                                <div key={i} className="text-xs">
+                                                  <span className="font-semibold italic">{ability.name}.</span>{" "}
+                                                  <span className="text-muted-foreground">{ability.desc.slice(0, 150)}{ability.desc.length > 150 ? "..." : ""}</span>
+                                                </div>
+                                              ))}
+                                              {combatant.monsterData.special_abilities.length > 3 && (
+                                                <p className="text-xs text-muted-foreground italic">+{combatant.monsterData.special_abilities.length - 3} more abilities</p>
+                                              )}
+                                            </div>
+                                          )}
+                                          
+                                          {/* Actions */}
+                                          {combatant.monsterData.actions && combatant.monsterData.actions.length > 0 && (
+                                            <div className="space-y-1">
+                                              <h5 className="font-semibold text-sm border-b border-border flex items-center gap-1">
+                                                <Zap className="w-3 h-3" /> Actions
+                                              </h5>
+                                              {combatant.monsterData.actions.slice(0, 4).map((action, i) => (
+                                                <div key={i} className="text-xs">
+                                                  <span className="font-semibold italic">{action.name}.</span>{" "}
+                                                  <span className="text-muted-foreground">{action.desc.slice(0, 120)}{action.desc.length > 120 ? "..." : ""}</span>
+                                                </div>
+                                              ))}
+                                              {combatant.monsterData.actions.length > 4 && (
+                                                <p className="text-xs text-muted-foreground italic">+{combatant.monsterData.actions.length - 4} more actions</p>
+                                              )}
+                                            </div>
+                                          )}
+                                        </>
+                                      ) : (
+                                        <div className="text-center text-muted-foreground py-4">
+                                          <User className="w-8 h-8 mx-auto mb-2" />
+                                          <p className="font-semibold">{combatant.name}</p>
+                                          <p className="text-sm">Player Character</p>
+                                          <div className="mt-2 text-sm">
+                                            <p>HP: {combatant.hp}/{combatant.maxHp}</p>
+                                            <p>AC: {combatant.ac}</p>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </ScrollArea>
+                                </HoverCardContent>
+                              </HoverCard>
                             </div>
                             <div className="text-xs text-muted-foreground ml-8">
                               {combatant.isMonster 
