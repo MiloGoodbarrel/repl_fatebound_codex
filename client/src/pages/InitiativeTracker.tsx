@@ -148,9 +148,25 @@ export default function InitiativeTracker() {
 
   const addMonster = () => {
     if (!selectedMonster) return;
+    
+    // Count existing monsters with same base name to auto-number
+    const baseName = selectedMonster.name;
+    const existingCount = combatants.filter(c => 
+      c.name === baseName || c.name.match(new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} #\\d+$`))
+    ).length;
+    
+    const displayName = existingCount === 0 ? baseName : `${baseName} #${existingCount + 1}`;
+    
+    // If this is the second monster of this type, rename the first one
+    if (existingCount === 1) {
+      setCombatants(prev => prev.map(c => 
+        c.name === baseName ? { ...c, name: `${baseName} #1` } : c
+      ));
+    }
+    
     const newCombatant: Combatant = {
       id: Math.random().toString(36).substr(2, 9),
-      name: selectedMonster.name,
+      name: displayName,
       initiative: 0,
       hp: selectedMonster.hp,
       maxHp: selectedMonster.hp,
@@ -601,15 +617,20 @@ export default function InitiativeTracker() {
                           {/* Name & Type */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <h3 className="text-lg font-bold truncate flex items-center gap-2">
-                                {combatant.isDown && <Skull className="w-4 h-4 text-destructive" />}
-                                {combatant.name}
-                              </h3>
                               {combatant.isMonster ? (
-                                <Shield className="w-4 h-4 text-red-500 flex-shrink-0" />
+                                <Shield className="w-5 h-5 text-red-500 flex-shrink-0" />
                               ) : (
-                                <User className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                                <User className="w-5 h-5 text-blue-500 flex-shrink-0" />
                               )}
+                              <h3 className="text-xl font-bold flex items-center gap-2" data-testid={`text-combatant-name-${combatant.id}`}>
+                                {combatant.isDown && <Skull className="w-5 h-5 text-destructive" />}
+                                <span className={combatant.isMonster ? "text-red-400" : "text-blue-400"}>
+                                  {combatant.name}
+                                </span>
+                              </h3>
+                            </div>
+                            <div className="text-xs text-muted-foreground ml-7">
+                              {combatant.isMonster ? "Monster" : "Player Character"}
                             </div>
                           </div>
 
