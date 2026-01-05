@@ -448,7 +448,8 @@ export default function InitiativeTracker() {
         isDown: isDown || isDisabled,
         isDisabled,
         isDead,
-        isStable: isDead ? false : combatant.isStable
+        // 3.5e: Taking damage while stable breaks stability (start bleeding again)
+        isStable: isDead || newHp > 0 ? false : (newHp < 0 ? false : combatant.isStable)
       });
     } else if (effectiveRuleset === "4e") {
       // 4e: Death at negative half max HP
@@ -744,12 +745,19 @@ export default function InitiativeTracker() {
     const combatant = combatants.find(c => c.id === id);
     if (!combatant || combatant.combatantType !== "pc" || combatant.hp > 0 || combatant.isDead) return;
     
-    updateCombatant(id, {
+    // 4e: Failures persist until rest, so don't reset them on stabilization
+    const updates: Partial<Combatant> = {
       deathSaveSuccesses: 0,
-      deathSaveFailures: 0,
       isStable: true,
       isDown: true
-    });
+    };
+    
+    // Only reset failures for non-4e editions
+    if (effectiveRuleset !== "4e") {
+      updates.deathSaveFailures = 0;
+    }
+    
+    updateCombatant(id, updates);
   };
 
   const toggleCondition = (id: string, condition: string) => {
