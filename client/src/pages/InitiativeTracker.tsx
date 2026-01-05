@@ -133,6 +133,8 @@ const STANCE_COLORS: Record<NPCStance, string> = {
   enemy: "#EF4444",    // Red
 };
 
+type CombatantType = "pc" | "npc" | "monster";
+
 interface Combatant {
   id: string;
   name: string;
@@ -141,6 +143,7 @@ interface Combatant {
   maxHp: number;
   ac: number;
   isMonster: boolean;
+  combatantType: CombatantType;
   conditions: string[];
   isDown: boolean;
   monsterData?: Monster;
@@ -168,6 +171,12 @@ export default function InitiativeTracker() {
   const [pcInitiative, setPcInitiative] = useState("");
   const [pcHp, setPcHp] = useState("");
   const [pcAc, setPcAc] = useState("");
+  
+  // NPC entry (DM-created)
+  const [npcName, setNpcName] = useState("");
+  const [npcHp, setNpcHp] = useState("");
+  const [npcAc, setNpcAc] = useState("");
+  const [npcStance, setNpcStance] = useState<NPCStance>("enemy");
 
   // Fetch monsters when versions are selected
   useEffect(() => {
@@ -237,6 +246,7 @@ export default function InitiativeTracker() {
       maxHp: Math.max(1, rolledHp),
       ac: selectedMonster.ac,
       isMonster: true,
+      combatantType: "monster",
       conditions: [],
       isDown: false,
       monsterData: selectedMonster,
@@ -257,6 +267,7 @@ export default function InitiativeTracker() {
       maxHp: pcHp ? parseInt(pcHp) : 0,
       ac: pcAc ? parseInt(pcAc) : 0,
       isMonster: false,
+      combatantType: "pc",
       conditions: [],
       isDown: false,
     };
@@ -265,6 +276,42 @@ export default function InitiativeTracker() {
     setPcInitiative("");
     setPcHp("");
     setPcAc("");
+  };
+
+  const addNPC = () => {
+    if (!npcName) return;
+    
+    // Auto-number NPCs like monsters
+    const baseName = npcName;
+    const existingCount = combatants.filter(c => 
+      c.name === baseName || c.name.match(new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} #\\d+$`))
+    ).length;
+    
+    const displayName = existingCount === 0 ? baseName : `${baseName} #${existingCount + 1}`;
+    
+    if (existingCount === 1) {
+      setCombatants(prev => prev.map(c => 
+        c.name === baseName ? { ...c, name: `${baseName} #1` } : c
+      ));
+    }
+    
+    const newCombatant: Combatant = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: displayName,
+      initiative: 0,
+      hp: npcHp ? parseInt(npcHp) : 10,
+      maxHp: npcHp ? parseInt(npcHp) : 10,
+      ac: npcAc ? parseInt(npcAc) : 10,
+      isMonster: true,
+      combatantType: "npc",
+      conditions: [],
+      isDown: false,
+      stance: npcStance,
+    };
+    setCombatants(prev => [...prev, newCombatant]);
+    setNpcName("");
+    setNpcHp("");
+    setNpcAc("");
   };
 
   const removeCombatant = (id: string) => {
@@ -563,6 +610,75 @@ export default function InitiativeTracker() {
             </Button>
           </div>
 
+          {/* NPC Entry (DM-created) */}
+          <div className="space-y-3 bg-background/30 p-4 rounded-lg border border-border/50">
+            <Label className="font-display text-sm flex items-center gap-2">
+              <Shield className="w-4 h-4" /> Add NPC (DM-Created)
+            </Label>
+            <Input
+              value={npcName}
+              onChange={e => setNpcName(e.target.value)}
+              placeholder="NPC Name"
+              data-testid="input-npc-name"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">HP</Label>
+                <Input
+                  type="number"
+                  value={npcHp}
+                  onChange={e => setNpcHp(e.target.value)}
+                  placeholder="10"
+                  data-testid="input-npc-hp"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">AC</Label>
+                <Input
+                  type="number"
+                  value={npcAc}
+                  onChange={e => setNpcAc(e.target.value)}
+                  placeholder="10"
+                  data-testid="input-npc-ac"
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Stance</Label>
+              <Select value={npcStance} onValueChange={(v) => setNpcStance(v as NPCStance)}>
+                <SelectTrigger data-testid="select-npc-stance">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ally">
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-green-500" /> Ally
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="neutral">
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-gray-500" /> Neutral
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="enemy">
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-red-500" /> Enemy
+                    </span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button 
+              onClick={addNPC} 
+              disabled={!npcName}
+              variant="outline"
+              className="w-full"
+              data-testid="button-add-npc"
+            >
+              <Plus className="mr-2 w-4 h-4" /> Add NPC
+            </Button>
+          </div>
+
           {/* Combat Controls */}
           <div className="space-y-2">
             {combatState === "setup" && (
@@ -837,6 +953,16 @@ export default function InitiativeTracker() {
                                             </div>
                                           )}
                                         </>
+                                      ) : combatant.combatantType === "npc" ? (
+                                        <div className="text-center text-muted-foreground py-4">
+                                          <Shield className="w-8 h-8 mx-auto mb-2" style={{ color: STANCE_COLORS[combatant.stance || "enemy"] }} />
+                                          <p className="font-semibold">{combatant.name}</p>
+                                          <p className="text-sm">DM-Created NPC ({(combatant.stance || "enemy").charAt(0).toUpperCase() + (combatant.stance || "enemy").slice(1)})</p>
+                                          <div className="mt-2 text-sm">
+                                            <p>HP: {combatant.hp}/{combatant.maxHp}</p>
+                                            <p>AC: {combatant.ac}</p>
+                                          </div>
+                                        </div>
                                       ) : (
                                         <div className="text-center text-muted-foreground py-4">
                                           <User className="w-8 h-8 mx-auto mb-2" />
@@ -854,8 +980,10 @@ export default function InitiativeTracker() {
                               </HoverCard>
                             </div>
                             <div className="text-xs text-muted-foreground ml-8">
-                              {combatant.isMonster 
-                                ? `NPC - ${(combatant.stance || "enemy").charAt(0).toUpperCase() + (combatant.stance || "enemy").slice(1)}` 
+                              {combatant.combatantType === "monster" 
+                                ? `Monster - ${(combatant.stance || "enemy").charAt(0).toUpperCase() + (combatant.stance || "enemy").slice(1)}` 
+                                : combatant.combatantType === "npc"
+                                ? `NPC - ${(combatant.stance || "enemy").charAt(0).toUpperCase() + (combatant.stance || "enemy").slice(1)}`
                                 : "Player Character"}
                             </div>
                           </div>
