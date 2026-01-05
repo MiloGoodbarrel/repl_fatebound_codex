@@ -74,6 +74,14 @@ interface Monster {
   source?: string;
 }
 
+type NPCStance = "ally" | "neutral" | "enemy";
+
+const STANCE_COLORS: Record<NPCStance, string> = {
+  ally: "#22C55E",     // Green
+  neutral: "#6B7280",  // Grey
+  enemy: "#EF4444",    // Red
+};
+
 interface Combatant {
   id: string;
   name: string;
@@ -85,6 +93,7 @@ interface Combatant {
   conditions: string[];
   isDown: boolean;
   monsterData?: Monster;
+  stance?: NPCStance;
 }
 
 type CombatState = "setup" | "active" | "ended";
@@ -175,6 +184,7 @@ export default function InitiativeTracker() {
       conditions: [],
       isDown: false,
       monsterData: selectedMonster,
+      stance: "enemy",
     };
     setCombatants(prev => [...prev, newCombatant]);
     setSelectedMonster(null);
@@ -240,6 +250,15 @@ export default function InitiativeTracker() {
       conditions: newConditions,
       isDown: combatant.hp === 0 || isIncapacitated
     });
+  };
+
+  const cycleStance = (id: string) => {
+    const combatant = combatants.find(c => c.id === id);
+    if (!combatant || !combatant.isMonster) return;
+    const stanceOrder: NPCStance[] = ["ally", "neutral", "enemy"];
+    const currentIndex = stanceOrder.indexOf(combatant.stance || "enemy");
+    const nextStance = stanceOrder[(currentIndex + 1) % stanceOrder.length];
+    updateCombatant(id, { stance: nextStance });
   };
 
   const getSortedCombatants = () => {
@@ -586,7 +605,10 @@ export default function InitiativeTracker() {
                         ? "border-primary shadow-lg shadow-primary/20 scale-[1.02]"
                         : "border-border",
                       combatant.isDown && "opacity-50 grayscale",
-                      combatant.isMonster ? "bg-red-500/5" : "bg-blue-500/5"
+                      !combatant.isMonster && "bg-blue-500/5",
+                      combatant.isMonster && combatant.stance === "ally" && "bg-green-500/10",
+                      combatant.isMonster && combatant.stance === "neutral" && "bg-gray-500/10",
+                      combatant.isMonster && (combatant.stance === "enemy" || !combatant.stance) && "bg-red-500/5"
                     )}>
                       <CardContent className="p-4">
                         <div className="flex items-center gap-4">
@@ -618,19 +640,37 @@ export default function InitiativeTracker() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               {combatant.isMonster ? (
-                                <Shield className="w-5 h-5 text-red-500 flex-shrink-0" />
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="w-7 h-7 flex-shrink-0"
+                                  onClick={() => cycleStance(combatant.id)}
+                                  title={`Click to change stance (${combatant.stance || "enemy"})`}
+                                  data-testid={`button-stance-${combatant.id}`}
+                                >
+                                  <Shield 
+                                    className="w-5 h-5" 
+                                    style={{ color: STANCE_COLORS[combatant.stance || "enemy"] }}
+                                  />
+                                </Button>
                               ) : (
-                                <User className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                                <User className="w-5 h-5 text-blue-500 flex-shrink-0 ml-1" />
                               )}
                               <h3 className="text-xl font-bold flex items-center gap-2" data-testid={`text-combatant-name-${combatant.id}`}>
                                 {combatant.isDown && <Skull className="w-5 h-5 text-destructive" />}
-                                <span className={combatant.isMonster ? "text-red-400" : "text-blue-400"}>
+                                <span style={{ 
+                                  color: combatant.isMonster 
+                                    ? STANCE_COLORS[combatant.stance || "enemy"] 
+                                    : "#60A5FA" 
+                                }}>
                                   {combatant.name}
                                 </span>
                               </h3>
                             </div>
-                            <div className="text-xs text-muted-foreground ml-7">
-                              {combatant.isMonster ? "Monster" : "Player Character"}
+                            <div className="text-xs text-muted-foreground ml-8">
+                              {combatant.isMonster 
+                                ? `NPC - ${(combatant.stance || "enemy").charAt(0).toUpperCase() + (combatant.stance || "enemy").slice(1)}` 
+                                : "Player Character"}
                             </div>
                           </div>
 
