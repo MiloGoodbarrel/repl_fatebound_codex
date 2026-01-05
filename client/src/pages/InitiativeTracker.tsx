@@ -360,12 +360,26 @@ export default function InitiativeTracker() {
     setHpInputs(prev => ({ ...prev, [id]: "" }));
   };
 
-  const applyDamage = (id: string) => {
+  const applyDamage = (id: string, isCrit: boolean = false) => {
     const combatant = combatants.find(c => c.id === id);
     if (!combatant) return;
     
     let damage = getHpInput(id);
     if (damage <= 0) return;
+    
+    // If PC is at 0 HP, damage causes automatic death save failures
+    if (combatant.combatantType === "pc" && combatant.hp === 0 && !combatant.isDead) {
+      const failures = isCrit ? 2 : 1;
+      const newFailures = Math.min(3, combatant.deathSaveFailures + failures);
+      updateCombatant(id, {
+        deathSaveFailures: newFailures,
+        isStable: false,
+        isDead: newFailures >= 3,
+        isDown: true
+      });
+      clearHpInput(id);
+      return;
+    }
     
     let newTempHp = combatant.tempHp;
     let newHp = combatant.hp;
@@ -385,7 +399,8 @@ export default function InitiativeTracker() {
     updateCombatant(id, { 
       hp: newHp, 
       tempHp: newTempHp,
-      isDown: newHp === 0 
+      isDown: newHp === 0,
+      isStable: newHp === 0 ? false : combatant.isStable
     });
     clearHpInput(id);
   };
@@ -399,10 +414,19 @@ export default function InitiativeTracker() {
     
     const newHp = Math.min(combatant.maxHp, combatant.hp + heal);
     
-    updateCombatant(id, { 
+    // Healing resets death saves and wakes up the PC
+    const updates: Partial<Combatant> = { 
       hp: newHp, 
-      isDown: newHp === 0 
-    });
+      isDown: newHp === 0
+    };
+    
+    if (combatant.combatantType === "pc" && combatant.hp === 0 && newHp > 0) {
+      updates.deathSaveSuccesses = 0;
+      updates.deathSaveFailures = 0;
+      updates.isStable = false;
+    }
+    
+    updateCombatant(id, updates);
     clearHpInput(id);
   };
 
@@ -417,6 +441,67 @@ export default function InitiativeTracker() {
     
     updateCombatant(id, { tempHp: newTempHp });
     clearHpInput(id);
+  };
+
+  const [lastDeathSaveRoll, setLastDeathSaveRoll] = useState<{id: string, roll: number} | null>(null);
+
+  const rollDeathSave = (id: string) => {
+    const combatant = combatants.find(c => c.id === id);
+    if (!combatant || combatant.combatantType !== "pc" || combatant.hp > 0 || combatant.isDead || combatant.isStable) return;
+    
+    const roll = Math.floor(Math.random() * 20) + 1;
+    setLastDeathSaveRoll({ id, roll });
+    
+    let newSuccesses = combatant.deathSaveSuccesses;
+    let newFailures = combatant.deathSaveFailures;
+    let newHp = combatant.hp;
+    let isStable = false;
+    let isDead = false;
+    let isDown = true;
+    
+    if (roll === 20) {
+      // Nat 20: regain 1 HP and wake up
+      newHp = 1;
+      newSuccesses = 0;
+      newFailures = 0;
+      isDown = false;
+    } else if (roll === 1) {
+      // Nat 1: two failures
+      newFailures = Math.min(3, newFailures + 2);
+      if (newFailures >= 3) isDead = true;
+    } else if (roll >= 10) {
+      // Success
+      newSuccesses = Math.min(3, newSuccesses + 1);
+      if (newSuccesses >= 3) isStable = true;
+    } else {
+      // Failure
+      newFailures = Math.min(3, newFailures + 1);
+      if (newFailures >= 3) isDead = true;
+    }
+    
+    updateCombatant(id, {
+      hp: newHp,
+      deathSaveSuccesses: newSuccesses,
+      deathSaveFailures: newFailures,
+      isStable,
+      isDead,
+      isDown
+    });
+    
+    // Clear the roll display after 3 seconds
+    setTimeout(() => setLastDeathSaveRoll(null), 3000);
+  };
+
+  const stabilizePC = (id: string) => {
+    const combatant = combatants.find(c => c.id === id);
+    if (!combatant || combatant.combatantType !== "pc" || combatant.hp > 0 || combatant.isDead) return;
+    
+    updateCombatant(id, {
+      deathSaveSuccesses: 0,
+      deathSaveFailures: 0,
+      isStable: true,
+      isDown: true
+    });
   };
 
   const toggleCondition = (id: string, condition: string) => {
