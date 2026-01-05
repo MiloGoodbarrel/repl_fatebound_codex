@@ -29,7 +29,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Swords, Plus, Trash2, User, Heart, Shield, 
   RotateCcw, Home, Search, Play, SkipForward, Square, Skull, AlertCircle,
-  Loader2, Zap
+  Loader2, Zap, Dices, CircleCheck, CircleX, HeartPulse
 } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
@@ -368,11 +368,26 @@ export default function InitiativeTracker() {
     if (damage <= 0) return;
     
     // If PC is at 0 HP, damage causes automatic death save failures
+    // Also check for instant death from massive damage at 0 HP
     if (combatant.combatantType === "pc" && combatant.hp === 0 && !combatant.isDead) {
+      // Massive damage at 0 HP = instant death
+      if (damage >= combatant.maxHp) {
+        updateCombatant(id, {
+          isDead: true,
+          isDown: true,
+          deathSaveFailures: 3,
+          deathSaveSuccesses: 0
+        });
+        clearHpInput(id);
+        return;
+      }
+      
       const failures = isCrit ? 2 : 1;
       const newFailures = Math.min(3, combatant.deathSaveFailures + failures);
+      // Taking damage breaks stability and resets successes (per 5e rules)
       updateCombatant(id, {
         deathSaveFailures: newFailures,
+        deathSaveSuccesses: 0,
         isStable: false,
         isDead: newFailures >= 3,
         isDown: true
@@ -383,6 +398,7 @@ export default function InitiativeTracker() {
     
     let newTempHp = combatant.tempHp;
     let newHp = combatant.hp;
+    let leftoverDamage = 0;
     
     if (newTempHp > 0) {
       if (damage <= newTempHp) {
@@ -394,13 +410,24 @@ export default function InitiativeTracker() {
       }
     }
     
-    newHp = Math.max(0, newHp - damage);
+    // Calculate leftover damage after reaching 0 HP
+    if (damage > newHp) {
+      leftoverDamage = damage - newHp;
+      newHp = 0;
+    } else {
+      newHp = newHp - damage;
+    }
+    
+    // Check for massive damage instant death (leftover damage >= max HP)
+    const instantDeath = combatant.combatantType === "pc" && newHp === 0 && leftoverDamage >= combatant.maxHp;
     
     updateCombatant(id, { 
       hp: newHp, 
       tempHp: newTempHp,
       isDown: newHp === 0,
-      isStable: newHp === 0 ? false : combatant.isStable
+      isStable: newHp === 0 ? false : combatant.isStable,
+      isDead: instantDeath,
+      deathSaveFailures: instantDeath ? 3 : combatant.deathSaveFailures
     });
     clearHpInput(id);
   };
@@ -534,16 +561,29 @@ export default function InitiativeTracker() {
     return [...combatants].sort((a, b) => b.initiative - a.initiative);
   };
 
+  // Check if a combatant should be skipped in initiative
+  const shouldSkipTurn = (c: Combatant): boolean => {
+    // Dead combatants are skipped
+    if (c.isDead) return true;
+    // Stable PCs at 0 HP are skipped (they're unconscious but not making death saves)
+    if (c.combatantType === "pc" && c.hp === 0 && c.isStable) return true;
+    // PCs at 0 HP who are not stable still get their turn for death saves
+    if (c.combatantType === "pc" && c.hp === 0 && !c.isDead && !c.isStable) return false;
+    // Other downed combatants (monsters/NPCs) are skipped
+    if (c.isDown) return true;
+    return false;
+  };
+
   const startCombat = () => {
     if (combatants.length === 0) return;
     const sorted = getSortedCombatants();
     setCombatants(sorted);
     setCombatState("active");
     
-    // Find first non-downed combatant
+    // Find first combatant that shouldn't be skipped
     let startIndex = 0;
     for (let i = 0; i < sorted.length; i++) {
-      if (!sorted[i].isDown) {
+      if (!shouldSkipTurn(sorted[i])) {
         startIndex = i;
         break;
       }
@@ -558,8 +598,8 @@ export default function InitiativeTracker() {
     let nextIndex = (activeIndex + 1) % sorted.length;
     let attempts = 0;
     
-    // Skip downed combatants
-    while (sorted[nextIndex]?.isDown && attempts < sorted.length) {
+    // Skip combatants that should be skipped
+    while (shouldSkipTurn(sorted[nextIndex]) && attempts < sorted.length) {
       nextIndex = (nextIndex + 1) % sorted.length;
       attempts++;
     }
@@ -1197,8 +1237,93 @@ export default function InitiativeTracker() {
                             </div>
                           </div>
 
+                          {/* Death Saves (PC only at 0 HP) */}
+                          {combatant.combatantType === "pc" && combatant.hp === 0 && !combatant.isDead && (
+                            <div className="flex flex-col gap-1 p-2 rounded-md bg-muted/50 border border-muted min-w-[180px]">
+                              <div className="text-xs font-semibold text-center mb-1">Death Saves</div>
+                              
+                              {/* Success/Failure indicators */}
+                              <div className="flex items-center justify-center gap-3">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-green-500">S:</span>
+                                  {[1, 2, 3].map(i => (
+                                    <CircleCheck 
+                                      key={`success-${i}`}
+                                      className={cn(
+                                        "w-4 h-4",
+                                        i <= combatant.deathSaveSuccesses ? "text-green-500" : "text-muted-foreground/30"
+                                      )}
+                                    />
+                                  ))}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-red-500">F:</span>
+                                  {[1, 2, 3].map(i => (
+                                    <CircleX 
+                                      key={`failure-${i}`}
+                                      className={cn(
+                                        "w-4 h-4",
+                                        i <= combatant.deathSaveFailures ? "text-red-500" : "text-muted-foreground/30"
+                                      )}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Roll result display */}
+                              {lastDeathSaveRoll?.id === combatant.id && (
+                                <div className={cn(
+                                  "text-center text-sm font-bold",
+                                  lastDeathSaveRoll.roll === 20 ? "text-yellow-500" :
+                                  lastDeathSaveRoll.roll === 1 ? "text-red-500" :
+                                  lastDeathSaveRoll.roll >= 10 ? "text-green-500" : "text-red-400"
+                                )}>
+                                  Rolled: {lastDeathSaveRoll.roll}
+                                  {lastDeathSaveRoll.roll === 20 && " (NAT 20!)"}
+                                  {lastDeathSaveRoll.roll === 1 && " (NAT 1!)"}
+                                </div>
+                              )}
+
+                              {/* Stabilized status */}
+                              {combatant.isStable ? (
+                                <Badge className="bg-blue-600 text-white text-xs mx-auto">
+                                  <HeartPulse className="w-3 h-3 mr-1" /> Stabilized
+                                </Badge>
+                              ) : (
+                                <div className="flex items-center gap-1 justify-center">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 px-2 text-xs"
+                                    onClick={() => rollDeathSave(combatant.id)}
+                                    data-testid={`button-death-save-${combatant.id}`}
+                                  >
+                                    <Dices className="w-3 h-3 mr-1" />
+                                    Roll Save
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 px-2 text-xs text-blue-500"
+                                    onClick={() => stabilizePC(combatant.id)}
+                                    data-testid={`button-stabilize-${combatant.id}`}
+                                  >
+                                    Stabilize
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Dead indicator */}
+                          {combatant.isDead && (
+                            <Badge className="bg-gray-800 text-white">
+                              <Skull className="w-3 h-3 mr-1" /> Dead
+                            </Badge>
+                          )}
+
                           {/* HP Controls */}
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 flex-wrap">
                             <Input
                               type="number"
                               placeholder="0"
@@ -1211,12 +1336,25 @@ export default function InitiativeTracker() {
                               size="sm"
                               variant="destructive"
                               className="h-8 px-2"
-                              onClick={() => applyDamage(combatant.id)}
+                              onClick={() => applyDamage(combatant.id, false)}
                               data-testid={`button-damage-${combatant.id}`}
                             >
                               <Skull className="w-3 h-3 mr-1" />
                               Dmg
                             </Button>
+                            {/* Crit button for PCs at 0 HP (causes 2 death save failures) */}
+                            {combatant.combatantType === "pc" && combatant.hp === 0 && !combatant.isDead && (
+                              <Button 
+                                size="sm"
+                                variant="destructive"
+                                className="h-8 px-2 bg-red-800"
+                                onClick={() => applyDamage(combatant.id, true)}
+                                data-testid={`button-crit-${combatant.id}`}
+                              >
+                                <Skull className="w-3 h-3 mr-1" />
+                                Crit!
+                              </Button>
+                            )}
                             <Button 
                               size="sm"
                               variant="default"
