@@ -149,6 +149,10 @@ interface Combatant {
   isDown: boolean;
   monsterData?: Monster;
   stance?: NPCStance;
+  deathSaveSuccesses: number;
+  deathSaveFailures: number;
+  isStable: boolean;
+  isDead: boolean;
 }
 
 type CombatState = "setup" | "active" | "ended";
@@ -256,6 +260,10 @@ export default function InitiativeTracker() {
       isDown: false,
       monsterData: selectedMonster,
       stance: "enemy",
+      deathSaveSuccesses: 0,
+      deathSaveFailures: 0,
+      isStable: false,
+      isDead: false,
     };
     setCombatants(prev => [...prev, newCombatant]);
     setSelectedMonster(null);
@@ -276,6 +284,10 @@ export default function InitiativeTracker() {
       combatantType: "pc",
       conditions: [],
       isDown: false,
+      deathSaveSuccesses: 0,
+      deathSaveFailures: 0,
+      isStable: false,
+      isDead: false,
     };
     setCombatants(prev => [...prev, newCombatant]);
     setPcName("");
@@ -314,6 +326,10 @@ export default function InitiativeTracker() {
       conditions: [],
       isDown: false,
       stance: npcStance,
+      deathSaveSuccesses: 0,
+      deathSaveFailures: 0,
+      isStable: false,
+      isDead: false,
     };
     setCombatants(prev => [...prev, newCombatant]);
     setNpcName("");

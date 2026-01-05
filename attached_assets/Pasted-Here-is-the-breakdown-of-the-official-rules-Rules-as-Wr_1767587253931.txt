@@ -1,0 +1,44 @@
+Here is the breakdown of the official rules (Rules as Written / RAW):
+
+1. Healing Resets Everything
+The moment a character at 0 HP receives any amount of healing (even just 1 HP from a Healing Word or a potion):
+
+Consciousness: They immediately regain consciousness.
+
+Reset: Their current count of death save successes and failures are both reset to zero.
+
+State: They are no longer "dying" or "unstable."
+
+Prone: They are still on the ground (prone) and must spend half their movement to stand up on their turn.
+
+2. Stabilization vs. Healing
+If you don't have healing magic, you can Stabilize a creature (using a DC 10 Medicine check or a Healer's Kit):
+
+Successes/Failures: These also reset to zero the moment the creature becomes stable.
+
+Consciousness: The creature remains unconscious at 0 HP.
+
+Waking Up: A stable creature regains 1 HP naturally after 1d4 hours, at which point they wake up.
+
+Taking Damage: If a stable creature takes damage, they stop being stable and must start making death saves again from scratch.
+
+3. The "Nat 20" Rule
+If a player rolls a Natural 20 on a death saving throw:
+
+They immediately regain 1 HP.
+
+Because they now have 1 HP, they are conscious and their death saves reset to zero instantly. They can take the rest of their turn normally.
+
+4. Important Combat Penalties
+No Negative HP: There is no "-5 HP" in 5e. If you have 2 HP and take 10 damage, you just go to 0 (unless the leftover damage equals your max HP, which results in instant death).
+
+Damage at 0 HP: If a character is at 0 HP and takes damage, it is an automatic death save failure. If the attacker is within 5 feet, it’s a critical hit, which counts as two failures.
+
+Common Homebrew (The "Exhaustion" Rule)
+Because the "reset" rule makes it very easy for players to pop up and down repeatedly without consequence, many DMs use this popular house rule:
+
+"Every time you drop to 0 HP and are brought back up, you gain one level of Exhaustion."
+
+This adds a lingering penalty to hitting 0 HP, making the "yo-yo" strategy much more dangerous over a long adventuring day.
+
+For your Replit app: You should ensure that the "Heal" function includes a line of code that sets death_save_successes = 0 and death_save_failures = 0 whenever the target's HP goes above zero.
