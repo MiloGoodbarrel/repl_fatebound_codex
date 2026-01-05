@@ -382,19 +382,20 @@ async function syncItemsFromApi() {
   }
 }
 
-// Fetch monsters from 5e API
+// Fetch monsters from 5e API and Open5e
 async function fetchMonstersFromApi(versions: string[]) {
   const monsters: any[] = [];
   
-  // For 5e and One D&D, use the dnd5eapi
+  // For 5e and One D&D, use both dnd5eapi and Open5e for more monsters
   if (versions.includes("5e") || versions.includes("onednd")) {
+    // Fetch from dnd5eapi (SRD monsters)
     try {
       const response = await fetch("https://www.dnd5eapi.co/api/monsters");
       if (response.ok) {
         const data = await response.json() as { results: Array<{ index: string; name: string; url: string }> };
         
-        // Fetch details for first 100 monsters to avoid rate limits
-        const promises = data.results.slice(0, 100).map(async (m) => {
+        // Fetch details for all SRD monsters
+        const promises = data.results.map(async (m) => {
           try {
             const detailRes = await fetch(`https://www.dnd5eapi.co${m.url}`);
             if (detailRes.ok) {
@@ -410,6 +411,7 @@ async function fetchMonstersFromApi(versions: string[]) {
                 resistances: detail.damage_resistances || [],
                 immunities: detail.damage_immunities || [],
                 vulnerabilities: detail.damage_vulnerabilities || [],
+                source: "SRD"
               };
             }
           } catch {
@@ -421,7 +423,72 @@ async function fetchMonstersFromApi(versions: string[]) {
         monsters.push(...results.filter(Boolean));
       }
     } catch (error) {
-      console.warn("Could not fetch 5e monsters:", error);
+      console.warn("Could not fetch 5e SRD monsters:", error);
+    }
+    
+    // Fetch from Open5e API (includes Tome of Beasts and more)
+    try {
+      // Fetch Tome of Beasts monsters
+      const tobResponse = await fetch("https://api.open5e.com/monsters/?document__slug=tob&limit=500");
+      if (tobResponse.ok) {
+        const tobData = await tobResponse.json() as { results: any[] };
+        const tobMonsters = tobData.results.map((m: any) => ({
+          index: `tob-${m.slug}`,
+          name: m.name,
+          hp: m.hit_points || 0,
+          ac: m.armor_class || 10,
+          cr: m.challenge_rating || "0",
+          type: m.type || "unknown",
+          size: m.size || "Medium",
+          resistances: m.damage_resistances ? m.damage_resistances.split(", ").filter(Boolean) : [],
+          immunities: m.damage_immunities ? m.damage_immunities.split(", ").filter(Boolean) : [],
+          vulnerabilities: m.damage_vulnerabilities ? m.damage_vulnerabilities.split(", ").filter(Boolean) : [],
+          source: "Tome of Beasts"
+        }));
+        monsters.push(...tobMonsters);
+      }
+      
+      // Fetch Tome of Beasts 2 monsters
+      const tob2Response = await fetch("https://api.open5e.com/monsters/?document__slug=tob2&limit=500");
+      if (tob2Response.ok) {
+        const tob2Data = await tob2Response.json() as { results: any[] };
+        const tob2Monsters = tob2Data.results.map((m: any) => ({
+          index: `tob2-${m.slug}`,
+          name: m.name,
+          hp: m.hit_points || 0,
+          ac: m.armor_class || 10,
+          cr: m.challenge_rating || "0",
+          type: m.type || "unknown",
+          size: m.size || "Medium",
+          resistances: m.damage_resistances ? m.damage_resistances.split(", ").filter(Boolean) : [],
+          immunities: m.damage_immunities ? m.damage_immunities.split(", ").filter(Boolean) : [],
+          vulnerabilities: m.damage_vulnerabilities ? m.damage_vulnerabilities.split(", ").filter(Boolean) : [],
+          source: "Tome of Beasts 2"
+        }));
+        monsters.push(...tob2Monsters);
+      }
+      
+      // Fetch Creature Codex monsters
+      const ccResponse = await fetch("https://api.open5e.com/monsters/?document__slug=cc&limit=500");
+      if (ccResponse.ok) {
+        const ccData = await ccResponse.json() as { results: any[] };
+        const ccMonsters = ccData.results.map((m: any) => ({
+          index: `cc-${m.slug}`,
+          name: m.name,
+          hp: m.hit_points || 0,
+          ac: m.armor_class || 10,
+          cr: m.challenge_rating || "0",
+          type: m.type || "unknown",
+          size: m.size || "Medium",
+          resistances: m.damage_resistances ? m.damage_resistances.split(", ").filter(Boolean) : [],
+          immunities: m.damage_immunities ? m.damage_immunities.split(", ").filter(Boolean) : [],
+          vulnerabilities: m.damage_vulnerabilities ? m.damage_vulnerabilities.split(", ").filter(Boolean) : [],
+          source: "Creature Codex"
+        }));
+        monsters.push(...ccMonsters);
+      }
+    } catch (error) {
+      console.warn("Could not fetch Open5e monsters:", error);
     }
   }
   

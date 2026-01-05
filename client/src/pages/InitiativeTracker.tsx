@@ -52,6 +52,7 @@ interface Monster {
   resistances?: string[];
   immunities?: string[];
   vulnerabilities?: string[];
+  source?: string;
 }
 
 interface Combatant {
@@ -373,10 +374,11 @@ export default function InitiativeTracker() {
                   <span className="font-bold">{selectedMonster.name}</span>
                   <Badge variant="outline">CR {selectedMonster.cr}</Badge>
                 </div>
-                <div className="text-xs text-muted-foreground grid grid-cols-3 gap-2">
+                <div className="text-xs text-muted-foreground grid grid-cols-2 gap-2">
                   <span><Heart className="w-3 h-3 inline mr-1" />HP: {selectedMonster.hp}</span>
                   <span><Shield className="w-3 h-3 inline mr-1" />AC: {selectedMonster.ac}</span>
                   <span>{selectedMonster.size} {selectedMonster.type}</span>
+                  {selectedMonster.source && <span className="text-primary/70">{selectedMonster.source}</span>}
                 </div>
                 {selectedMonster.resistances && selectedMonster.resistances.length > 0 && (
                   <div className="text-xs">
