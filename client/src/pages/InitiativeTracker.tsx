@@ -38,7 +38,8 @@ const VERSION_OPTIONS = [
 const CONDITIONS = [
   "Blinded", "Charmed", "Deafened", "Frightened", "Grappled", 
   "Incapacitated", "Invisible", "Paralyzed", "Petrified", "Poisoned",
-  "Prone", "Restrained", "Stunned", "Unconscious", "Exhaustion"
+  "Prone", "Restrained", "Stunned", "Unconscious",
+  "Exhaustion 1", "Exhaustion 2", "Exhaustion 3", "Exhaustion 4", "Exhaustion 5", "Exhaustion 6"
 ];
 
 interface Monster {
@@ -562,30 +563,34 @@ export default function InitiativeTracker() {
                                 <User className="w-4 h-4 text-blue-500 flex-shrink-0" />
                               )}
                             </div>
-                            {/* Conditions */}
-                            <div className="flex flex-wrap gap-1 mt-1">
+                          </div>
+
+                          {/* Conditions Column */}
+                          <div className="flex flex-col gap-1 min-w-[140px]">
+                            <Select onValueChange={(val) => toggleCondition(combatant.id, val)}>
+                              <SelectTrigger className="h-8 text-xs" data-testid={`select-condition-${combatant.id}`}>
+                                <SelectValue placeholder="Add Condition" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {CONDITIONS.filter(c => !combatant.conditions.includes(c)).map(condition => (
+                                  <SelectItem key={condition} value={condition}>
+                                    {condition}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <div className="flex flex-wrap gap-1">
                               {combatant.conditions.map(condition => (
                                 <Badge 
                                   key={condition} 
-                                  variant="outline" 
+                                  variant="destructive" 
                                   className="text-xs cursor-pointer"
                                   onClick={() => toggleCondition(combatant.id, condition)}
+                                  data-testid={`badge-condition-${combatant.id}-${condition}`}
                                 >
-                                  {condition}
+                                  {condition} <span className="ml-1 opacity-70">x</span>
                                 </Badge>
                               ))}
-                              <Select onValueChange={(val) => toggleCondition(combatant.id, val)}>
-                                <SelectTrigger className="h-6 w-6 p-0 border-dashed">
-                                  <Plus className="w-3 h-3" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {CONDITIONS.filter(c => !combatant.conditions.includes(c)).map(condition => (
-                                    <SelectItem key={condition} value={condition}>
-                                      {condition}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
                             </div>
                           </div>
 
