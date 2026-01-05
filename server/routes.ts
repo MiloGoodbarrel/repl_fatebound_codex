@@ -425,21 +425,206 @@ async function fetchMonstersFromApi(versions: string[]) {
     }
   }
   
-  // For 3.5 and 4th edition, add some common monsters with basic stats
-  if (versions.includes("3.5") || versions.includes("4th")) {
-    const classicMonsters = [
-      { index: "goblin-classic", name: "Goblin", hp: 7, ac: 15, cr: "1/4", type: "humanoid", size: "Small", resistances: [], immunities: [], vulnerabilities: [] },
-      { index: "orc-classic", name: "Orc", hp: 15, ac: 13, cr: "1/2", type: "humanoid", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
-      { index: "kobold-classic", name: "Kobold", hp: 5, ac: 12, cr: "1/8", type: "humanoid", size: "Small", resistances: [], immunities: [], vulnerabilities: [] },
-      { index: "skeleton-classic", name: "Skeleton", hp: 13, ac: 13, cr: "1/4", type: "undead", size: "Medium", resistances: [], immunities: ["poison"], vulnerabilities: ["bludgeoning"] },
-      { index: "zombie-classic", name: "Zombie", hp: 22, ac: 8, cr: "1/4", type: "undead", size: "Medium", resistances: [], immunities: ["poison"], vulnerabilities: [] },
-      { index: "ogre-classic", name: "Ogre", hp: 59, ac: 11, cr: "2", type: "giant", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
-      { index: "troll-classic", name: "Troll", hp: 84, ac: 15, cr: "5", type: "giant", size: "Large", resistances: [], immunities: [], vulnerabilities: ["fire", "acid"] },
-      { index: "dragon-red-young", name: "Young Red Dragon", hp: 178, ac: 18, cr: "10", type: "dragon", size: "Large", resistances: [], immunities: ["fire"], vulnerabilities: [] },
-      { index: "beholder-classic", name: "Beholder", hp: 180, ac: 18, cr: "13", type: "aberration", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
-      { index: "mind-flayer-classic", name: "Mind Flayer", hp: 71, ac: 15, cr: "7", type: "aberration", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+  // For 3.5 edition, comprehensive SRD monster list
+  if (versions.includes("3.5")) {
+    const srd35Monsters = [
+      // Low CR Humanoids
+      { index: "goblin-35", name: "Goblin", hp: 5, ac: 15, cr: "1/3", type: "humanoid", size: "Small", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "hobgoblin-35", name: "Hobgoblin", hp: 6, ac: 15, cr: "1/2", type: "humanoid", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "bugbear-35", name: "Bugbear", hp: 16, ac: 17, cr: "2", type: "humanoid", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "orc-35", name: "Orc", hp: 5, ac: 13, cr: "1/2", type: "humanoid", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "gnoll-35", name: "Gnoll", hp: 11, ac: 15, cr: "1", type: "humanoid", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "kobold-35", name: "Kobold", hp: 4, ac: 15, cr: "1/4", type: "humanoid", size: "Small", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "lizardfolk-35", name: "Lizardfolk", hp: 11, ac: 15, cr: "1", type: "humanoid", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "troglodyte-35", name: "Troglodyte", hp: 13, ac: 15, cr: "1", type: "humanoid", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      
+      // Giants
+      { index: "ogre-35", name: "Ogre", hp: 29, ac: 16, cr: "3", type: "giant", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "troll-35", name: "Troll", hp: 63, ac: 16, cr: "5", type: "giant", size: "Large", resistances: [], immunities: [], vulnerabilities: ["fire", "acid"] },
+      { index: "hill-giant-35", name: "Hill Giant", hp: 102, ac: 20, cr: "7", type: "giant", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "stone-giant-35", name: "Stone Giant", hp: 119, ac: 25, cr: "8", type: "giant", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "frost-giant-35", name: "Frost Giant", hp: 133, ac: 21, cr: "9", type: "giant", size: "Large", resistances: [], immunities: ["cold"], vulnerabilities: ["fire"] },
+      { index: "fire-giant-35", name: "Fire Giant", hp: 142, ac: 23, cr: "10", type: "giant", size: "Large", resistances: [], immunities: ["fire"], vulnerabilities: ["cold"] },
+      { index: "cloud-giant-35", name: "Cloud Giant", hp: 178, ac: 25, cr: "11", type: "giant", size: "Huge", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "storm-giant-35", name: "Storm Giant", hp: 199, ac: 27, cr: "13", type: "giant", size: "Huge", resistances: [], immunities: ["electricity"], vulnerabilities: [] },
+      { index: "ettin-35", name: "Ettin", hp: 65, ac: 18, cr: "6", type: "giant", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      
+      // Undead
+      { index: "skeleton-35", name: "Skeleton", hp: 6, ac: 13, cr: "1/3", type: "undead", size: "Medium", resistances: [], immunities: ["cold"], vulnerabilities: [] },
+      { index: "zombie-35", name: "Zombie", hp: 16, ac: 11, cr: "1/2", type: "undead", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "ghoul-35", name: "Ghoul", hp: 13, ac: 14, cr: "1", type: "undead", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "ghast-35", name: "Ghast", hp: 29, ac: 17, cr: "3", type: "undead", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "wight-35", name: "Wight", hp: 26, ac: 15, cr: "3", type: "undead", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "wraith-35", name: "Wraith", hp: 32, ac: 15, cr: "5", type: "undead", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "spectre-35", name: "Spectre", hp: 45, ac: 15, cr: "7", type: "undead", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "mummy-35", name: "Mummy", hp: 55, ac: 20, cr: "5", type: "undead", size: "Medium", resistances: [], immunities: [], vulnerabilities: ["fire"] },
+      { index: "vampire-35", name: "Vampire (5th-level Fighter)", hp: 32, ac: 25, cr: "7", type: "undead", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "lich-35", name: "Lich (11th-level Wizard)", hp: 66, ac: 23, cr: "13", type: "undead", size: "Medium", resistances: [], immunities: ["cold", "electricity", "polymorph"], vulnerabilities: [] },
+      { index: "shadow-35", name: "Shadow", hp: 19, ac: 13, cr: "3", type: "undead", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "allip-35", name: "Allip", hp: 26, ac: 15, cr: "3", type: "undead", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "bodak-35", name: "Bodak", hp: 58, ac: 20, cr: "8", type: "undead", size: "Medium", resistances: [], immunities: ["electricity"], vulnerabilities: [] },
+      { index: "devourer-35", name: "Devourer", hp: 78, ac: 21, cr: "11", type: "undead", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "mohrg-35", name: "Mohrg", hp: 91, ac: 23, cr: "8", type: "undead", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "nightwing-35", name: "Nightwing", hp: 144, ac: 28, cr: "14", type: "undead", size: "Huge", resistances: [], immunities: ["cold"], vulnerabilities: [] },
+      
+      // Aberrations
+      { index: "aboleth-35", name: "Aboleth", hp: 76, ac: 16, cr: "7", type: "aberration", size: "Huge", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "beholder-35", name: "Beholder", hp: 93, ac: 26, cr: "13", type: "aberration", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "mind-flayer-35", name: "Mind Flayer", hp: 44, ac: 15, cr: "8", type: "aberration", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "otyugh-35", name: "Otyugh", hp: 36, ac: 17, cr: "4", type: "aberration", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "carrion-crawler-35", name: "Carrion Crawler", hp: 19, ac: 17, cr: "4", type: "aberration", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "chuul-35", name: "Chuul", hp: 93, ac: 22, cr: "7", type: "aberration", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "gibbering-mouther-35", name: "Gibbering Mouther", hp: 42, ac: 19, cr: "5", type: "aberration", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "grick-35", name: "Grick", hp: 9, ac: 16, cr: "3", type: "aberration", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "rust-monster-35", name: "Rust Monster", hp: 27, ac: 18, cr: "3", type: "aberration", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "umber-hulk-35", name: "Umber Hulk", hp: 71, ac: 18, cr: "7", type: "aberration", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      
+      // Dragons
+      { index: "wyrmling-red-35", name: "Red Dragon (Wyrmling)", hp: 66, ac: 17, cr: "4", type: "dragon", size: "Small", resistances: [], immunities: ["fire"], vulnerabilities: [] },
+      { index: "young-red-35", name: "Red Dragon (Young)", hp: 161, ac: 23, cr: "10", type: "dragon", size: "Medium", resistances: [], immunities: ["fire"], vulnerabilities: [] },
+      { index: "adult-red-35", name: "Red Dragon (Adult)", hp: 253, ac: 29, cr: "15", type: "dragon", size: "Large", resistances: [], immunities: ["fire"], vulnerabilities: [] },
+      { index: "ancient-red-35", name: "Red Dragon (Ancient)", hp: 449, ac: 38, cr: "22", type: "dragon", size: "Huge", resistances: [], immunities: ["fire"], vulnerabilities: [] },
+      { index: "wyrmling-black-35", name: "Black Dragon (Wyrmling)", hp: 45, ac: 16, cr: "3", type: "dragon", size: "Small", resistances: [], immunities: ["acid"], vulnerabilities: [] },
+      { index: "young-black-35", name: "Black Dragon (Young)", hp: 104, ac: 22, cr: "8", type: "dragon", size: "Medium", resistances: [], immunities: ["acid"], vulnerabilities: [] },
+      { index: "adult-black-35", name: "Black Dragon (Adult)", hp: 195, ac: 28, cr: "13", type: "dragon", size: "Large", resistances: [], immunities: ["acid"], vulnerabilities: [] },
+      { index: "wyrmling-blue-35", name: "Blue Dragon (Wyrmling)", hp: 59, ac: 17, cr: "4", type: "dragon", size: "Small", resistances: [], immunities: ["electricity"], vulnerabilities: [] },
+      { index: "young-blue-35", name: "Blue Dragon (Young)", hp: 136, ac: 23, cr: "9", type: "dragon", size: "Medium", resistances: [], immunities: ["electricity"], vulnerabilities: [] },
+      { index: "adult-blue-35", name: "Blue Dragon (Adult)", hp: 230, ac: 29, cr: "14", type: "dragon", size: "Large", resistances: [], immunities: ["electricity"], vulnerabilities: [] },
+      { index: "wyrmling-green-35", name: "Green Dragon (Wyrmling)", hp: 52, ac: 16, cr: "3", type: "dragon", size: "Small", resistances: [], immunities: ["acid"], vulnerabilities: [] },
+      { index: "young-green-35", name: "Green Dragon (Young)", hp: 120, ac: 22, cr: "8", type: "dragon", size: "Medium", resistances: [], immunities: ["acid"], vulnerabilities: [] },
+      { index: "wyrmling-white-35", name: "White Dragon (Wyrmling)", hp: 37, ac: 15, cr: "2", type: "dragon", size: "Tiny", resistances: [], immunities: ["cold"], vulnerabilities: ["fire"] },
+      { index: "young-white-35", name: "White Dragon (Young)", hp: 85, ac: 20, cr: "6", type: "dragon", size: "Small", resistances: [], immunities: ["cold"], vulnerabilities: ["fire"] },
+      { index: "adult-white-35", name: "White Dragon (Adult)", hp: 175, ac: 26, cr: "11", type: "dragon", size: "Medium", resistances: [], immunities: ["cold"], vulnerabilities: ["fire"] },
+      { index: "wyrmling-gold-35", name: "Gold Dragon (Wyrmling)", hp: 66, ac: 18, cr: "5", type: "dragon", size: "Small", resistances: [], immunities: ["fire"], vulnerabilities: [] },
+      { index: "young-gold-35", name: "Gold Dragon (Young)", hp: 161, ac: 25, cr: "11", type: "dragon", size: "Medium", resistances: [], immunities: ["fire"], vulnerabilities: [] },
+      { index: "adult-gold-35", name: "Gold Dragon (Adult)", hp: 297, ac: 32, cr: "17", type: "dragon", size: "Large", resistances: [], immunities: ["fire"], vulnerabilities: [] },
+      { index: "wyrmling-silver-35", name: "Silver Dragon (Wyrmling)", hp: 59, ac: 17, cr: "4", type: "dragon", size: "Small", resistances: [], immunities: ["cold"], vulnerabilities: [] },
+      { index: "young-silver-35", name: "Silver Dragon (Young)", hp: 136, ac: 24, cr: "10", type: "dragon", size: "Medium", resistances: [], immunities: ["cold"], vulnerabilities: [] },
+      
+      // Magical Beasts
+      { index: "basilisk-35", name: "Basilisk", hp: 45, ac: 16, cr: "5", type: "magical beast", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "chimera-35", name: "Chimera", hp: 76, ac: 19, cr: "7", type: "magical beast", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "cockatrice-35", name: "Cockatrice", hp: 27, ac: 14, cr: "3", type: "magical beast", size: "Small", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "displacer-beast-35", name: "Displacer Beast", hp: 51, ac: 16, cr: "4", type: "magical beast", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "griffon-35", name: "Griffon", hp: 59, ac: 17, cr: "4", type: "magical beast", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "hippogriff-35", name: "Hippogriff", hp: 25, ac: 15, cr: "2", type: "magical beast", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "hydra-5head-35", name: "Hydra (5-headed)", hp: 52, ac: 15, cr: "4", type: "magical beast", size: "Huge", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "hydra-12head-35", name: "Hydra (12-headed)", hp: 108, ac: 19, cr: "9", type: "magical beast", size: "Huge", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "manticore-35", name: "Manticore", hp: 57, ac: 17, cr: "5", type: "magical beast", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "owlbear-35", name: "Owlbear", hp: 52, ac: 15, cr: "4", type: "magical beast", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "pegasus-35", name: "Pegasus", hp: 34, ac: 14, cr: "3", type: "magical beast", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "phase-spider-35", name: "Phase Spider", hp: 32, ac: 15, cr: "5", type: "magical beast", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "purple-worm-35", name: "Purple Worm", hp: 200, ac: 19, cr: "12", type: "magical beast", size: "Gargantuan", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "remorhaz-35", name: "Remorhaz", hp: 94, ac: 20, cr: "7", type: "magical beast", size: "Huge", resistances: [], immunities: ["fire", "cold"], vulnerabilities: [] },
+      { index: "sphinx-35", name: "Sphinx (Androsphinx)", hp: 135, ac: 27, cr: "10", type: "magical beast", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "stirge-35", name: "Stirge", hp: 5, ac: 16, cr: "1/2", type: "magical beast", size: "Tiny", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "unicorn-35", name: "Unicorn", hp: 42, ac: 18, cr: "3", type: "magical beast", size: "Large", resistances: [], immunities: ["poison", "charm", "compulsion"], vulnerabilities: [] },
+      { index: "winter-wolf-35", name: "Winter Wolf", hp: 51, ac: 15, cr: "5", type: "magical beast", size: "Large", resistances: [], immunities: ["cold"], vulnerabilities: ["fire"] },
+      { index: "worg-35", name: "Worg", hp: 30, ac: 14, cr: "2", type: "magical beast", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      
+      // Outsiders (Demons/Devils)
+      { index: "lemure-35", name: "Lemure (Devil)", hp: 9, ac: 14, cr: "1", type: "outsider", size: "Medium", resistances: [], immunities: ["fire", "poison"], vulnerabilities: [] },
+      { index: "imp-35", name: "Imp (Devil)", hp: 13, ac: 20, cr: "2", type: "outsider", size: "Tiny", resistances: [], immunities: ["fire", "poison"], vulnerabilities: [] },
+      { index: "bearded-devil-35", name: "Bearded Devil", hp: 45, ac: 19, cr: "5", type: "outsider", size: "Medium", resistances: [], immunities: ["fire", "poison"], vulnerabilities: [] },
+      { index: "chain-devil-35", name: "Chain Devil", hp: 52, ac: 20, cr: "6", type: "outsider", size: "Medium", resistances: [], immunities: ["fire", "poison"], vulnerabilities: [] },
+      { index: "bone-devil-35", name: "Bone Devil", hp: 95, ac: 25, cr: "9", type: "outsider", size: "Large", resistances: [], immunities: ["fire", "poison"], vulnerabilities: [] },
+      { index: "horned-devil-35", name: "Horned Devil", hp: 137, ac: 28, cr: "12", type: "outsider", size: "Large", resistances: [], immunities: ["fire", "poison"], vulnerabilities: [] },
+      { index: "ice-devil-35", name: "Ice Devil", hp: 147, ac: 32, cr: "13", type: "outsider", size: "Large", resistances: [], immunities: ["fire", "poison", "cold"], vulnerabilities: [] },
+      { index: "pit-fiend-35", name: "Pit Fiend", hp: 200, ac: 35, cr: "18", type: "outsider", size: "Large", resistances: [], immunities: ["fire", "poison"], vulnerabilities: [] },
+      { index: "dretch-35", name: "Dretch (Demon)", hp: 13, ac: 14, cr: "2", type: "outsider", size: "Small", resistances: [], immunities: ["electricity", "poison"], vulnerabilities: [] },
+      { index: "quasit-35", name: "Quasit (Demon)", hp: 13, ac: 18, cr: "2", type: "outsider", size: "Tiny", resistances: [], immunities: ["electricity", "poison"], vulnerabilities: [] },
+      { index: "babau-35", name: "Babau (Demon)", hp: 66, ac: 19, cr: "6", type: "outsider", size: "Medium", resistances: [], immunities: ["electricity", "poison"], vulnerabilities: [] },
+      { index: "succubus-35", name: "Succubus (Demon)", hp: 33, ac: 20, cr: "7", type: "outsider", size: "Medium", resistances: [], immunities: ["electricity", "poison"], vulnerabilities: [] },
+      { index: "vrock-35", name: "Vrock (Demon)", hp: 115, ac: 22, cr: "9", type: "outsider", size: "Large", resistances: [], immunities: ["electricity", "poison"], vulnerabilities: [] },
+      { index: "hezrou-35", name: "Hezrou (Demon)", hp: 138, ac: 23, cr: "11", type: "outsider", size: "Large", resistances: [], immunities: ["electricity", "poison"], vulnerabilities: [] },
+      { index: "glabrezu-35", name: "Glabrezu (Demon)", hp: 174, ac: 27, cr: "13", type: "outsider", size: "Huge", resistances: [], immunities: ["electricity", "poison"], vulnerabilities: [] },
+      { index: "nalfeshnee-35", name: "Nalfeshnee (Demon)", hp: 175, ac: 27, cr: "14", type: "outsider", size: "Huge", resistances: [], immunities: ["electricity", "poison"], vulnerabilities: [] },
+      { index: "marilith-35", name: "Marilith (Demon)", hp: 216, ac: 29, cr: "17", type: "outsider", size: "Large", resistances: [], immunities: ["electricity", "poison"], vulnerabilities: [] },
+      { index: "balor-35", name: "Balor (Demon)", hp: 290, ac: 35, cr: "20", type: "outsider", size: "Large", resistances: [], immunities: ["electricity", "fire", "poison"], vulnerabilities: [] },
+      
+      // Elementals
+      { index: "earth-elemental-small-35", name: "Earth Elemental (Small)", hp: 11, ac: 17, cr: "1", type: "elemental", size: "Small", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "earth-elemental-large-35", name: "Earth Elemental (Large)", hp: 68, ac: 18, cr: "5", type: "elemental", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "earth-elemental-elder-35", name: "Earth Elemental (Elder)", hp: 228, ac: 22, cr: "11", type: "elemental", size: "Huge", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "fire-elemental-small-35", name: "Fire Elemental (Small)", hp: 11, ac: 15, cr: "1", type: "elemental", size: "Small", resistances: [], immunities: ["fire"], vulnerabilities: ["cold"] },
+      { index: "fire-elemental-large-35", name: "Fire Elemental (Large)", hp: 60, ac: 18, cr: "5", type: "elemental", size: "Large", resistances: [], immunities: ["fire"], vulnerabilities: ["cold"] },
+      { index: "fire-elemental-elder-35", name: "Fire Elemental (Elder)", hp: 204, ac: 25, cr: "11", type: "elemental", size: "Huge", resistances: [], immunities: ["fire"], vulnerabilities: ["cold"] },
+      { index: "water-elemental-small-35", name: "Water Elemental (Small)", hp: 13, ac: 17, cr: "1", type: "elemental", size: "Small", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "water-elemental-large-35", name: "Water Elemental (Large)", hp: 68, ac: 20, cr: "5", type: "elemental", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "water-elemental-elder-35", name: "Water Elemental (Elder)", hp: 228, ac: 24, cr: "11", type: "elemental", size: "Huge", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "air-elemental-small-35", name: "Air Elemental (Small)", hp: 13, ac: 17, cr: "1", type: "elemental", size: "Small", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "air-elemental-large-35", name: "Air Elemental (Large)", hp: 68, ac: 20, cr: "5", type: "elemental", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "air-elemental-elder-35", name: "Air Elemental (Elder)", hp: 228, ac: 27, cr: "11", type: "elemental", size: "Huge", resistances: [], immunities: [], vulnerabilities: [] },
+      
+      // Constructs
+      { index: "animated-object-small-35", name: "Animated Object (Small)", hp: 15, ac: 14, cr: "1", type: "construct", size: "Small", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "animated-object-large-35", name: "Animated Object (Large)", hp: 52, ac: 14, cr: "3", type: "construct", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "golem-flesh-35", name: "Flesh Golem", hp: 79, ac: 18, cr: "7", type: "construct", size: "Large", resistances: [], immunities: ["magic"], vulnerabilities: [] },
+      { index: "golem-clay-35", name: "Clay Golem", hp: 90, ac: 22, cr: "10", type: "construct", size: "Large", resistances: [], immunities: ["magic"], vulnerabilities: [] },
+      { index: "golem-stone-35", name: "Stone Golem", hp: 107, ac: 26, cr: "11", type: "construct", size: "Large", resistances: [], immunities: ["magic"], vulnerabilities: [] },
+      { index: "golem-iron-35", name: "Iron Golem", hp: 129, ac: 30, cr: "13", type: "construct", size: "Large", resistances: [], immunities: ["magic"], vulnerabilities: [] },
+      { index: "shield-guardian-35", name: "Shield Guardian", hp: 112, ac: 24, cr: "8", type: "construct", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      
+      // Beasts/Animals
+      { index: "dire-wolf-35", name: "Dire Wolf", hp: 45, ac: 14, cr: "3", type: "animal", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "dire-bear-35", name: "Dire Bear", hp: 105, ac: 17, cr: "7", type: "animal", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "dire-lion-35", name: "Dire Lion", hp: 60, ac: 15, cr: "5", type: "animal", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "dire-tiger-35", name: "Dire Tiger", hp: 120, ac: 17, cr: "8", type: "animal", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "dire-boar-35", name: "Dire Boar", hp: 52, ac: 15, cr: "4", type: "animal", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "dire-rat-35", name: "Dire Rat", hp: 5, ac: 15, cr: "1/3", type: "animal", size: "Small", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "giant-spider-35", name: "Giant Spider (Monstrous)", hp: 22, ac: 14, cr: "2", type: "vermin", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "giant-scorpion-35", name: "Giant Scorpion (Monstrous)", hp: 26, ac: 16, cr: "3", type: "vermin", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "giant-centipede-35", name: "Giant Centipede (Monstrous)", hp: 4, ac: 14, cr: "1/2", type: "vermin", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      
+      // Oozes
+      { index: "gelatinous-cube-35", name: "Gelatinous Cube", hp: 54, ac: 3, cr: "3", type: "ooze", size: "Large", resistances: [], immunities: ["electricity"], vulnerabilities: [] },
+      { index: "black-pudding-35", name: "Black Pudding", hp: 115, ac: 3, cr: "7", type: "ooze", size: "Huge", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "gray-ooze-35", name: "Gray Ooze", hp: 31, ac: 5, cr: "4", type: "ooze", size: "Medium", resistances: [], immunities: ["cold", "fire"], vulnerabilities: [] },
+      { index: "ochre-jelly-35", name: "Ochre Jelly", hp: 69, ac: 4, cr: "5", type: "ooze", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      
+      // Fey
+      { index: "dryad-35", name: "Dryad", hp: 14, ac: 17, cr: "3", type: "fey", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "nymph-35", name: "Nymph", hp: 21, ac: 17, cr: "7", type: "fey", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "satyr-35", name: "Satyr", hp: 22, ac: 15, cr: "2", type: "fey", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "pixie-35", name: "Pixie", hp: 3, ac: 16, cr: "4", type: "fey", size: "Small", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "sprite-35", name: "Sprite", hp: 2, ac: 15, cr: "1/2", type: "fey", size: "Tiny", resistances: [], immunities: [], vulnerabilities: [] },
+      
+      // Classic Monsters
+      { index: "mimic-35", name: "Mimic", hp: 52, ac: 15, cr: "4", type: "aberration", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "minotaur-35", name: "Minotaur", hp: 39, ac: 14, cr: "4", type: "monstrous humanoid", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "medusa-35", name: "Medusa", hp: 33, ac: 15, cr: "7", type: "monstrous humanoid", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "harpy-35", name: "Harpy", hp: 31, ac: 13, cr: "4", type: "monstrous humanoid", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "gargoyle-35", name: "Gargoyle", hp: 37, ac: 16, cr: "4", type: "monstrous humanoid", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "yuan-ti-35", name: "Yuan-Ti (Halfblood)", hp: 38, ac: 16, cr: "5", type: "monstrous humanoid", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "naga-guardian-35", name: "Guardian Naga", hp: 76, ac: 18, cr: "10", type: "aberration", size: "Large", resistances: [], immunities: ["poison"], vulnerabilities: [] },
+      { index: "naga-spirit-35", name: "Spirit Naga", hp: 76, ac: 16, cr: "9", type: "aberration", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "treant-35", name: "Treant", hp: 66, ac: 20, cr: "8", type: "plant", size: "Huge", resistances: [], immunities: [], vulnerabilities: ["fire"] },
+      { index: "shambling-mound-35", name: "Shambling Mound", hp: 60, ac: 20, cr: "6", type: "plant", size: "Large", resistances: [], immunities: ["electricity"], vulnerabilities: [] },
+      { index: "roper-35", name: "Roper", hp: 85, ac: 24, cr: "10", type: "magical beast", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "will-o-wisp-35", name: "Will-o'-Wisp", hp: 40, ac: 29, cr: "6", type: "aberration", size: "Small", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "xorn-35", name: "Xorn (Average)", hp: 48, ac: 23, cr: "6", type: "outsider", size: "Medium", resistances: [], immunities: ["fire", "cold"], vulnerabilities: [] },
+      { index: "doppelganger-35", name: "Doppelganger", hp: 22, ac: 15, cr: "3", type: "monstrous humanoid", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
     ];
-    monsters.push(...classicMonsters);
+    monsters.push(...srd35Monsters);
+  }
+  
+  // For 4th edition, add common monsters
+  if (versions.includes("4th")) {
+    const monsters4e = [
+      { index: "goblin-4e", name: "Goblin Cutter", hp: 23, ac: 14, cr: "1", type: "humanoid", size: "Small", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "goblin-sharpshooter-4e", name: "Goblin Sharpshooter", hp: 26, ac: 15, cr: "2", type: "humanoid", size: "Small", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "hobgoblin-soldier-4e", name: "Hobgoblin Soldier", hp: 48, ac: 18, cr: "3", type: "humanoid", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "orc-raider-4e", name: "Orc Raider", hp: 57, ac: 16, cr: "3", type: "humanoid", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "kobold-minion-4e", name: "Kobold Minion", hp: 1, ac: 15, cr: "1", type: "humanoid", size: "Small", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "skeleton-4e", name: "Skeleton", hp: 29, ac: 15, cr: "3", type: "undead", size: "Medium", resistances: ["necrotic"], immunities: ["poison"], vulnerabilities: ["radiant"] },
+      { index: "zombie-4e", name: "Zombie", hp: 40, ac: 12, cr: "2", type: "undead", size: "Medium", resistances: ["necrotic"], immunities: ["poison"], vulnerabilities: ["radiant"] },
+      { index: "ogre-4e", name: "Ogre", hp: 111, ac: 16, cr: "8", type: "giant", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "troll-4e", name: "Troll", hp: 135, ac: 18, cr: "9", type: "giant", size: "Large", resistances: [], immunities: [], vulnerabilities: ["fire", "acid"] },
+      { index: "dragon-young-red-4e", name: "Young Red Dragon", hp: 256, ac: 22, cr: "11", type: "dragon", size: "Large", resistances: [], immunities: ["fire"], vulnerabilities: [] },
+      { index: "beholder-4e", name: "Beholder", hp: 218, ac: 27, cr: "19", type: "aberration", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "mind-flayer-4e", name: "Mind Flayer", hp: 85, ac: 19, cr: "13", type: "aberration", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+    ];
+    monsters.push(...monsters4e);
   }
   
   return monsters;
