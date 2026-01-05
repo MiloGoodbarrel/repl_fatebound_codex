@@ -866,6 +866,130 @@ export default function InitiativeTracker() {
     setSelectedVersions([]);
   };
 
+  // Reset encounter: remove monsters/NPCs, keep PCs
+  const resetEncounter = () => {
+    setCombatants(prev => prev.filter(c => c.combatantType === "pc"));
+    setCombatState("setup");
+    setActiveIndex(0);
+    setRound(1);
+  };
+
+  // Reset all: clear everything but keep version selection
+  const resetAll = () => {
+    setCombatants([]);
+    setCombatState("setup");
+    setActiveIndex(0);
+    setRound(1);
+  };
+
+  // Full heal a PC
+  const fullHeal = (id: string) => {
+    const combatant = combatants.find(c => c.id === id);
+    if (!combatant || combatant.combatantType !== "pc") return;
+    
+    updateCombatant(id, {
+      hp: combatant.maxHp,
+      tempHp: 0,
+      isDown: false,
+      isDead: false,
+      isStable: false,
+      isDisabled: false,
+      deathSaveSuccesses: 0,
+      deathSaveFailures: effectiveRuleset === "4e" ? combatant.deathSaveFailures : 0, // 4e: failures persist until rest
+      conditions: combatant.conditions.filter(c => !c.startsWith("Exhaustion")), // Keep non-exhaustion conditions
+      healingSurges: combatant.maxHealingSurges || 0, // Restore healing surges
+    });
+  };
+
+  // Manual death save recording - players roll, DM records result
+  // result: "pass" | "fail" | "nat20" | "nat1" | "nochange" (4e only)
+  const recordDeathSaveResult = (id: string, result: "pass" | "fail" | "nat20" | "nat1" | "nochange") => {
+    const combatant = combatants.find(c => c.id === id);
+    if (!combatant || combatant.combatantType !== "pc" || combatant.isDead || combatant.isStable) return;
+    
+    if (effectiveRuleset === "4e") {
+      // 4e rules: nat 20 = spend surge (if available), 10-19 = no change, 1-9 = fail
+      if (result === "nat20") {
+        // Spend healing surge if available, otherwise no change
+        if ((combatant.healingSurges || 0) > 0) {
+          const newSurges = combatant.healingSurges! - 1;
+          const healAmount = Math.floor(combatant.maxHp / 4);
+          updateCombatant(id, {
+            healingSurges: newSurges,
+            hp: healAmount,
+            isDown: false,
+            isStable: false,
+            deathSaveSuccesses: 0,
+          });
+        }
+        // No surges = no change (player is informed they can't spend a surge)
+      } else if (result === "nochange" || result === "pass") {
+        // 10-19: No change in 4e
+        // Just acknowledge, no state change needed
+      } else if (result === "fail" || result === "nat1") {
+        // 4e: Nat 1 is just a single failure (unlike 5e which is double)
+        const newFailures = combatant.deathSaveFailures + 1;
+        if (newFailures >= 3) {
+          updateCombatant(id, { deathSaveFailures: 3, isDead: true, isDown: true });
+        } else {
+          updateCombatant(id, { deathSaveFailures: newFailures });
+        }
+      }
+    } else {
+      // 5e/One D&D rules
+      if (result === "nat20") {
+        // Regain 1 HP, wake up
+        updateCombatant(id, {
+          hp: 1,
+          isDown: false,
+          isStable: false,
+          deathSaveSuccesses: 0,
+          deathSaveFailures: 0,
+        });
+      } else if (result === "nat1") {
+        // Double failure
+        const newFailures = combatant.deathSaveFailures + 2;
+        if (newFailures >= 3) {
+          updateCombatant(id, { deathSaveFailures: 3, isDead: true, isDown: true });
+        } else {
+          updateCombatant(id, { deathSaveFailures: newFailures });
+        }
+      } else if (result === "pass") {
+        const newSuccesses = combatant.deathSaveSuccesses + 1;
+        if (newSuccesses >= 3) {
+          updateCombatant(id, { deathSaveSuccesses: 3, isStable: true });
+        } else {
+          updateCombatant(id, { deathSaveSuccesses: newSuccesses });
+        }
+      } else if (result === "fail") {
+        const newFailures = combatant.deathSaveFailures + 1;
+        if (newFailures >= 3) {
+          updateCombatant(id, { deathSaveFailures: 3, isDead: true, isDown: true });
+        } else {
+          updateCombatant(id, { deathSaveFailures: newFailures });
+        }
+      }
+    }
+  };
+
+  // 3.5e stabilization result: pass (stabilized) or fail (lose 1 HP)
+  const record35eStabilization = (id: string, passed: boolean) => {
+    const combatant = combatants.find(c => c.id === id);
+    if (!combatant || combatant.combatantType !== "pc" || combatant.isDead || combatant.isStable) return;
+    
+    if (passed) {
+      updateCombatant(id, { isStable: true });
+    } else {
+      // Failed stabilization: lose 1 HP
+      const newHp = combatant.hp - 1;
+      if (newHp <= -10) {
+        updateCombatant(id, { hp: newHp, isDead: true, isDown: true });
+      } else {
+        updateCombatant(id, { hp: newHp });
+      }
+    }
+  };
+
   const sortedCombatants = getSortedCombatants();
   const activeCombatant = sortedCombatants[activeIndex];
 
@@ -1167,6 +1291,28 @@ export default function InitiativeTracker() {
                 </Button>
               </div>
             )}
+            
+            {/* Reset Controls - always visible */}
+            <div className="flex gap-2">
+              <Button 
+                onClick={resetEncounter} 
+                variant="outline"
+                className="flex-1"
+                disabled={combatants.length === 0}
+                data-testid="button-reset-encounter"
+              >
+                <RotateCcw className="mr-1 w-3 h-3" /> Reset Encounter
+              </Button>
+              <Button 
+                onClick={resetAll} 
+                variant="ghost"
+                className="flex-1 text-muted-foreground"
+                disabled={combatants.length === 0}
+                data-testid="button-reset-all"
+              >
+                <Trash2 className="mr-1 w-3 h-3" /> Reset All
+              </Button>
+            </div>
           </div>
 
           {/* Conditions Key */}
@@ -1502,16 +1648,28 @@ export default function InitiativeTracker() {
                                   <HeartPulse className="w-3 h-3 mr-1" /> Stable
                                 </Badge>
                               ) : (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 px-2 text-xs mx-auto"
-                                  onClick={() => rollDeathSave(combatant.id)}
-                                  data-testid={`button-stabilization-${combatant.id}`}
-                                >
-                                  <Dices className="w-3 h-3 mr-1" />
-                                  10% Stabilize
-                                </Button>
+                                <div className="flex items-center gap-1 justify-center">
+                                  <Button
+                                    size="sm"
+                                    variant="default"
+                                    className="h-7 px-2 text-xs bg-green-600"
+                                    onClick={() => record35eStabilization(combatant.id, true)}
+                                    data-testid={`button-stabilization-pass-${combatant.id}`}
+                                  >
+                                    <CircleCheck className="w-3 h-3 mr-1" />
+                                    Pass
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    className="h-7 px-2 text-xs"
+                                    onClick={() => record35eStabilization(combatant.id, false)}
+                                    data-testid={`button-stabilization-fail-${combatant.id}`}
+                                  >
+                                    <CircleX className="w-3 h-3 mr-1" />
+                                    Fail (-1 HP)
+                                  </Button>
+                                </div>
                               )}
                             </div>
                           )}
@@ -1591,26 +1749,69 @@ export default function InitiativeTracker() {
                                   <HeartPulse className="w-3 h-3 mr-1" /> Stabilized
                                 </Badge>
                               ) : (
-                                <div className="flex items-center gap-1 justify-center">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-7 px-2 text-xs"
-                                    onClick={() => rollDeathSave(combatant.id)}
-                                    data-testid={`button-death-save-${combatant.id}`}
-                                  >
-                                    <Dices className="w-3 h-3 mr-1" />
-                                    Roll Save
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-7 px-2 text-xs text-blue-500"
-                                    onClick={() => stabilizePC(combatant.id)}
-                                    data-testid={`button-stabilize-${combatant.id}`}
-                                  >
-                                    Stabilize
-                                  </Button>
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-1 justify-center">
+                                    <Button
+                                      size="sm"
+                                      variant="default"
+                                      className="h-7 px-2 text-xs bg-green-600"
+                                      onClick={() => recordDeathSaveResult(combatant.id, "pass")}
+                                      data-testid={`button-death-save-pass-${combatant.id}`}
+                                    >
+                                      <CircleCheck className="w-3 h-3 mr-1" />
+                                      Pass
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      className="h-7 px-2 text-xs"
+                                      onClick={() => recordDeathSaveResult(combatant.id, "fail")}
+                                      data-testid={`button-death-save-fail-${combatant.id}`}
+                                    >
+                                      <CircleX className="w-3 h-3 mr-1" />
+                                      Fail
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 px-2 text-xs text-blue-500"
+                                      onClick={() => stabilizePC(combatant.id)}
+                                      data-testid={`button-stabilize-${combatant.id}`}
+                                    >
+                                      Stabilize
+                                    </Button>
+                                  </div>
+                                  <div className="flex items-center gap-1 justify-center">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-6 px-2 text-xs border-yellow-500 text-yellow-500"
+                                      onClick={() => recordDeathSaveResult(combatant.id, "nat20")}
+                                      data-testid={`button-death-save-nat20-${combatant.id}`}
+                                    >
+                                      Nat 20
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-6 px-2 text-xs border-red-700 text-red-700"
+                                      onClick={() => recordDeathSaveResult(combatant.id, "nat1")}
+                                      data-testid={`button-death-save-nat1-${combatant.id}`}
+                                    >
+                                      Nat 1
+                                    </Button>
+                                    {effectiveRuleset === "4e" && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-6 px-2 text-xs"
+                                        onClick={() => recordDeathSaveResult(combatant.id, "nochange")}
+                                        data-testid={`button-death-save-nochange-${combatant.id}`}
+                                      >
+                                        No Change
+                                      </Button>
+                                    )}
+                                  </div>
                                 </div>
                               )}
                             </div>
@@ -1676,6 +1877,19 @@ export default function InitiativeTracker() {
                               <Zap className="w-3 h-3 mr-1" />
                               Temp
                             </Button>
+                            {/* Full Heal button for PCs */}
+                            {combatant.combatantType === "pc" && (
+                              <Button 
+                                size="sm"
+                                variant="outline"
+                                className="h-8 px-2 border-emerald-500 text-emerald-500"
+                                onClick={() => fullHeal(combatant.id)}
+                                data-testid={`button-full-heal-${combatant.id}`}
+                              >
+                                <HeartPulse className="w-3 h-3 mr-1" />
+                                Full
+                              </Button>
+                            )}
                           </div>
 
                           {/* AC */}
