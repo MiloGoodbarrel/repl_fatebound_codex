@@ -35,12 +35,30 @@ const VERSION_OPTIONS = [
   { id: "onednd", label: "One D&D" },
 ];
 
-const CONDITIONS = [
-  "Blinded", "Charmed", "Deafened", "Frightened", "Grappled", 
-  "Incapacitated", "Invisible", "Paralyzed", "Petrified", "Poisoned",
-  "Prone", "Restrained", "Stunned", "Unconscious",
-  "Exhaustion 1", "Exhaustion 2", "Exhaustion 3", "Exhaustion 4", "Exhaustion 5", "Exhaustion 6"
-];
+const CONDITION_COLORS: Record<string, string> = {
+  "Blinded": "#6B7280",      // Gray
+  "Charmed": "#EC4899",      // Pink
+  "Deafened": "#8B5CF6",     // Purple
+  "Frightened": "#FBBF24",   // Yellow/Gold
+  "Grappled": "#F97316",     // Orange
+  "Incapacitated": "#1F2937", // Dark Gray
+  "Invisible": "#06B6D4",    // Cyan
+  "Paralyzed": "#3B82F6",    // Blue
+  "Petrified": "#78716C",    // Stone Gray
+  "Poisoned": "#22C55E",     // Green
+  "Prone": "#A16207",        // Brown
+  "Restrained": "#DC2626",   // Red
+  "Stunned": "#FACC15",      // Bright Yellow
+  "Unconscious": "#0F172A",  // Near Black
+  "Exhaustion 1": "#FED7AA", // Light Orange
+  "Exhaustion 2": "#FDBA74", // Orange 1
+  "Exhaustion 3": "#FB923C", // Orange 2
+  "Exhaustion 4": "#F97316", // Orange 3
+  "Exhaustion 5": "#EA580C", // Orange 4
+  "Exhaustion 6": "#9A3412", // Dark Orange/Red
+};
+
+const CONDITIONS = Object.keys(CONDITION_COLORS);
 
 interface Monster {
   index: string;
@@ -496,6 +514,24 @@ export default function InitiativeTracker() {
               </div>
             )}
           </div>
+
+          {/* Conditions Key */}
+          <div className="bg-background/30 p-4 rounded-lg border border-border/50">
+            <Label className="font-display text-sm flex items-center gap-2 mb-3">
+              <AlertCircle className="w-4 h-4" /> Conditions Key
+            </Label>
+            <div className="grid grid-cols-2 gap-1.5 text-xs">
+              {CONDITIONS.map(condition => (
+                <div key={condition} className="flex items-center gap-2">
+                  <div 
+                    className="w-3 h-3 rounded-sm flex-shrink-0"
+                    style={{ backgroundColor: CONDITION_COLORS[condition] }}
+                  />
+                  <span className="truncate">{condition}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -550,6 +586,18 @@ export default function InitiativeTracker() {
                             />
                           </div>
 
+                          {/* Condition Color Indicators */}
+                          <div className="flex gap-0.5 flex-shrink-0">
+                            {combatant.conditions.map(condition => (
+                              <div 
+                                key={condition}
+                                className="w-1.5 h-10 rounded-sm"
+                                style={{ backgroundColor: CONDITION_COLORS[condition] }}
+                                title={condition}
+                              />
+                            ))}
+                          </div>
+
                           {/* Name & Type */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
@@ -583,8 +631,8 @@ export default function InitiativeTracker() {
                               {combatant.conditions.map(condition => (
                                 <Badge 
                                   key={condition} 
-                                  variant="destructive" 
-                                  className="text-xs cursor-pointer"
+                                  className="text-xs cursor-pointer text-white border-0"
+                                  style={{ backgroundColor: CONDITION_COLORS[condition] }}
                                   onClick={() => toggleCondition(combatant.id, condition)}
                                   data-testid={`badge-condition-${combatant.id}-${condition}`}
                                 >
