@@ -382,6 +382,69 @@ async function syncItemsFromApi() {
   }
 }
 
+// Fetch monsters from 5e API
+async function fetchMonstersFromApi(versions: string[]) {
+  const monsters: any[] = [];
+  
+  // For 5e and One D&D, use the dnd5eapi
+  if (versions.includes("5e") || versions.includes("onednd")) {
+    try {
+      const response = await fetch("https://www.dnd5eapi.co/api/monsters");
+      if (response.ok) {
+        const data = await response.json() as { results: Array<{ index: string; name: string; url: string }> };
+        
+        // Fetch details for first 100 monsters to avoid rate limits
+        const promises = data.results.slice(0, 100).map(async (m) => {
+          try {
+            const detailRes = await fetch(`https://www.dnd5eapi.co${m.url}`);
+            if (detailRes.ok) {
+              const detail = await detailRes.json() as any;
+              return {
+                index: m.index,
+                name: m.name,
+                hp: detail.hit_points || 0,
+                ac: detail.armor_class?.[0]?.value || 10,
+                cr: detail.challenge_rating?.toString() || "0",
+                type: detail.type || "unknown",
+                size: detail.size || "Medium",
+                resistances: detail.damage_resistances || [],
+                immunities: detail.damage_immunities || [],
+                vulnerabilities: detail.damage_vulnerabilities || [],
+              };
+            }
+          } catch {
+            return null;
+          }
+        });
+        
+        const results = await Promise.all(promises);
+        monsters.push(...results.filter(Boolean));
+      }
+    } catch (error) {
+      console.warn("Could not fetch 5e monsters:", error);
+    }
+  }
+  
+  // For 3.5 and 4th edition, add some common monsters with basic stats
+  if (versions.includes("3.5") || versions.includes("4th")) {
+    const classicMonsters = [
+      { index: "goblin-classic", name: "Goblin", hp: 7, ac: 15, cr: "1/4", type: "humanoid", size: "Small", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "orc-classic", name: "Orc", hp: 15, ac: 13, cr: "1/2", type: "humanoid", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "kobold-classic", name: "Kobold", hp: 5, ac: 12, cr: "1/8", type: "humanoid", size: "Small", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "skeleton-classic", name: "Skeleton", hp: 13, ac: 13, cr: "1/4", type: "undead", size: "Medium", resistances: [], immunities: ["poison"], vulnerabilities: ["bludgeoning"] },
+      { index: "zombie-classic", name: "Zombie", hp: 22, ac: 8, cr: "1/4", type: "undead", size: "Medium", resistances: [], immunities: ["poison"], vulnerabilities: [] },
+      { index: "ogre-classic", name: "Ogre", hp: 59, ac: 11, cr: "2", type: "giant", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "troll-classic", name: "Troll", hp: 84, ac: 15, cr: "5", type: "giant", size: "Large", resistances: [], immunities: [], vulnerabilities: ["fire", "acid"] },
+      { index: "dragon-red-young", name: "Young Red Dragon", hp: 178, ac: 18, cr: "10", type: "dragon", size: "Large", resistances: [], immunities: ["fire"], vulnerabilities: [] },
+      { index: "beholder-classic", name: "Beholder", hp: 180, ac: 18, cr: "13", type: "aberration", size: "Large", resistances: [], immunities: [], vulnerabilities: [] },
+      { index: "mind-flayer-classic", name: "Mind Flayer", hp: 71, ac: 15, cr: "7", type: "aberration", size: "Medium", resistances: [], immunities: [], vulnerabilities: [] },
+    ];
+    monsters.push(...classicMonsters);
+  }
+  
+  return monsters;
+}
+
 // Parse CSV and validate
 function parseCSV(csvText: string): any[] {
   const lines = csvText.trim().split('\n');
@@ -499,6 +562,18 @@ export async function registerRoutes(
       res.status(400).json({ 
         message: err instanceof Error ? err.message : "Error processing upload" 
       });
+    }
+  });
+
+  // Monster bestiary endpoint
+  app.get("/api/monsters", async (req, res) => {
+    try {
+      const versions = (req.query.versions as string)?.split(",") || ["5e"];
+      const monsters = await fetchMonstersFromApi(versions);
+      res.json(monsters);
+    } catch (err) {
+      console.error("Error fetching monsters:", err);
+      res.status(500).json({ message: "Failed to fetch monsters" });
     }
   });
 
