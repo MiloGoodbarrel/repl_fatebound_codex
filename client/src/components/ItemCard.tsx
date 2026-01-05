@@ -42,85 +42,90 @@ export function ItemCard({ item, index }: ItemCardProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20, rotateY: 90 }}
-      animate={{ opacity: 1, y: 0, rotateY: 0 }}
+      initial={{ opacity: 0, y: 30, rotateY: 180, scale: 0.8 }}
+      animate={{ opacity: 1, y: 0, rotateY: 0, scale: 1 }}
       transition={{ 
-        duration: 0.5, 
-        delay: index * 0.1, 
+        duration: 0.6, 
+        delay: index * 0.15, 
         type: "spring",
-        stiffness: 100 
+        stiffness: 80,
+        damping: 12
       }}
+      style={{ perspective: "1000px" }}
       className={cn(
-        "relative group h-[400px] w-full bg-card rounded-xl p-6 flex flex-col border-2 overflow-hidden",
-        "hover:-translate-y-2 transition-transform duration-300",
-        rarityStyle.border,
+        "relative group tarot-card p-5 flex flex-col overflow-hidden cursor-default",
+        "hover:-translate-y-2 hover:shadow-2xl transition-all duration-300",
         rarityStyle.glow
       )}
     >
-      {/* Background Pattern */}
-      <div className="absolute inset-0 opacity-5 bg-[url('https://www.transparenttextures.com/patterns/black-scales.png')] mix-blend-overlay pointer-events-none" />
+      {/* Parchment texture overlay */}
+      <div className="absolute inset-0 opacity-[0.15] pointer-events-none bg-[url('data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%224%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/%3E%3C/svg%3E')]" />
       
       {/* Header */}
-      <div className="flex justify-between items-start mb-4 relative z-10">
-        <div className="bg-background/80 backdrop-blur-sm p-2 rounded-lg border border-border">
-          {icon}
+      <div className="flex justify-between items-start mb-3 relative z-10">
+        <div className="p-2 rounded border border-amber-700/40 bg-amber-900/10">
+          <div className="text-amber-800">{icon}</div>
         </div>
         {item.rarity === "Legendary" && (
-          <Crown className="w-6 h-6 text-amber-500 animate-pulse" />
+          <Crown className="w-5 h-5 text-amber-600 animate-pulse" />
         )}
       </div>
 
       {/* Title */}
-      <h3 className={cn("font-display text-xl font-bold mb-1 leading-tight", rarityStyle.color)}>
+      <h3 className={cn("font-display text-lg font-bold mb-1 leading-tight ink-text", rarityStyle.color)}>
         {item.name}
       </h3>
       
       {/* Subtitle */}
-      <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-4">
+      <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest ink-faded mb-3 flex-wrap">
         <span>{item.rarity}</span>
-        <span>•</span>
+        <span className="text-amber-700">*</span>
         <span>{item.category}</span>
         {(item as any).weaponType && (
           <>
-            <span>•</span>
+            <span className="text-amber-700">*</span>
             <span>{(item as any).weaponType}</span>
           </>
         )}
-        <span>•</span>
+        <span className="text-amber-700">*</span>
         <span>{item.version}</span>
       </div>
 
-      {/* Divider */}
-      <div className="h-px w-full bg-gradient-to-r from-transparent via-border to-transparent mb-4" />
+      {/* Ornamental Divider */}
+      <div className="flex items-center gap-2 mb-3">
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-700/50 to-transparent" />
+        <Sparkles className="w-3 h-3 text-amber-700/60" />
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-700/50 to-transparent" />
+      </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto scrollbar-fantasy pr-2 relative z-10">
-        <p className="text-sm leading-relaxed text-muted-foreground font-serif">
+      <div className="flex-1 overflow-y-auto scrollbar-fantasy pr-1 relative z-10">
+        <p className="text-xs leading-relaxed ink-faded font-serif">
           {item.description}
         </p>
       </div>
 
       {/* Footer / Meta */}
-      <div className="mt-4 pt-3 border-t border-border/50 space-y-2">
+      <div className="mt-3 pt-2 border-t border-amber-700/30 space-y-1">
         {item.attunement && (
-          <p className="text-xs text-amber-400/90 font-serif text-center bg-amber-900/20 py-1 rounded">
+          <p className="text-[10px] text-amber-800 font-serif text-center bg-amber-900/10 py-1 rounded border border-amber-700/20">
             {item.attunement}
           </p>
         )}
         {item.meta && (
-          <div className="text-xs text-center bg-primary/5 py-1 rounded">
+          <div className="text-[10px] text-center">
             {item.meta.includes("SRD") ? (
               <a
                 href={`https://5e.tools/items.html#${item.name.replace(/\s+/g, "_").toLowerCase()}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary/80 hover:text-primary/100 font-mono underline decoration-dashed hover:decoration-solid transition-colors"
+                className="text-amber-700 hover:text-amber-600 font-mono underline decoration-dashed hover:decoration-solid transition-colors"
                 data-testid="link-srd-source"
               >
                 {item.meta}
               </a>
             ) : (
-              <p className="text-primary/80 font-mono">
+              <p className="text-amber-700/70 font-mono">
                 {item.meta}
               </p>
             )}

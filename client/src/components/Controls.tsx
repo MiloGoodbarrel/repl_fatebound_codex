@@ -123,22 +123,22 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
   };
 
   return (
-    <div className="h-full overflow-y-auto p-6 bg-card border-r border-border scrollbar-fantasy">
+    <div className="h-full overflow-y-auto p-6 parchment tome-edge scrollbar-fantasy">
       <div className="space-y-8">
         {/* Header */}
         <div className="space-y-2">
-          <h2 className="text-2xl font-display font-bold text-primary flex items-center gap-2">
+          <h2 className="text-2xl font-display font-bold text-amber-800 flex items-center gap-2">
             <Sparkles className="w-5 h-5" />
             Deck of Loot
           </h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm ink-faded font-serif">
             Configure your mystical draw parameters below.
           </p>
         </div>
 
         {/* Search Input */}
         <div className="space-y-2">
-          <Label className="font-display text-sm flex items-center gap-2">
+          <Label className="font-display text-sm flex items-center gap-2 ink-text">
             <Search className="w-4 h-4" /> Search Drawn Items
           </Label>
           <div className="relative">
@@ -146,7 +146,7 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
               value={searchTerm}
               onChange={(e) => onSearchChange?.(e.target.value)}
               placeholder="Filter by name..."
-              className="pl-9 bg-background/50"
+              className="pl-9 bg-amber-50/50 border-amber-700/30 text-amber-900 placeholder:text-amber-700/50"
             />
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             {searchTerm && (
@@ -163,10 +163,10 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
         </div>
 
         {/* Count Slider */}
-        <div className="space-y-4 bg-background/30 p-4 rounded-lg border border-border/50">
+        <div className="space-y-4 bg-amber-900/5 p-4 rounded-lg border border-amber-700/20">
           <div className="flex justify-between items-center">
-            <Label className="font-display text-lg">Card Count</Label>
-            <span className="font-mono text-xl text-primary font-bold">{count[0]}</span>
+            <Label className="font-display text-lg ink-text">Card Count</Label>
+            <span className="font-mono text-xl text-amber-700 font-bold">{count[0]}</span>
           </div>
           <Slider 
             value={count} 
@@ -181,14 +181,14 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
         {/* Categories */}
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <Label className="font-display text-lg flex items-center gap-2">
+            <Label className="font-display text-lg flex items-center gap-2 ink-text">
               <Layers className="w-4 h-4" /> Categories
             </Label>
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={toggleAllCategories}
-              className="h-6 text-xs text-muted-foreground hover:text-primary"
+              className="h-6 text-xs text-amber-700 hover:text-amber-600"
             >
               {categories.length === CATEGORIES.length ? "Clear All" : "Select All"}
             </Button>
@@ -200,11 +200,11 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
                   id={`cat-${cat}`} 
                   checked={categories.includes(cat)}
                   onCheckedChange={() => toggleCategory(cat)}
-                  className="border-muted-foreground data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                  className="border-amber-700/40 data-[state=checked]:bg-amber-700 data-[state=checked]:text-amber-50"
                 />
                 <label 
                   htmlFor={`cat-${cat}`}
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer text-muted-foreground peer-data-[state=checked]:text-foreground transition-colors"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer ink-faded peer-data-[state=checked]:text-amber-900 transition-colors"
                 >
                   {cat}
                 </label>
@@ -216,19 +216,19 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
         {/* Rarities */}
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <Label className="font-display text-lg flex items-center gap-2">
+            <Label className="font-display text-lg flex items-center gap-2 ink-text">
               <CrownIcon className="w-4 h-4" /> Rarities
             </Label>
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={toggleAllRarities}
-              className="h-6 text-xs text-muted-foreground hover:text-primary"
+              className="h-6 text-xs text-amber-700 hover:text-amber-600"
             >
               {rarities.length === RARITIES.length ? "Clear All" : "Select All"}
             </Button>
           </div>
-          <div className="space-y-2 bg-background/30 p-4 rounded-lg border border-border/50">
+          <div className="space-y-2 bg-amber-900/5 p-4 rounded-lg border border-amber-700/20">
             {RARITIES.map(rar => (
               <div key={rar} className="flex items-center space-x-2">
                 <Checkbox 
@@ -236,11 +236,11 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
                   checked={rarities.includes(rar)}
                   onCheckedChange={() => toggleRarity(rar)}
                   className={cn(
-                    "border-muted-foreground",
-                    rar === "Legendary" && "data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500",
-                    rar === "Very Rare" && "data-[state=checked]:bg-purple-500 data-[state=checked]:border-purple-500",
-                    rar === "Rare" && "data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500",
-                    rar === "Uncommon" && "data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500",
+                    "border-amber-700/40",
+                    rar === "Legendary" && "data-[state=checked]:bg-amber-600 data-[state=checked]:border-amber-600",
+                    rar === "Very Rare" && "data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-600",
+                    rar === "Rare" && "data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600",
+                    rar === "Uncommon" && "data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600",
                     rar === "Common" && "data-[state=checked]:bg-zinc-500 data-[state=checked]:border-zinc-500"
                   )}
                 />
@@ -248,7 +248,7 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
                   htmlFor={`rar-${rar}`}
                   className={cn(
                     "text-sm font-medium leading-none cursor-pointer transition-colors",
-                    rar === "Legendary" ? "text-amber-500/80 hover:text-amber-400" : "text-muted-foreground hover:text-foreground"
+                    rar === "Legendary" ? "text-amber-700 hover:text-amber-600" : "ink-faded hover:text-amber-900"
                   )}
                 >
                   {rar}
@@ -261,28 +261,28 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
         {/* Versions */}
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <Label className="font-display text-lg">D&D Versions</Label>
+            <Label className="font-display text-lg ink-text">D&D Versions</Label>
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={toggleAllVersions}
-              className="h-6 text-xs text-muted-foreground hover:text-primary"
+              className="h-6 text-xs text-amber-700 hover:text-amber-600"
             >
               {versions.length === VERSIONS.length ? "Clear All" : "Select All"}
             </Button>
           </div>
-          <div className="grid grid-cols-2 gap-2 bg-background/30 p-4 rounded-lg border border-border/50">
+          <div className="grid grid-cols-2 gap-2 bg-amber-900/5 p-4 rounded-lg border border-amber-700/20">
             {VERSIONS.map(ver => (
               <div key={ver} className="flex items-center space-x-2">
                 <Checkbox 
                   id={`ver-${ver}`}
                   checked={versions.includes(ver)}
                   onCheckedChange={() => toggleVersion(ver)}
-                  className="border-muted-foreground data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                  className="border-amber-700/40 data-[state=checked]:bg-amber-700 data-[state=checked]:text-amber-50"
                 />
                 <label 
                   htmlFor={`ver-${ver}`}
-                  className="text-sm font-medium leading-none cursor-pointer text-muted-foreground peer-data-[state=checked]:text-foreground transition-colors"
+                  className="text-sm font-medium leading-none cursor-pointer ink-faded peer-data-[state=checked]:text-amber-900 transition-colors"
                 >
                   {ver}
                 </label>
@@ -292,9 +292,9 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
         </div>
 
         {/* CSV Import */}
-        <div className="space-y-2 bg-background/30 p-4 rounded-lg border border-dashed border-border/50">
-          <Label className="font-display text-sm">Import Homebrew (CSV)</Label>
-          <p className="text-xs text-muted-foreground">Headers: Item Name, Item Description, Category, Rarity, Version, Attunement</p>
+        <div className="space-y-2 bg-amber-900/5 p-4 rounded-lg border border-dashed border-amber-700/30">
+          <Label className="font-display text-sm ink-text">Import Homebrew (CSV)</Label>
+          <p className="text-xs ink-faded">Headers: Item Name, Item Description, Category, Rarity, Version, Attunement</p>
           <input
             ref={fileInputRef}
             type="file"
@@ -320,10 +320,10 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
         <Button 
           onClick={handleDraw}
           disabled={isDrawing || categories.length === 0 || rarities.length === 0 || versions.length === 0}
-          className="w-full h-14 text-lg font-display font-bold uppercase tracking-widest relative overflow-hidden group shadow-lg hover:shadow-primary/20 transition-all"
+          className="w-full h-14 text-lg font-display font-bold uppercase tracking-widest relative overflow-hidden group shadow-lg bg-amber-800 hover:bg-amber-700 text-amber-50 border-2 border-amber-900"
           data-testid="button-draw-cards"
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700" />
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-400/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700" />
           {isDrawing ? (
             <span className="flex items-center gap-2 animate-pulse">
               <Dices className="animate-spin" /> Drawing...
@@ -336,7 +336,7 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
         </Button>
 
         {/* Disclaimer */}
-        <p className="text-xs text-center text-muted-foreground italic font-serif">
+        <p className="text-xs text-center ink-faded italic font-serif">
           "Fate is not drawn, it is forged."
         </p>
       </div>
