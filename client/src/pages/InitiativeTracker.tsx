@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/hover-card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
-  Swords, Plus, Trash2, ChevronUp, ChevronDown, User, Heart, Shield, 
+  Swords, Plus, Trash2, User, Heart, Shield, 
   RotateCcw, Home, Search, Play, SkipForward, Square, Skull, AlertCircle,
   Loader2, Zap
 } from "lucide-react";
@@ -141,6 +141,7 @@ interface Combatant {
   initiative: number;
   hp: number;
   maxHp: number;
+  tempHp: number;
   ac: number;
   isMonster: boolean;
   combatantType: CombatantType;
@@ -177,6 +178,9 @@ export default function InitiativeTracker() {
   const [npcHp, setNpcHp] = useState("");
   const [npcAc, setNpcAc] = useState("");
   const [npcStance, setNpcStance] = useState<NPCStance>("enemy");
+  
+  // HP modification inputs per combatant
+  const [hpInputs, setHpInputs] = useState<Record<string, string>>({});
 
   // Fetch monsters when versions are selected
   useEffect(() => {
@@ -244,6 +248,7 @@ export default function InitiativeTracker() {
       initiative: 0,
       hp: Math.max(1, rolledHp),
       maxHp: Math.max(1, rolledHp),
+      tempHp: 0,
       ac: selectedMonster.ac,
       isMonster: true,
       combatantType: "monster",
@@ -265,6 +270,7 @@ export default function InitiativeTracker() {
       initiative: pcInitiative ? parseInt(pcInitiative) : 0,
       hp: pcHp ? parseInt(pcHp) : 0,
       maxHp: pcHp ? parseInt(pcHp) : 0,
+      tempHp: 0,
       ac: pcAc ? parseInt(pcAc) : 0,
       isMonster: false,
       combatantType: "pc",
@@ -301,6 +307,7 @@ export default function InitiativeTracker() {
       initiative: 0,
       hp: npcHp ? parseInt(npcHp) : 10,
       maxHp: npcHp ? parseInt(npcHp) : 10,
+      tempHp: 0,
       ac: npcAc ? parseInt(npcAc) : 10,
       isMonster: true,
       combatantType: "npc",
@@ -328,14 +335,72 @@ export default function InitiativeTracker() {
     updateCombatant(id, { initiative: parseInt(value) || 0 });
   };
 
-  const updateHp = (id: string, delta: number) => {
+  const getHpInput = (id: string): number => {
+    const value = parseInt(hpInputs[id] || "0");
+    return isNaN(value) ? 0 : Math.abs(value);
+  };
+
+  const clearHpInput = (id: string) => {
+    setHpInputs(prev => ({ ...prev, [id]: "" }));
+  };
+
+  const applyDamage = (id: string) => {
     const combatant = combatants.find(c => c.id === id);
     if (!combatant) return;
-    const newHp = Math.max(0, combatant.hp + delta);
+    
+    let damage = getHpInput(id);
+    if (damage <= 0) return;
+    
+    let newTempHp = combatant.tempHp;
+    let newHp = combatant.hp;
+    
+    if (newTempHp > 0) {
+      if (damage <= newTempHp) {
+        newTempHp -= damage;
+        damage = 0;
+      } else {
+        damage -= newTempHp;
+        newTempHp = 0;
+      }
+    }
+    
+    newHp = Math.max(0, newHp - damage);
+    
+    updateCombatant(id, { 
+      hp: newHp, 
+      tempHp: newTempHp,
+      isDown: newHp === 0 
+    });
+    clearHpInput(id);
+  };
+
+  const applyHeal = (id: string) => {
+    const combatant = combatants.find(c => c.id === id);
+    if (!combatant) return;
+    
+    const heal = getHpInput(id);
+    if (heal <= 0) return;
+    
+    const newHp = Math.min(combatant.maxHp, combatant.hp + heal);
+    
     updateCombatant(id, { 
       hp: newHp, 
       isDown: newHp === 0 
     });
+    clearHpInput(id);
+  };
+
+  const applyTempHp = (id: string) => {
+    const combatant = combatants.find(c => c.id === id);
+    if (!combatant) return;
+    
+    const tempHp = getHpInput(id);
+    if (tempHp <= 0) return;
+    
+    const newTempHp = Math.max(combatant.tempHp, tempHp);
+    
+    updateCombatant(id, { tempHp: newTempHp });
+    clearHpInput(id);
   };
 
   const toggleCondition = (id: string, condition: string) => {
@@ -1017,30 +1082,59 @@ export default function InitiativeTracker() {
                             </div>
                           </div>
 
-                          {/* HP */}
-                          <div className="flex items-center gap-2">
-                            <Button 
-                              size="icon" 
-                              variant="outline" 
-                              className="h-8 w-8"
-                              onClick={() => updateHp(combatant.id, -1)}
-                            >
-                              <ChevronDown className="h-4 w-4" />
-                            </Button>
-                            <div className="text-center w-16">
+                          {/* HP Display */}
+                          <div className="text-center min-w-[80px]">
+                            <div className="flex items-center justify-center gap-1">
                               <span className="font-mono font-bold text-lg">{combatant.hp}</span>
                               <span className="text-muted-foreground text-sm">/{combatant.maxHp}</span>
-                              <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
-                                <Heart className="w-3 h-3" /> HP
-                              </div>
+                              {combatant.tempHp > 0 && (
+                                <span className="font-mono text-cyan-500 text-sm">(+{combatant.tempHp})</span>
+                              )}
                             </div>
+                            <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                              <Heart className="w-3 h-3" /> HP
+                            </div>
+                          </div>
+
+                          {/* HP Controls */}
+                          <div className="flex items-center gap-1">
+                            <Input
+                              type="number"
+                              placeholder="0"
+                              className="w-16 h-8 text-center text-sm"
+                              value={hpInputs[combatant.id] || ""}
+                              onChange={(e) => setHpInputs(prev => ({ ...prev, [combatant.id]: e.target.value }))}
+                              data-testid={`input-hp-${combatant.id}`}
+                            />
                             <Button 
-                              size="icon" 
-                              variant="outline" 
-                              className="h-8 w-8"
-                              onClick={() => updateHp(combatant.id, 1)}
+                              size="sm"
+                              variant="destructive"
+                              className="h-8 px-2"
+                              onClick={() => applyDamage(combatant.id)}
+                              data-testid={`button-damage-${combatant.id}`}
                             >
-                              <ChevronUp className="h-4 w-4" />
+                              <Skull className="w-3 h-3 mr-1" />
+                              Dmg
+                            </Button>
+                            <Button 
+                              size="sm"
+                              variant="default"
+                              className="h-8 px-2 bg-green-600 hover:bg-green-700"
+                              onClick={() => applyHeal(combatant.id)}
+                              data-testid={`button-heal-${combatant.id}`}
+                            >
+                              <Heart className="w-3 h-3 mr-1" />
+                              Heal
+                            </Button>
+                            <Button 
+                              size="sm"
+                              variant="outline"
+                              className="h-8 px-2 border-cyan-500 text-cyan-500"
+                              onClick={() => applyTempHp(combatant.id)}
+                              data-testid={`button-temp-hp-${combatant.id}`}
+                            >
+                              <Zap className="w-3 h-3 mr-1" />
+                              Temp
                             </Button>
                           </div>
 
