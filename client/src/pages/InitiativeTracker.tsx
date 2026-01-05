@@ -41,6 +41,40 @@ const VERSION_OPTIONS = [
   { id: "onednd", label: "One D&D" },
 ];
 
+// Version priority for death rules (higher = more priority)
+const VERSION_PRIORITY: Record<string, number> = {
+  "OD&D": 1,
+  "AD&D": 2,
+  "3e": 3,
+  "3.5": 4,
+  "4th": 5,
+  "5e": 6,
+  "onednd": 7,
+};
+
+// Determine effective ruleset from selected versions
+type DeathRuleset = "3.5e" | "4e" | "5e";
+function getEffectiveRuleset(versions: string[]): DeathRuleset {
+  if (versions.length === 0) return "5e";
+  
+  // Find highest priority version
+  let maxPriority = 0;
+  let effectiveVersion = "5e";
+  
+  for (const v of versions) {
+    const priority = VERSION_PRIORITY[v] || 0;
+    if (priority > maxPriority) {
+      maxPriority = priority;
+      effectiveVersion = v;
+    }
+  }
+  
+  // Map to ruleset
+  if (effectiveVersion === "3.5" || effectiveVersion === "3e") return "3.5e";
+  if (effectiveVersion === "4th") return "4e";
+  return "5e"; // 5e, onednd, and others use 5e rules
+}
+
 const CONDITION_COLORS: Record<string, string> = {
   "Blinded": "#6B7280",      // Gray
   "Charmed": "#EC4899",      // Pink
@@ -153,6 +187,11 @@ interface Combatant {
   deathSaveFailures: number;
   isStable: boolean;
   isDead: boolean;
+  // 4e-specific: healing surges and lingering failures
+  healingSurges?: number;
+  maxHealingSurges?: number;
+  // 3.5e-specific: disabled state (at exactly 0 HP)
+  isDisabled?: boolean;
 }
 
 type CombatState = "setup" | "active" | "ended";
@@ -272,12 +311,16 @@ export default function InitiativeTracker() {
 
   const addPC = () => {
     if (!pcName) return;
+    const maxHp = pcHp ? parseInt(pcHp) : 0;
+    // 4e: Calculate healing surges (typically Con mod + 2-3, we'll default to Con-based formula: quarter max HP heal value, ~7 surges)
+    const defaultSurges = effectiveRuleset === "4e" ? 7 : 0;
+    
     const newCombatant: Combatant = {
       id: Math.random().toString(36).substr(2, 9),
       name: pcName,
       initiative: pcInitiative ? parseInt(pcInitiative) : 0,
-      hp: pcHp ? parseInt(pcHp) : 0,
-      maxHp: pcHp ? parseInt(pcHp) : 0,
+      hp: maxHp,
+      maxHp: maxHp,
       tempHp: 0,
       ac: pcAc ? parseInt(pcAc) : 0,
       isMonster: false,
@@ -288,6 +331,9 @@ export default function InitiativeTracker() {
       deathSaveFailures: 0,
       isStable: false,
       isDead: false,
+      healingSurges: defaultSurges,
+      maxHealingSurges: defaultSurges,
+      isDisabled: false,
     };
     setCombatants(prev => [...prev, newCombatant]);
     setPcName("");
@@ -360,6 +406,9 @@ export default function InitiativeTracker() {
     setHpInputs(prev => ({ ...prev, [id]: "" }));
   };
 
+  // Get effective death ruleset
+  const effectiveRuleset = getEffectiveRuleset(selectedVersions);
+
   const applyDamage = (id: string, isCrit: boolean = false) => {
     const combatant = combatants.find(c => c.id === id);
     if (!combatant) return;
@@ -367,39 +416,8 @@ export default function InitiativeTracker() {
     let damage = getHpInput(id);
     if (damage <= 0) return;
     
-    // If PC is at 0 HP, damage causes automatic death save failures
-    // Also check for instant death from massive damage at 0 HP
-    if (combatant.combatantType === "pc" && combatant.hp === 0 && !combatant.isDead) {
-      // Massive damage at 0 HP = instant death
-      if (damage >= combatant.maxHp) {
-        updateCombatant(id, {
-          isDead: true,
-          isDown: true,
-          deathSaveFailures: 3,
-          deathSaveSuccesses: 0
-        });
-        clearHpInput(id);
-        return;
-      }
-      
-      const failures = isCrit ? 2 : 1;
-      const newFailures = Math.min(3, combatant.deathSaveFailures + failures);
-      // Taking damage breaks stability and resets successes (per 5e rules)
-      updateCombatant(id, {
-        deathSaveFailures: newFailures,
-        deathSaveSuccesses: 0,
-        isStable: false,
-        isDead: newFailures >= 3,
-        isDown: true
-      });
-      clearHpInput(id);
-      return;
-    }
-    
+    // Handle temp HP first (same for all editions)
     let newTempHp = combatant.tempHp;
-    let newHp = combatant.hp;
-    let leftoverDamage = 0;
-    
     if (newTempHp > 0) {
       if (damage <= newTempHp) {
         newTempHp -= damage;
@@ -410,25 +428,110 @@ export default function InitiativeTracker() {
       }
     }
     
-    // Calculate leftover damage after reaching 0 HP
-    if (damage > newHp) {
-      leftoverDamage = damage - newHp;
-      newHp = 0;
+    if (damage === 0) {
+      updateCombatant(id, { tempHp: newTempHp });
+      clearHpInput(id);
+      return;
+    }
+
+    // Edition-specific damage handling
+    if (effectiveRuleset === "3.5e") {
+      // 3.5e: HP can go negative, death at -10
+      const newHp = combatant.hp - damage;
+      const isDead = newHp <= -10;
+      const isDisabled = newHp === 0;
+      const isDown = newHp < 0; // Dying state
+      
+      updateCombatant(id, {
+        hp: newHp,
+        tempHp: newTempHp,
+        isDown: isDown || isDisabled,
+        isDisabled,
+        isDead,
+        isStable: isDead ? false : combatant.isStable
+      });
+    } else if (effectiveRuleset === "4e") {
+      // 4e: Death at negative half max HP
+      const newHp = combatant.hp - damage;
+      const halfMaxHp = Math.floor(combatant.maxHp / 2);
+      const instantDeath = newHp <= -halfMaxHp;
+      const isDown = newHp <= 0;
+      
+      // Damage at 0 HP causes auto failure (like 5e but different)
+      if (combatant.hp <= 0 && !combatant.isDead && combatant.combatantType === "pc") {
+        const failures = isCrit ? 2 : 1;
+        const newFailures = Math.min(3, combatant.deathSaveFailures + failures);
+        updateCombatant(id, {
+          hp: Math.min(0, newHp), // Keep at 0 or lower
+          tempHp: newTempHp,
+          deathSaveFailures: newFailures,
+          isStable: false,
+          isDead: instantDeath || newFailures >= 3,
+          isDown: true
+        });
+      } else {
+        updateCombatant(id, {
+          hp: newHp,
+          tempHp: newTempHp,
+          isDown,
+          isDead: instantDeath,
+          isStable: isDown ? false : combatant.isStable
+        });
+      }
     } else {
-      newHp = newHp - damage;
+      // 5e/One D&D: HP floors at 0, death saves, massive damage rule
+      
+      // If PC is already at 0 HP, damage causes automatic death save failures
+      if (combatant.combatantType === "pc" && combatant.hp === 0 && !combatant.isDead) {
+        // Massive damage at 0 HP = instant death
+        if (damage >= combatant.maxHp) {
+          updateCombatant(id, {
+            isDead: true,
+            isDown: true,
+            deathSaveFailures: 3,
+            deathSaveSuccesses: 0
+          });
+          clearHpInput(id);
+          return;
+        }
+        
+        const failures = isCrit ? 2 : 1;
+        const newFailures = Math.min(3, combatant.deathSaveFailures + failures);
+        updateCombatant(id, {
+          deathSaveFailures: newFailures,
+          deathSaveSuccesses: 0,
+          isStable: false,
+          isDead: newFailures >= 3,
+          isDown: true
+        });
+        clearHpInput(id);
+        return;
+      }
+      
+      // Calculate HP with floor at 0
+      let newHp = combatant.hp;
+      let leftoverDamage = 0;
+      
+      if (damage > newHp) {
+        leftoverDamage = damage - newHp;
+        newHp = 0;
+      } else {
+        newHp = newHp - damage;
+      }
+      
+      // Check for massive damage instant death (leftover damage >= max HP)
+      const instantDeath = combatant.combatantType === "pc" && newHp === 0 && leftoverDamage >= combatant.maxHp;
+      
+      updateCombatant(id, { 
+        hp: newHp, 
+        tempHp: newTempHp,
+        isDown: newHp === 0,
+        isStable: newHp === 0 ? false : combatant.isStable,
+        isDead: instantDeath,
+        deathSaveFailures: instantDeath ? 3 : combatant.deathSaveFailures
+      });
     }
     
-    // Check for massive damage instant death (leftover damage >= max HP)
-    const instantDeath = combatant.combatantType === "pc" && newHp === 0 && leftoverDamage >= combatant.maxHp;
-    
-    updateCombatant(id, { 
-      hp: newHp, 
-      tempHp: newTempHp,
-      isDown: newHp === 0,
-      isStable: newHp === 0 ? false : combatant.isStable,
-      isDead: instantDeath,
-      deathSaveFailures: instantDeath ? 3 : combatant.deathSaveFailures
-    });
     clearHpInput(id);
   };
 
@@ -439,17 +542,37 @@ export default function InitiativeTracker() {
     const heal = getHpInput(id);
     if (heal <= 0) return;
     
-    const newHp = Math.min(combatant.maxHp, combatant.hp + heal);
+    let newHp: number;
     
-    // Healing resets death saves and wakes up the PC
+    if (effectiveRuleset === "3.5e") {
+      // 3.5e: Healing adds directly from negative total
+      newHp = Math.min(combatant.maxHp, combatant.hp + heal);
+    } else if (effectiveRuleset === "4e") {
+      // 4e: Healing treats you as at 0, then adds
+      if (combatant.hp < 0) {
+        newHp = Math.min(combatant.maxHp, heal); // From 0 + heal
+      } else {
+        newHp = Math.min(combatant.maxHp, combatant.hp + heal);
+      }
+    } else {
+      // 5e: Standard healing (HP can't go below 0 anyway)
+      newHp = Math.min(combatant.maxHp, combatant.hp + heal);
+    }
+    
+    // Update statuses based on new HP
     const updates: Partial<Combatant> = { 
       hp: newHp, 
-      isDown: newHp === 0
+      isDown: newHp <= 0,
+      isDisabled: effectiveRuleset === "3.5e" && newHp === 0
     };
     
-    if (combatant.combatantType === "pc" && combatant.hp === 0 && newHp > 0) {
+    // Reset death saves when healed above 0 (5e) or stabilizing states
+    if (combatant.combatantType === "pc" && newHp > 0) {
+      // 4e: Don't reset failures (they persist until rest)
+      if (effectiveRuleset !== "4e") {
+        updates.deathSaveFailures = 0;
+      }
       updates.deathSaveSuccesses = 0;
-      updates.deathSaveFailures = 0;
       updates.isStable = false;
     }
     
@@ -470,14 +593,96 @@ export default function InitiativeTracker() {
     clearHpInput(id);
   };
 
-  const [lastDeathSaveRoll, setLastDeathSaveRoll] = useState<{id: string, roll: number} | null>(null);
+  const [lastDeathSaveRoll, setLastDeathSaveRoll] = useState<{id: string, roll: number, result?: string} | null>(null);
 
-  const rollDeathSave = (id: string) => {
+  // 3.5e: 10% stabilization roll (d100, roll 1-10 = stabilize)
+  const roll35eStabilization = (id: string) => {
+    const combatant = combatants.find(c => c.id === id);
+    if (!combatant || combatant.combatantType !== "pc" || combatant.hp >= 0 || combatant.isDead || combatant.isStable) return;
+    
+    const roll = Math.floor(Math.random() * 100) + 1; // 1-100
+    const stabilized = roll <= 10; // 10% chance
+    
+    setLastDeathSaveRoll({ id, roll, result: stabilized ? "Stabilized!" : "Still dying..." });
+    
+    if (stabilized) {
+      updateCombatant(id, { isStable: true });
+    } else {
+      // Lose 1 HP if not stabilized
+      const newHp = combatant.hp - 1;
+      const isDead = newHp <= -10;
+      updateCombatant(id, { hp: newHp, isDead });
+    }
+    
+    setTimeout(() => setLastDeathSaveRoll(null), 3000);
+  };
+
+  // 4e: Death save with different thresholds
+  const roll4eDeathSave = (id: string) => {
+    const combatant = combatants.find(c => c.id === id);
+    if (!combatant || combatant.combatantType !== "pc" || combatant.hp > 0 || combatant.isDead) return;
+    
+    const roll = Math.floor(Math.random() * 20) + 1;
+    
+    let newSuccesses = combatant.deathSaveSuccesses;
+    let newFailures = combatant.deathSaveFailures;
+    let newHp = combatant.hp;
+    let isStable = combatant.isStable;
+    let isDead = false;
+    let result = "";
+    
+    if (roll === 20) {
+      // Nat 20: Spend healing surge to recover
+      const surges = combatant.healingSurges || 0;
+      if (surges > 0) {
+        // Spend surge to heal quarter max HP
+        newHp = Math.floor(combatant.maxHp / 4);
+        result = `Nat 20! Surge used, ${newHp} HP!`;
+        updateCombatant(id, {
+          hp: newHp,
+          healingSurges: surges - 1,
+          deathSaveSuccesses: 0,
+          deathSaveFailures: newFailures, // 4e: failures persist
+          isStable: false,
+          isDead: false,
+          isDown: false
+        });
+      } else {
+        result = "Nat 20, but no surges!";
+        // Treat as regular success
+        newSuccesses = Math.min(3, newSuccesses + 1);
+        if (newSuccesses >= 3) isStable = true;
+        updateCombatant(id, {
+          deathSaveSuccesses: newSuccesses,
+          isStable,
+          isDown: true
+        });
+      }
+    } else if (roll <= 9) {
+      // 4e: 1-9 = failure
+      newFailures = Math.min(3, newFailures + 1);
+      if (newFailures >= 3) isDead = true;
+      result = `${roll} - Failure!`;
+      updateCombatant(id, {
+        deathSaveFailures: newFailures,
+        isDead,
+        isDown: true
+      });
+    } else {
+      // 10-19: No change
+      result = `${roll} - No change`;
+    }
+    
+    setLastDeathSaveRoll({ id, roll, result });
+    setTimeout(() => setLastDeathSaveRoll(null), 3000);
+  };
+
+  // 5e/One D&D death save
+  const roll5eDeathSave = (id: string) => {
     const combatant = combatants.find(c => c.id === id);
     if (!combatant || combatant.combatantType !== "pc" || combatant.hp > 0 || combatant.isDead || combatant.isStable) return;
     
     const roll = Math.floor(Math.random() * 20) + 1;
-    setLastDeathSaveRoll({ id, roll });
     
     let newSuccesses = combatant.deathSaveSuccesses;
     let newFailures = combatant.deathSaveFailures;
@@ -485,6 +690,7 @@ export default function InitiativeTracker() {
     let isStable = false;
     let isDead = false;
     let isDown = true;
+    let result = "";
     
     if (roll === 20) {
       // Nat 20: regain 1 HP and wake up
@@ -492,18 +698,22 @@ export default function InitiativeTracker() {
       newSuccesses = 0;
       newFailures = 0;
       isDown = false;
+      result = "Nat 20! Awake with 1 HP!";
     } else if (roll === 1) {
       // Nat 1: two failures
       newFailures = Math.min(3, newFailures + 2);
       if (newFailures >= 3) isDead = true;
+      result = "Nat 1! Two failures!";
     } else if (roll >= 10) {
       // Success
       newSuccesses = Math.min(3, newSuccesses + 1);
       if (newSuccesses >= 3) isStable = true;
+      result = `${roll} - Success!`;
     } else {
       // Failure
       newFailures = Math.min(3, newFailures + 1);
       if (newFailures >= 3) isDead = true;
+      result = `${roll} - Failure!`;
     }
     
     updateCombatant(id, {
@@ -515,8 +725,19 @@ export default function InitiativeTracker() {
       isDown
     });
     
-    // Clear the roll display after 3 seconds
+    setLastDeathSaveRoll({ id, roll, result });
     setTimeout(() => setLastDeathSaveRoll(null), 3000);
+  };
+
+  // Unified death save function that dispatches to edition-specific handler
+  const rollDeathSave = (id: string) => {
+    if (effectiveRuleset === "3.5e") {
+      roll35eStabilization(id);
+    } else if (effectiveRuleset === "4e") {
+      roll4eDeathSave(id);
+    } else {
+      roll5eDeathSave(id);
+    }
   };
 
   const stabilizePC = (id: string) => {
@@ -565,10 +786,22 @@ export default function InitiativeTracker() {
   const shouldSkipTurn = (c: Combatant): boolean => {
     // Dead combatants are skipped
     if (c.isDead) return true;
-    // Stable PCs at 0 HP are skipped (they're unconscious but not making death saves)
-    if (c.combatantType === "pc" && c.hp === 0 && c.isStable) return true;
-    // PCs at 0 HP who are not stable still get their turn for death saves
-    if (c.combatantType === "pc" && c.hp === 0 && !c.isDead && !c.isStable) return false;
+    
+    if (effectiveRuleset === "3.5e") {
+      // 3.5e: Disabled (0 HP) can still act, Dying (negative) gets stabilization roll
+      if (c.isDisabled) return false; // Can still take action
+      if (c.hp < 0 && !c.isStable) return false; // Gets stabilization roll
+      if (c.hp < 0 && c.isStable) return true; // Stable and unconscious
+    } else if (effectiveRuleset === "4e") {
+      // 4e: Death saves until stable
+      if (c.combatantType === "pc" && c.hp <= 0 && c.isStable) return true;
+      if (c.combatantType === "pc" && c.hp <= 0 && !c.isDead) return false; // Gets death save
+    } else {
+      // 5e: Stable PCs at 0 HP are skipped, otherwise get death saves
+      if (c.combatantType === "pc" && c.hp === 0 && c.isStable) return true;
+      if (c.combatantType === "pc" && c.hp === 0 && !c.isDead && !c.isStable) return false;
+    }
+    
     // Other downed combatants (monsters/NPCs) are skipped
     if (c.isDown) return true;
     return false;
@@ -1237,10 +1470,65 @@ export default function InitiativeTracker() {
                             </div>
                           </div>
 
-                          {/* Death Saves (PC only at 0 HP) */}
-                          {combatant.combatantType === "pc" && combatant.hp === 0 && !combatant.isDead && (
+                          {/* 3.5e Dying State (negative HP) */}
+                          {effectiveRuleset === "3.5e" && combatant.combatantType === "pc" && combatant.hp < 0 && !combatant.isDead && (
+                            <div className="flex flex-col gap-1 p-2 rounded-md bg-red-950/50 border border-red-800 min-w-[140px]">
+                              <div className="text-xs font-semibold text-center text-red-400">
+                                Dying ({combatant.hp} HP)
+                              </div>
+                              <div className="text-xs text-center text-muted-foreground">
+                                Dead at -10 HP
+                              </div>
+                              
+                              {lastDeathSaveRoll?.id === combatant.id && lastDeathSaveRoll.result && (
+                                <div className={cn(
+                                  "text-center text-xs font-bold",
+                                  lastDeathSaveRoll.result.includes("Stabilized") ? "text-green-500" : "text-red-400"
+                                )}>
+                                  {lastDeathSaveRoll.result}
+                                </div>
+                              )}
+                              
+                              {combatant.isStable ? (
+                                <Badge className="bg-blue-600 text-white text-xs mx-auto">
+                                  <HeartPulse className="w-3 h-3 mr-1" /> Stable
+                                </Badge>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-xs mx-auto"
+                                  onClick={() => rollDeathSave(combatant.id)}
+                                  data-testid={`button-stabilization-${combatant.id}`}
+                                >
+                                  <Dices className="w-3 h-3 mr-1" />
+                                  10% Stabilize
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                          
+                          {/* 3.5e Disabled State (0 HP exactly) */}
+                          {effectiveRuleset === "3.5e" && combatant.isDisabled && !combatant.isDead && (
+                            <Badge className="bg-yellow-600 text-white text-xs">
+                              <AlertCircle className="w-3 h-3 mr-1" /> Disabled (0 HP)
+                            </Badge>
+                          )}
+
+                          {/* 4e/5e Death Saves (PC at 0 or less HP) */}
+                          {(effectiveRuleset === "4e" || effectiveRuleset === "5e") && 
+                           combatant.combatantType === "pc" && combatant.hp <= 0 && !combatant.isDead && (
                             <div className="flex flex-col gap-1 p-2 rounded-md bg-muted/50 border border-muted min-w-[180px]">
-                              <div className="text-xs font-semibold text-center mb-1">Death Saves</div>
+                              <div className="text-xs font-semibold text-center mb-1">
+                                Death Saves {effectiveRuleset === "4e" && "(4e)"}
+                              </div>
+                              
+                              {/* 4e: Show healing surges */}
+                              {effectiveRuleset === "4e" && (
+                                <div className="text-xs text-center text-cyan-500">
+                                  Surges: {combatant.healingSurges || 0}/{combatant.maxHealingSurges || 0}
+                                </div>
+                              )}
                               
                               {/* Success/Failure indicators */}
                               <div className="flex items-center justify-center gap-3">
@@ -1269,6 +1557,13 @@ export default function InitiativeTracker() {
                                   ))}
                                 </div>
                               </div>
+                              
+                              {/* 4e: Warning about lingering failures */}
+                              {effectiveRuleset === "4e" && combatant.deathSaveFailures > 0 && combatant.hp > 0 && (
+                                <div className="text-xs text-center text-orange-400">
+                                  Failures persist until rest!
+                                </div>
+                              )}
 
                               {/* Roll result display */}
                               {lastDeathSaveRoll?.id === combatant.id && (
@@ -1278,9 +1573,7 @@ export default function InitiativeTracker() {
                                   lastDeathSaveRoll.roll === 1 ? "text-red-500" :
                                   lastDeathSaveRoll.roll >= 10 ? "text-green-500" : "text-red-400"
                                 )}>
-                                  Rolled: {lastDeathSaveRoll.roll}
-                                  {lastDeathSaveRoll.roll === 20 && " (NAT 20!)"}
-                                  {lastDeathSaveRoll.roll === 1 && " (NAT 1!)"}
+                                  {lastDeathSaveRoll.result || `Rolled: ${lastDeathSaveRoll.roll}`}
                                 </div>
                               )}
 
