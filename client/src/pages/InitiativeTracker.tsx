@@ -29,10 +29,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Swords, Plus, Trash2, User, Heart, Shield, 
   RotateCcw, Home, Search, Play, SkipForward, Square, Skull, AlertCircle,
-  Loader2, Zap, Dices, CircleCheck, CircleX, HeartPulse
+  Loader2, Zap, Dices, CircleCheck, CircleX, HeartPulse, BookUser, Save
 } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
+import { useCampaign } from "@/lib/campaignContext";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type { CampaignCharacter } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
 
 const VERSION_OPTIONS = [
   { id: "3.5", label: "D&D 3.5 Edition" },
@@ -224,6 +228,63 @@ export default function InitiativeTracker() {
   
   // HP modification inputs per combatant
   const [hpInputs, setHpInputs] = useState<Record<string, string>>({});
+
+  // Campaign party
+  const { activeCampaign } = useCampaign();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [saveToParty, setSaveToParty] = useState(false);
+
+  const { data: campaignParty = [] } = useQuery<CampaignCharacter[]>({
+    queryKey: ["/api/campaigns", activeCampaign?.id, "characters"],
+    queryFn: () => fetch(`/api/campaigns/${activeCampaign!.id}/characters`).then(r => r.json()),
+    enabled: !!activeCampaign,
+  });
+
+  const saveCharacterMutation = useMutation({
+    mutationFn: (char: { name: string; maxHp: number; ac: number; healingSurgesMax?: number }) =>
+      fetch(`/api/campaigns/${activeCampaign!.id}/characters`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(char),
+      }).then(r => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/campaigns", activeCampaign?.id, "characters"] });
+      toast({ title: "Saved to Campaign", description: "PC added to the party roster." });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to save PC to campaign.", variant: "destructive" }),
+  });
+
+  const removePartyMemberMutation = useMutation({
+    mutationFn: (charId: number) =>
+      fetch(`/api/campaigns/characters/${charId}`, { method: "DELETE" }).then(r => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/campaigns", activeCampaign?.id, "characters"] }),
+  });
+
+  const addPartyMemberToEncounter = (char: CampaignCharacter) => {
+    const defaultSurges = effectiveRuleset === "4e" ? (char.healingSurgesMax ?? 7) : 0;
+    const newCombatant: Combatant = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: char.name,
+      initiative: 0,
+      hp: char.maxHp,
+      maxHp: char.maxHp,
+      tempHp: 0,
+      ac: char.ac,
+      isMonster: false,
+      combatantType: "pc",
+      conditions: [],
+      isDown: false,
+      deathSaveSuccesses: 0,
+      deathSaveFailures: 0,
+      isStable: false,
+      isDead: false,
+      healingSurges: defaultSurges,
+      maxHealingSurges: defaultSurges,
+      isDisabled: false,
+    };
+    setCombatants(prev => [...prev, newCombatant]);
+  };
 
   // Fetch monsters when versions are selected
   useEffect(() => {
@@ -1127,6 +1188,58 @@ export default function InitiativeTracker() {
             </Button>
           </div>
 
+          {/* Campaign Party */}
+          {activeCampaign && (
+            <div className="space-y-3 bg-background/30 p-4 rounded-lg border border-primary/30">
+              <Label className="font-display text-sm flex items-center gap-2 text-primary">
+                <BookUser className="w-4 h-4" /> {activeCampaign.name} — Party
+              </Label>
+              {campaignParty.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">
+                  No party members yet. Add PCs below and save them to the campaign.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {campaignParty.map(char => {
+                    const alreadyInEncounter = combatants.some(c => c.name === char.name && c.combatantType === "pc");
+                    return (
+                      <div key={char.id} className="flex items-center justify-between bg-background/50 rounded px-3 py-2 border border-border/40">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{char.name}</p>
+                          <p className="text-xs text-muted-foreground font-mono">
+                            HP {char.maxHp} · AC {char.ac}
+                            {char.playerClass ? ` · ${char.playerClass}` : ""}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 ml-2 shrink-0">
+                          <Button
+                            size="sm"
+                            variant={alreadyInEncounter ? "ghost" : "secondary"}
+                            disabled={alreadyInEncounter}
+                            onClick={() => addPartyMemberToEncounter(char)}
+                            data-testid={`button-add-party-member-${char.id}`}
+                            className="h-7 text-xs"
+                          >
+                            {alreadyInEncounter ? "Added" : <><Plus className="w-3 h-3 mr-1" />Add</>}
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => removePartyMemberMutation.mutate(char.id)}
+                            data-testid={`button-remove-party-member-${char.id}`}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* PC Entry */}
           <div className="space-y-3 bg-background/30 p-4 rounded-lg border border-border/50">
             <Label className="font-display text-sm flex items-center gap-2">
@@ -1170,14 +1283,38 @@ export default function InitiativeTracker() {
                 />
               </div>
             </div>
+            {activeCampaign && (
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="save-to-party"
+                  checked={saveToParty}
+                  onCheckedChange={v => setSaveToParty(!!v)}
+                  data-testid="checkbox-save-to-party"
+                />
+                <label htmlFor="save-to-party" className="text-xs text-muted-foreground cursor-pointer">
+                  Save to <span className="text-primary">{activeCampaign.name}</span> party roster
+                </label>
+              </div>
+            )}
             <Button 
-              onClick={addPC} 
+              onClick={() => {
+                if (saveToParty && activeCampaign && pcName) {
+                  saveCharacterMutation.mutate({
+                    name: pcName,
+                    maxHp: pcHp ? parseInt(pcHp) : 10,
+                    ac: pcAc ? parseInt(pcAc) : 10,
+                  });
+                }
+                addPC();
+                setSaveToParty(false);
+              }}
               disabled={!pcName}
               variant="secondary"
               className="w-full"
               data-testid="button-add-pc"
             >
-              <Plus className="mr-2 w-4 h-4" /> Add PC
+              <Plus className="mr-2 w-4 h-4" />
+              {saveToParty ? "Add PC & Save to Campaign" : "Add PC"}
             </Button>
           </div>
 
