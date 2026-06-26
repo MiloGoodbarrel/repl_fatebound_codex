@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
-import { Sparkles, Swords, Plus, Trash2, ChevronRight, Scroll, Shield, BookOpen } from "lucide-react";
+import {
+  Sparkles, Swords, Plus, Trash2, ChevronRight,
+  Scroll, Shield, BookOpen, ChevronDown, ChevronUp, CircleDot
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,12 +17,12 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
 const EDITIONS = [
-  { value: "5e", label: "D&D 5e (2014)" },
+  { value: "5e",     label: "D&D 5e (2014)" },
   { value: "onednd", label: "One D&D (2024)" },
-  { value: "4e", label: "D&D 4th Edition" },
-  { value: "3.5e", label: "D&D 3.5 Edition" },
-  { value: "3e", label: "D&D 3rd Edition" },
-  { value: "adnd", label: "AD&D 2nd Edition" },
+  { value: "4e",     label: "D&D 4th Edition" },
+  { value: "3.5e",   label: "D&D 3.5 Edition" },
+  { value: "3e",     label: "D&D 3rd Edition" },
+  { value: "adnd",   label: "AD&D 2nd Edition" },
 ];
 
 export default function Landing() {
@@ -27,6 +30,7 @@ export default function Landing() {
   const qc = useQueryClient();
   const { toast } = useToast();
 
+  const [campaignOpen, setCampaignOpen] = useState(!!activeCampaign);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newEdition, setNewEdition] = useState("5e");
@@ -96,164 +100,9 @@ export default function Landing() {
           </motion.p>
         </div>
 
-        {/* Campaign Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="space-y-4"
-        >
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-display font-bold text-foreground flex items-center gap-2">
-              <Scroll className="w-5 h-5 text-primary" /> Campaigns
-            </h2>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowCreate(v => !v)}
-              data-testid="button-new-campaign"
-              className="gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              New Campaign
-            </Button>
-          </div>
-
-          {/* Create Form */}
-          <AnimatePresence>
-            {showCreate && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="p-4 rounded-lg border border-primary/30 bg-card/60 space-y-4">
-                  <h3 className="font-display font-semibold text-primary">New Campaign</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <Label>Campaign Name</Label>
-                      <Input
-                        value={newName}
-                        onChange={e => setNewName(e.target.value)}
-                        placeholder="e.g. Curse of Strahd"
-                        onKeyDown={e => e.key === "Enter" && handleCreate()}
-                        data-testid="input-campaign-name"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Edition</Label>
-                      <Select value={newEdition} onValueChange={setNewEdition}>
-                        <SelectTrigger data-testid="select-campaign-edition">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {EDITIONS.map(e => (
-                            <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Description <span className="text-muted-foreground text-xs">(optional)</span></Label>
-                    <Input
-                      value={newDescription}
-                      onChange={e => setNewDescription(e.target.value)}
-                      placeholder="A short description of this campaign..."
-                      data-testid="input-campaign-description"
-                    />
-                  </div>
-                  <div className="flex gap-2 justify-end">
-                    <Button variant="ghost" size="sm" onClick={() => setShowCreate(false)}>Cancel</Button>
-                    <Button
-                      size="sm"
-                      onClick={handleCreate}
-                      disabled={!newName.trim() || createMutation.isPending}
-                      data-testid="button-create-campaign"
-                    >
-                      {createMutation.isPending ? "Creating..." : "Create Campaign"}
-                    </Button>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Campaign List */}
-          {isLoading ? (
-            <p className="text-sm text-muted-foreground italic text-center py-4">Loading campaigns...</p>
-          ) : campaigns.length === 0 ? (
-            <div className="text-center py-8 border border-dashed border-border/50 rounded-lg">
-              <Scroll className="w-10 h-10 text-muted-foreground/40 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground italic">No campaigns yet. Create one to get started.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {campaigns.map(campaign => {
-                const isActive = activeCampaign?.id === campaign.id;
-                return (
-                  <div
-                    key={campaign.id}
-                    data-testid={`card-campaign-${campaign.id}`}
-                    className={cn(
-                      "flex items-center justify-between p-4 rounded-lg border-2 transition-all",
-                      isActive
-                        ? "border-primary bg-primary/10"
-                        : "border-border bg-card/50 hover:border-primary/40"
-                    )}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-display font-semibold truncate">{campaign.name}</p>
-                        {isActive && (
-                          <span className="text-xs bg-primary text-primary-foreground px-1.5 py-0.5 rounded font-mono shrink-0">
-                            Active
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                        {EDITIONS.find(e => e.value === campaign.edition)?.label ?? campaign.edition}
-                      </p>
-                      {campaign.description && (
-                        <p className="text-xs text-muted-foreground italic truncate mt-1">{campaign.description}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 ml-3 shrink-0">
-                      <Button
-                        size="sm"
-                        variant={isActive ? "default" : "outline"}
-                        onClick={() => setActiveCampaign(isActive ? null : campaign)}
-                        data-testid={`button-select-campaign-${campaign.id}`}
-                      >
-                        {isActive ? "Deselect" : "Select"}
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => deleteMutation.mutate(campaign.id)}
-                        data-testid={`button-delete-campaign-${campaign.id}`}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {activeCampaign && (
-            <p className="text-xs text-center text-primary/70 font-serif italic">
-              Playing: <strong>{activeCampaign.name}</strong> — your party and homebrew items will carry over between sessions.
-            </p>
-          )}
-        </motion.div>
-
-        {/* Tool Cards */}
+        {/* Tool Cards — always the primary action */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <motion.div initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 }}>
+          <motion.div initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}>
             <Link href="/loot">
               <Card className="group cursor-pointer hover-elevate transition-all duration-300 border-2 hover:border-primary/50 bg-card/50 backdrop-blur-sm">
                 <CardContent className="p-8 flex flex-col items-center text-center space-y-4">
@@ -266,12 +115,14 @@ export default function Landing() {
                       Draw magical artifacts, weapons, and wondrous items.
                     </p>
                   </div>
-                  {activeCampaign && (
-                    <p className="text-xs text-primary/70 font-mono flex items-center gap-1">
+                  {activeCampaign ? (
+                    <p className="text-xs text-primary/80 font-mono flex items-center gap-1.5 bg-primary/10 px-2 py-1 rounded-full">
                       <BookOpen className="w-3 h-3" /> {activeCampaign.name} homebrew active
                     </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground/60 font-mono">Drawing from 5e compendium</p>
                   )}
-                  <Button variant="outline" className="group-hover:bg-primary group-hover:text-primary-foreground gap-2">
+                  <Button variant="outline" className="group-hover:bg-primary group-hover:text-primary-foreground gap-2" data-testid="link-deck-of-loot">
                     Enter the Archives <ChevronRight className="w-4 h-4" />
                   </Button>
                 </CardContent>
@@ -279,7 +130,7 @@ export default function Landing() {
             </Link>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }}>
+          <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 }}>
             <Link href="/initiative">
               <Card className="group cursor-pointer hover-elevate transition-all duration-300 border-2 hover:border-primary/50 bg-card/50 backdrop-blur-sm">
                 <CardContent className="p-8 flex flex-col items-center text-center space-y-4">
@@ -292,12 +143,14 @@ export default function Landing() {
                       Manage combat order, track HP, and keep the battle flowing.
                     </p>
                   </div>
-                  {activeCampaign && (
-                    <p className="text-xs text-primary/70 font-mono flex items-center gap-1">
+                  {activeCampaign ? (
+                    <p className="text-xs text-primary/80 font-mono flex items-center gap-1.5 bg-primary/10 px-2 py-1 rounded-full">
                       <Shield className="w-3 h-3" /> {activeCampaign.name} party loaded
                     </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground/60 font-mono">No campaign — one-off session</p>
                   )}
-                  <Button variant="outline" className="group-hover:bg-primary group-hover:text-primary-foreground gap-2">
+                  <Button variant="outline" className="group-hover:bg-primary group-hover:text-primary-foreground gap-2" data-testid="link-initiative-tracker">
                     Start Combat <ChevronRight className="w-4 h-4" />
                   </Button>
                 </CardContent>
@@ -305,6 +158,192 @@ export default function Landing() {
             </Link>
           </motion.div>
         </div>
+
+        {/* Campaign Section — optional, collapsible */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+        >
+          {/* Collapsible header */}
+          <button
+            onClick={() => setCampaignOpen(v => !v)}
+            data-testid="button-toggle-campaigns"
+            className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-border/60 bg-card/40 hover:bg-card/70 hover:border-primary/30 transition-all group"
+          >
+            <div className="flex items-center gap-2.5">
+              <Scroll className="w-4 h-4 text-primary/70 group-hover:text-primary transition-colors" />
+              <span className="font-display font-semibold text-foreground/80 group-hover:text-foreground transition-colors">
+                Campaigns
+                <span className="ml-2 text-xs font-normal font-sans text-muted-foreground">— optional, for persistent play</span>
+              </span>
+              {activeCampaign && (
+                <span className="flex items-center gap-1 text-xs bg-primary/15 text-primary px-2 py-0.5 rounded-full font-mono">
+                  <CircleDot className="w-2.5 h-2.5" /> {activeCampaign.name}
+                </span>
+              )}
+            </div>
+            {campaignOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+          </button>
+
+          <AnimatePresence>
+            {campaignOpen && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="pt-4 space-y-4">
+
+                  {/* Explainer */}
+                  <p className="text-sm text-muted-foreground px-1">
+                    Create a campaign to persist your <strong className="text-foreground/80">party roster</strong> and <strong className="text-foreground/80">homebrew items</strong> across sessions. Without one, the tools still work — you just start fresh each time.
+                  </p>
+
+                  {/* Create button row */}
+                  <div className="flex justify-end">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowCreate(v => !v)}
+                      data-testid="button-new-campaign"
+                      className="gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      New Campaign
+                    </Button>
+                  </div>
+
+                  {/* Create Form */}
+                  <AnimatePresence>
+                    {showCreate && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="p-4 rounded-lg border border-primary/30 bg-card/60 space-y-4">
+                          <h3 className="font-display font-semibold text-primary">New Campaign</h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <Label>Campaign Name</Label>
+                              <Input
+                                value={newName}
+                                onChange={e => setNewName(e.target.value)}
+                                placeholder="e.g. Curse of Strahd"
+                                onKeyDown={e => e.key === "Enter" && handleCreate()}
+                                data-testid="input-campaign-name"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label>Edition</Label>
+                              <Select value={newEdition} onValueChange={setNewEdition}>
+                                <SelectTrigger data-testid="select-campaign-edition">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {EDITIONS.map(e => (
+                                    <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <Label>Description <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                            <Input
+                              value={newDescription}
+                              onChange={e => setNewDescription(e.target.value)}
+                              placeholder="A short description of this campaign..."
+                              data-testid="input-campaign-description"
+                            />
+                          </div>
+                          <div className="flex gap-2 justify-end">
+                            <Button variant="ghost" size="sm" onClick={() => setShowCreate(false)}>Cancel</Button>
+                            <Button
+                              size="sm"
+                              onClick={handleCreate}
+                              disabled={!newName.trim() || createMutation.isPending}
+                              data-testid="button-create-campaign"
+                            >
+                              {createMutation.isPending ? "Creating..." : "Create Campaign"}
+                            </Button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Campaign List */}
+                  {isLoading ? (
+                    <p className="text-sm text-muted-foreground italic text-center py-4">Loading campaigns...</p>
+                  ) : campaigns.length === 0 && !showCreate ? (
+                    <div className="text-center py-6 border border-dashed border-border/40 rounded-lg">
+                      <p className="text-sm text-muted-foreground italic">No campaigns yet.</p>
+                    </div>
+                  ) : campaigns.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {campaigns.map(campaign => {
+                        const isActive = activeCampaign?.id === campaign.id;
+                        return (
+                          <div
+                            key={campaign.id}
+                            data-testid={`card-campaign-${campaign.id}`}
+                            className={cn(
+                              "flex items-center justify-between p-4 rounded-lg border-2 transition-all",
+                              isActive
+                                ? "border-primary bg-primary/10"
+                                : "border-border bg-card/50 hover:border-primary/40"
+                            )}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="font-display font-semibold truncate">{campaign.name}</p>
+                                {isActive && (
+                                  <span className="text-xs bg-primary text-primary-foreground px-1.5 py-0.5 rounded font-mono shrink-0">
+                                    Active
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                                {EDITIONS.find(e => e.value === campaign.edition)?.label ?? campaign.edition}
+                              </p>
+                              {campaign.description && (
+                                <p className="text-xs text-muted-foreground italic truncate mt-1">{campaign.description}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 ml-3 shrink-0">
+                              <Button
+                                size="sm"
+                                variant={isActive ? "default" : "outline"}
+                                onClick={() => setActiveCampaign(isActive ? null : campaign)}
+                                data-testid={`button-select-campaign-${campaign.id}`}
+                              >
+                                {isActive ? "Deselect" : "Select"}
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                onClick={() => deleteMutation.mutate(campaign.id)}
+                                data-testid={`button-delete-campaign-${campaign.id}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+
       </div>
     </div>
   );
