@@ -4,11 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Sparkles, Dices, Layers, Upload, Search, X, BookOpen, Scroll } from "lucide-react";
+import { Sparkles, Dices, Layers, Upload, Search, X, Scroll } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useCampaign } from "@/lib/campaignContext";
-import { Link } from "wouter";
+
+const EDITIONS = [
+  { value: "odnd",   label: "OD&D" },
+  { value: "adnd",   label: "AD&D" },
+  { value: "3e",     label: "3rd Edition" },
+  { value: "3.5e",   label: "3.5 Edition" },
+  { value: "4e",     label: "4th Edition" },
+  { value: "5e",     label: "5e (2014)" },
+  { value: "onednd", label: "One D&D" },
+];
 
 const CATEGORIES = [
   "Weapons", "Armor", "Potions", "Rings", "Wands",
@@ -26,13 +35,20 @@ interface ControlsProps {
 
 export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }: ControlsProps) {
   const { activeCampaign } = useCampaign();
-  const [source, setSource] = useState<"5e" | "campaign">("5e");
+  const [editions, setEditions] = useState<string[]>(["5e"]);
   const [categories, setCategories] = useState<string[]>(CATEGORIES);
   const [rarities, setRarities] = useState<string[]>(RARITIES);
   const [count, setCount] = useState([5]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  const source: DrawOptions["source"] = activeCampaign ? "campaign" : "5e";
+
+  const toggleEdition = (val: string) =>
+    setEditions(prev => prev.includes(val) ? prev.filter(e => e !== val) : [...prev, val]);
+  const toggleAllEditions = () =>
+    setEditions(editions.length === EDITIONS.length ? [] : EDITIONS.map(e => e.value));
 
   const toggleCategory = (cat: string) =>
     setCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
@@ -47,7 +63,8 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
   const handleDraw = () => {
     onDraw({
       source,
-      campaignId: source === "campaign" ? activeCampaign?.id : undefined,
+      campaignId: activeCampaign?.id,
+      editions: source === "5e" ? editions : undefined,
       categories,
       rarities,
       count: count[0],
@@ -60,7 +77,7 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
     try {
       setUploading(true);
       const text = await file.text();
-      const endpoint = source === "campaign" && activeCampaign
+      const endpoint = activeCampaign
         ? `/api/campaigns/${activeCampaign.id}/import`
         : "/api/import/5e";
 
@@ -83,8 +100,6 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
     }
   };
 
-  const campaignSourceDisabled = !activeCampaign;
-
   return (
     <div className="h-full overflow-y-auto p-6 bg-card border-r border-border scrollbar-fantasy">
       <div className="space-y-8">
@@ -94,48 +109,43 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
           <h2 className="text-2xl font-display font-bold text-primary flex items-center gap-2">
             <Sparkles className="w-5 h-5" /> Deck of Loot
           </h2>
-          <p className="text-sm text-muted-foreground">Configure your draw parameters below.</p>
-        </div>
-
-        {/* Source Toggle */}
-        <div className="space-y-3">
-          <Label className="font-display text-lg">Source</Label>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => setSource("5e")}
-              data-testid="button-source-5e"
-              className={cn(
-                "flex flex-col items-center gap-1 p-3 rounded-lg border text-sm font-medium transition-all",
-                source === "5e"
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border bg-background/30 text-muted-foreground hover:border-primary/50"
-              )}
-            >
-              <BookOpen className="w-4 h-4" />
-              5e Compendium
-            </button>
-            <button
-              onClick={() => !campaignSourceDisabled && setSource("campaign")}
-              data-testid="button-source-campaign"
-              className={cn(
-                "flex flex-col items-center gap-1 p-3 rounded-lg border text-sm font-medium transition-all",
-                campaignSourceDisabled
-                  ? "opacity-40 cursor-not-allowed border-border"
-                  : source === "campaign"
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border bg-background/30 text-muted-foreground hover:border-primary/50"
-              )}
-            >
-              <Scroll className="w-4 h-4" />
-              {activeCampaign ? activeCampaign.name : "No Campaign"}
-            </button>
-          </div>
-          {campaignSourceDisabled && (
-            <p className="text-xs text-muted-foreground">
-              <Link href="/" className="text-primary/70 hover:text-primary underline">Select a campaign</Link> to access campaign items.
+          {activeCampaign ? (
+            <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+              <Scroll className="w-3.5 h-3.5 text-primary/70" />
+              Drawing from <span className="text-primary font-medium">{activeCampaign.name}</span>
             </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">Drawing from the 5e compendium.</p>
           )}
         </div>
+
+        {/* Edition Filter — only shown when drawing from compendium */}
+        {!activeCampaign && (
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <Label className="font-display text-lg">Edition</Label>
+              <Button variant="ghost" size="sm" onClick={toggleAllEditions} className="h-6 text-xs text-muted-foreground hover:text-primary">
+                {editions.length === EDITIONS.length ? "Clear All" : "Select All"}
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {EDITIONS.map(ed => (
+                <div key={ed.value} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`ed-${ed.value}`}
+                    checked={editions.includes(ed.value)}
+                    onCheckedChange={() => toggleEdition(ed.value)}
+                    data-testid={`checkbox-edition-${ed.value}`}
+                    className="border-muted-foreground data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                  />
+                  <label htmlFor={`ed-${ed.value}`} className="text-sm font-medium leading-none cursor-pointer text-muted-foreground">
+                    {ed.label}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Search */}
         <div className="space-y-2">
@@ -188,7 +198,7 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
                   data-testid={`checkbox-category-${cat}`}
                   className="border-muted-foreground data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
                 />
-                <label htmlFor={`cat-${cat}`} className="text-sm font-medium leading-none cursor-pointer text-muted-foreground transition-colors">
+                <label htmlFor={`cat-${cat}`} className="text-sm font-medium leading-none cursor-pointer text-muted-foreground">
                   {cat}
                 </label>
               </div>
@@ -240,9 +250,7 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
         {/* CSV Import */}
         <div className="space-y-2 bg-background/30 p-4 rounded-lg border border-dashed border-border/50">
           <Label className="font-display text-sm">
-            {source === "campaign" && activeCampaign
-              ? `Load "${activeCampaign.name}" Items (CSV)`
-              : "Load 5e Compendium (CSV)"}
+            {activeCampaign ? `Import Items into "${activeCampaign.name}" (CSV)` : "Load 5e Compendium (CSV)"}
           </Label>
           <p className="text-xs text-muted-foreground">
             Required: <span className="font-mono">name, category, rarity</span><br />
@@ -258,7 +266,7 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
         {/* Draw Button */}
         <Button
           onClick={handleDraw}
-          disabled={isDrawing || categories.length === 0 || rarities.length === 0 || (source === "campaign" && !activeCampaign)}
+          disabled={isDrawing || categories.length === 0 || rarities.length === 0 || (!activeCampaign && editions.length === 0)}
           className="w-full h-14 text-lg font-display font-bold uppercase tracking-widest relative overflow-hidden group shadow-lg hover:shadow-primary/20 transition-all"
           data-testid="button-draw-cards"
         >

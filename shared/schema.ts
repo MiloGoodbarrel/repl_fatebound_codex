@@ -80,6 +80,7 @@ export type InsertCampaignCharacter = z.infer<typeof insertCampaignCharacterSche
 export const drawOptionsSchema = z.object({
   source: z.enum(["5e", "campaign"]),
   campaignId: z.number().optional(),
+  editions: z.array(z.string()).optional(),
   categories: z.array(z.string()).min(1, "Select at least one category"),
   rarities: z.array(z.string()).min(1, "Select at least one rarity"),
   count: z.coerce.number().min(1).max(100),

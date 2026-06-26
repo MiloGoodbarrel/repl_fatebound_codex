@@ -128,7 +128,7 @@ export class DatabaseStorage implements IStorage {
   // ── Draw ──────────────────────────────────────────────────────────────────
 
   async drawItems(options: DrawOptions): Promise<Item[] | CampaignItem[]> {
-    const { source, campaignId, categories, rarities, count } = options;
+    const { source, campaignId, editions, categories, rarities, count } = options;
 
     if (source === "campaign" && campaignId != null) {
       return await db
@@ -145,11 +145,16 @@ export class DatabaseStorage implements IStorage {
         .limit(count);
     }
 
+    const editionFilter = editions && editions.length > 0
+      ? inArray(items5e.edition, editions)
+      : undefined;
+
     return await db
       .select()
       .from(items5e)
       .where(
         and(
+          editionFilter,
           inArray(items5e.category, categories),
           inArray(items5e.rarity, rarities)
         )
