@@ -1,53 +1,51 @@
 import { db } from "./db";
-import { items, type InsertItem, type Item, type DrawOptions } from "@shared/schema";
-import { eq, inArray, sql, and } from "drizzle-orm";
+import { items5e, itemsCustom, type InsertItem, type Item, type DrawOptions } from "@shared/schema";
+import { inArray, sql, and } from "drizzle-orm";
+
+const TABLE_MAP = {
+  "5e": items5e,
+  "custom": itemsCustom,
+} as const;
 
 export interface IStorage {
-  getItems(): Promise<Item[]>;
-  createItem(item: InsertItem): Promise<Item>;
-  createItems(items: InsertItem[]): Promise<Item[]>;
+  getItems(source: "5e" | "custom"): Promise<Item[]>;
+  createItems(source: "5e" | "custom", items: InsertItem[]): Promise<Item[]>;
   drawItems(options: DrawOptions): Promise<Item[]>;
-  clearItems(): Promise<void>;
+  clearItems(source: "5e" | "custom"): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
-  async getItems(): Promise<Item[]> {
-    return await db.select().from(items);
+  async getItems(source: "5e" | "custom"): Promise<Item[]> {
+    const table = TABLE_MAP[source];
+    return await db.select().from(table);
   }
 
-  async createItem(insertItem: InsertItem): Promise<Item> {
-    const [item] = await db.insert(items).values(insertItem).returning();
-    return item;
-  }
-
-  async createItems(insertItems: InsertItem[]): Promise<Item[]> {
+  async createItems(source: "5e" | "custom", insertItems: InsertItem[]): Promise<Item[]> {
     if (insertItems.length === 0) return [];
-    return await db.insert(items).values(insertItems).returning();
+    const table = TABLE_MAP[source];
+    return await db.insert(table).values(insertItems).returning();
   }
 
   async drawItems(options: DrawOptions): Promise<Item[]> {
-    const { categories, rarities, versions, count } = options;
-    
-    // Select random items matching criteria
-    const drawnItems = await db
+    const { source, categories, rarities, count } = options;
+    const table = TABLE_MAP[source];
+
+    return await db
       .select()
-      .from(items)
+      .from(table)
       .where(
         and(
-          inArray(items.category, categories),
-          inArray(items.rarity, rarities),
-          inArray(items.version, versions)
+          inArray(table.category, categories),
+          inArray(table.rarity, rarities)
         )
       )
       .orderBy(sql`RANDOM()`)
       .limit(count);
-
-    return drawnItems;
   }
 
-  async clearItems(): Promise<void> {
-    // Delete all items from the table
-    await db.delete(items);
+  async clearItems(source: "5e" | "custom"): Promise<void> {
+    const table = TABLE_MAP[source];
+    await db.delete(table);
   }
 }
 

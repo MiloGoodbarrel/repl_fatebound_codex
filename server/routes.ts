@@ -3,26 +3,27 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
+import type { InsertItem } from "@shared/schema";
 
-function parseCSV(csvText: string) {
+function parseCSV(csvText: string): InsertItem[] {
   const lines = csvText.trim().split('\n');
   if (lines.length < 2) throw new Error("CSV must have at least a header row and one data row");
 
   const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/^"|"$/g, ''));
-  const requiredHeaders = ['name', 'description', 'category', 'rarity', 'version'];
+  const requiredHeaders = ['name', 'category', 'rarity'];
 
   for (const required of requiredHeaders) {
     if (!headers.includes(required)) {
-      throw new Error(`Missing required CSV header: "${required}". Required headers: ${requiredHeaders.join(', ')}`);
+      throw new Error(`Missing required CSV column: "${required}". Required: ${requiredHeaders.join(', ')}`);
     }
   }
 
-  const items = [];
+  const items: InsertItem[] = [];
+
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
 
-    // Handle quoted CSV values
     const values: string[] = [];
     let inQuote = false;
     let current = '';
@@ -45,12 +46,15 @@ function parseCSV(csvText: string) {
 
     items.push({
       name,
-      description: get('description'),
       category: get('category') || 'Magical',
       rarity: get('rarity') || 'Common',
-      version: get('version') || '5e',
-      attunement: get('attunement') || '',
-      meta: get('meta') || '',
+      description: get('description') || '',
+      itemType: get('item_type') || get('itemtype') || null,
+      damage: get('damage') || null,
+      weight: get('weight') || null,
+      cost: get('cost') || null,
+      properties: get('properties') || null,
+      attunement: get('attunement') || null,
     });
   }
 
@@ -62,7 +66,7 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
-  // Draw random items matching criteria
+  // Draw random items from the selected source table
   app.post(api.items.draw.path, async (req, res) => {
     try {
       const input = api.items.draw.input.parse(req.body);
@@ -81,47 +85,62 @@ export async function registerRoutes(
     }
   });
 
-  // List all items
-  app.get(api.items.list.path, async (req, res) => {
-    const items = await storage.getItems();
+  // List all items from a source
+  app.get("/api/items/:source", async (req, res) => {
+    const source = req.params.source as "5e" | "custom";
+    if (!["5e", "custom"].includes(source)) {
+      return res.status(400).json({ message: "Invalid source. Use '5e' or 'custom'" });
+    }
+    const items = await storage.getItems(source);
     res.json(items);
   });
 
-  // Clear all items
-  app.delete("/api/items", async (req, res) => {
+  // Import CSV into a source table
+  // 5e: additive (does not clear existing data)
+  // custom: always replaces all data
+  app.post("/api/import/:source", async (req, res) => {
+    const source = req.params.source as "5e" | "custom";
+    if (!["5e", "custom"].includes(source)) {
+      return res.status(400).json({ message: "Invalid source. Use '5e' or 'custom'" });
+    }
+
+    let csvText = '';
+    req.setEncoding('utf8');
+    req.on('data', chunk => { csvText += chunk; });
+    req.on('end', async () => {
+      try {
+        const items = parseCSV(csvText);
+
+        if (source === "custom") {
+          await storage.clearItems("custom");
+        }
+
+        await storage.createItems(source, items);
+
+        res.json({
+          message: `Successfully imported ${items.length} items into ${source === "custom" ? "custom session" : "5e compendium"}`,
+          count: items.length,
+        });
+      } catch (err) {
+        res.status(400).json({
+          message: err instanceof Error ? err.message : "Error parsing CSV",
+        });
+      }
+    });
+  });
+
+  // Clear a source table
+  app.delete("/api/items/:source", async (req, res) => {
+    const source = req.params.source as "5e" | "custom";
+    if (!["5e", "custom"].includes(source)) {
+      return res.status(400).json({ message: "Invalid source. Use '5e' or 'custom'" });
+    }
     try {
-      await storage.clearItems();
-      res.json({ message: "All items cleared" });
+      await storage.clearItems(source);
+      res.json({ message: `Cleared all ${source} items` });
     } catch (err) {
       console.error(err);
       res.status(500).json({ message: "Failed to clear items" });
-    }
-  });
-
-  // Import items from CSV
-  app.post("/api/import-csv", async (req, res) => {
-    try {
-      let csvText = '';
-      req.setEncoding('utf8');
-      req.on('data', chunk => { csvText += chunk; });
-      req.on('end', async () => {
-        try {
-          const parsedItems = parseCSV(csvText);
-          await storage.createItems(parsedItems);
-          res.json({
-            message: `Successfully imported ${parsedItems.length} items`,
-            count: parsedItems.length,
-          });
-        } catch (err) {
-          res.status(400).json({
-            message: err instanceof Error ? err.message : "Error parsing CSV",
-          });
-        }
-      });
-    } catch (err) {
-      res.status(400).json({
-        message: err instanceof Error ? err.message : "Error processing upload",
-      });
     }
   });
 

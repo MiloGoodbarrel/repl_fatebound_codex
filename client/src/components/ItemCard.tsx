@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { ItemResponse } from "@shared/routes";
-import { Crown, Sparkles, Shield, Sword, FlaskConical, Scroll, Gem, Wand2, Crosshair } from "lucide-react";
+import { Crown, Sparkles, Shield, Sword, FlaskConical, Scroll, Gem, Wand2, Crosshair, Weight, Coins, Zap } from "lucide-react";
 
 interface ItemCardProps {
   item: ItemResponse;
@@ -9,7 +9,6 @@ interface ItemCardProps {
 }
 
 const RARITY_CONFIG: Record<string, { color: string; border: string; glow: string }> = {
-  "Unknown": { color: "text-white", border: "border-slate-400", glow: "rarity-glow-unknown" },
   "Common": { color: "text-zinc-400", border: "border-zinc-600", glow: "rarity-glow-common" },
   "Uncommon": { color: "text-emerald-400", border: "border-emerald-600", glow: "rarity-glow-uncommon" },
   "Rare": { color: "text-blue-400", border: "border-blue-600", glow: "rarity-glow-rare" },
@@ -33,25 +32,24 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 
 export function ItemCard({ item, index }: ItemCardProps) {
   const rarityStyle = RARITY_CONFIG[item.rarity] || RARITY_CONFIG["Common"];
-  
-  // Use bow icon for ranged weapons
+
   let icon = CATEGORY_ICONS[item.category] || <Sparkles className="w-4 h-4" />;
-  if (item.category === "Weapons" && (item as any).weaponType?.includes("Ranged")) {
+  if (item.category === "Weapons" && item.itemType?.toLowerCase().includes("ranged")) {
     icon = <Crosshair className="w-4 h-4" />;
   }
+
+  const propertiesList = item.properties
+    ? item.properties.split(",").map(p => p.trim()).filter(Boolean)
+    : [];
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20, rotateY: 90 }}
       animate={{ opacity: 1, y: 0, rotateY: 0 }}
-      transition={{ 
-        duration: 0.5, 
-        delay: index * 0.1, 
-        type: "spring",
-        stiffness: 100 
-      }}
+      transition={{ duration: 0.5, delay: index * 0.1, type: "spring", stiffness: 100 }}
+      data-testid={`card-item-${item.id}`}
       className={cn(
-        "relative group h-[400px] w-full bg-card rounded-xl p-6 flex flex-col border-2 overflow-hidden",
+        "relative group min-h-[360px] w-full bg-card rounded-xl p-6 flex flex-col border-2 overflow-hidden",
         "hover:-translate-y-2 transition-transform duration-300",
         rarityStyle.border,
         rarityStyle.glow
@@ -59,72 +57,91 @@ export function ItemCard({ item, index }: ItemCardProps) {
     >
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-5 bg-[url('https://www.transparenttextures.com/patterns/black-scales.png')] mix-blend-overlay pointer-events-none" />
-      
+
       {/* Header */}
       <div className="flex justify-between items-start mb-4 relative z-10">
         <div className="bg-background/80 backdrop-blur-sm p-2 rounded-lg border border-border">
           {icon}
         </div>
-        {item.rarity === "Legendary" && (
-          <Crown className="w-6 h-6 text-amber-500 animate-pulse" />
-        )}
+        {item.rarity === "Legendary" && <Crown className="w-6 h-6 text-amber-500 animate-pulse" />}
+        {item.rarity === "Artifact" && <Crown className="w-6 h-6 text-red-500 animate-pulse" />}
       </div>
 
       {/* Title */}
-      <h3 className={cn("font-display text-xl font-bold mb-1 leading-tight", rarityStyle.color)}>
+      <h3 className={cn("font-display text-xl font-bold mb-1 leading-tight", rarityStyle.color)}
+        data-testid={`text-item-name-${item.id}`}>
         {item.name}
       </h3>
-      
+
       {/* Subtitle */}
-      <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-4">
-        <span>{item.rarity}</span>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">
+        <span data-testid={`text-item-rarity-${item.id}`}>{item.rarity}</span>
         <span>•</span>
         <span>{item.category}</span>
-        {(item as any).weaponType && (
+        {item.itemType && (
           <>
             <span>•</span>
-            <span>{(item as any).weaponType}</span>
+            <span>{item.itemType}</span>
           </>
         )}
-        <span>•</span>
-        <span>{item.version}</span>
       </div>
 
       {/* Divider */}
-      <div className="h-px w-full bg-gradient-to-r from-transparent via-border to-transparent mb-4" />
+      <div className="h-px w-full bg-gradient-to-r from-transparent via-border to-transparent mb-3" />
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto scrollbar-fantasy pr-2 relative z-10">
+      {/* Description */}
+      <div className="flex-1 overflow-y-auto scrollbar-fantasy pr-1 relative z-10">
         <p className="text-sm leading-relaxed text-muted-foreground font-serif">
-          {item.description}
+          {item.description || <span className="italic opacity-50">No description.</span>}
         </p>
       </div>
 
-      {/* Footer / Meta */}
-      <div className="mt-4 pt-3 border-t border-border/50 space-y-2">
-        {item.attunement && (
-          <p className="text-xs text-amber-400/90 font-serif text-center bg-amber-900/20 py-1 rounded">
-            {item.attunement}
-          </p>
-        )}
-        {item.meta && (
-          <div className="text-xs text-center bg-primary/5 py-1 rounded">
-            {item.meta.includes("SRD") ? (
-              <a
-                href={`https://5e.tools/items.html#${item.name.replace(/\s+/g, "_").toLowerCase()}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary/80 hover:text-primary/100 font-mono underline decoration-dashed hover:decoration-solid transition-colors"
-                data-testid="link-srd-source"
-              >
-                {item.meta}
-              </a>
-            ) : (
-              <p className="text-primary/80 font-mono">
-                {item.meta}
-              </p>
+      {/* Footer */}
+      <div className="mt-4 pt-3 border-t border-border/50 space-y-2 relative z-10">
+
+        {/* Stats row: damage / weight / cost */}
+        {(item.damage || item.weight || item.cost) && (
+          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground font-mono">
+            {item.damage && (
+              <span className="flex items-center gap-1">
+                <Sword className="w-3 h-3 text-red-400" />
+                {item.damage}
+              </span>
+            )}
+            {item.weight && (
+              <span className="flex items-center gap-1">
+                <Weight className="w-3 h-3" />
+                {item.weight}
+              </span>
+            )}
+            {item.cost && (
+              <span className="flex items-center gap-1">
+                <Coins className="w-3 h-3 text-yellow-400" />
+                {item.cost}
+              </span>
             )}
           </div>
+        )}
+
+        {/* Properties */}
+        {propertiesList.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {propertiesList.map(prop => (
+              <span key={prop}
+                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-background/60 border border-border/60 rounded text-xs text-muted-foreground font-mono">
+                <Zap className="w-2.5 h-2.5" />
+                {prop}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Attunement */}
+        {item.attunement && (
+          <p className="text-xs text-amber-400/90 font-serif text-center bg-amber-900/20 py-1 rounded"
+            data-testid={`text-item-attunement-${item.id}`}>
+            {item.attunement}
+          </p>
         )}
       </div>
     </motion.div>

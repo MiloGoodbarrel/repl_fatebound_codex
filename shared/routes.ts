@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { items, insertItemSchema, drawOptionsSchema } from './schema';
+import { items5e, drawOptionsSchema } from './schema';
 
 export const errorSchemas = {
   validation: z.object({
@@ -21,17 +21,17 @@ export const api = {
       path: '/api/items/draw',
       input: drawOptionsSchema,
       responses: {
-        200: z.array(z.custom<typeof items.$inferSelect>()),
+        200: z.array(z.custom<typeof items5e.$inferSelect>()),
         400: errorSchemas.validation,
       },
     },
     list: {
-        method: 'GET' as const,
-        path: '/api/items',
-        responses: {
-            200: z.array(z.custom<typeof items.$inferSelect>()),
-        }
-    }
+      method: 'GET' as const,
+      path: '/api/items',
+      responses: {
+        200: z.array(z.custom<typeof items5e.$inferSelect>()),
+      },
+    },
   },
 };
 
