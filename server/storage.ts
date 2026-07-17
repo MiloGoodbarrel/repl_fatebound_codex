@@ -1,6 +1,7 @@
 import { db } from "./db";
 import {
   items5e, homebrewItems, campaignItems, campaigns, campaignCharacters,
+  bestiaryMonsters, bestiaryMonsterTraits, bestiaryMonsterActions,
   type InsertItem, type Item,
   type HomebrewItem, type InsertHomebrewItem,
   type Campaign, type InsertCampaign,
@@ -8,7 +9,7 @@ import {
   type CampaignCharacter, type InsertCampaignCharacter,
   type DrawOptions,
 } from "@shared/schema";
-import { eq, inArray, sql, and } from "drizzle-orm";
+import { eq, inArray, sql, and, ilike, asc } from "drizzle-orm";
 
 export interface IStorage {
   // 5e compendium
@@ -41,6 +42,11 @@ export interface IStorage {
   // Draw
   getSources5e(): Promise<string[]>;
   drawItems(options: DrawOptions): Promise<(Item | HomebrewItem | CampaignItem)[]>;
+
+  // Bestiary
+  getBestiaryTypes(): Promise<string[]>;
+  searchBestiary(search: string, types: string[], limit?: number): Promise<any[]>;
+  getBestiaryMonsterDetail(monsterId: string): Promise<any | null>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -160,6 +166,50 @@ export class DatabaseStorage implements IStorage {
       .orderBy(items5e.source);
     return rows.map(r => r.source).filter((s): s is string => s != null);
   }
+
+  // ── Bestiary ───────────────────────────────────────────────────────────────
+
+  async getBestiaryTypes(): Promise<string[]> {
+    const rows = await db
+      .selectDistinct({ creatureType: bestiaryMonsters.creatureType })
+      .from(bestiaryMonsters)
+      .where(sql`creature_type IS NOT NULL`)
+      .orderBy(bestiaryMonsters.creatureType);
+    return rows.map(r => r.creatureType).filter((t): t is string => t != null);
+  }
+
+  async searchBestiary(search: string, types: string[], limit = 20): Promise<any[]> {
+    const conditions: any[] = [];
+    if (search.trim()) conditions.push(ilike(bestiaryMonsters.name, `%${search.trim()}%`));
+    if (types.length > 0) conditions.push(inArray(bestiaryMonsters.creatureType, types));
+    return await db
+      .select()
+      .from(bestiaryMonsters)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(asc(bestiaryMonsters.name))
+      .limit(limit);
+  }
+
+  async getBestiaryMonsterDetail(monsterId: string): Promise<any | null> {
+    const [monster] = await db
+      .select()
+      .from(bestiaryMonsters)
+      .where(eq(bestiaryMonsters.monsterId, monsterId));
+    if (!monster) return null;
+    const traits = await db
+      .select()
+      .from(bestiaryMonsterTraits)
+      .where(eq(bestiaryMonsterTraits.monsterId, monsterId))
+      .orderBy(asc(bestiaryMonsterTraits.traitOrder));
+    const actions = await db
+      .select()
+      .from(bestiaryMonsterActions)
+      .where(eq(bestiaryMonsterActions.monsterId, monsterId))
+      .orderBy(asc(bestiaryMonsterActions.actionOrder));
+    return { ...monster, traits, actions };
+  }
+
+  // ── Draw ──────────────────────────────────────────────────────────────────
 
   async drawItems(options: DrawOptions): Promise<(Item | HomebrewItem | CampaignItem)[]> {
     const { source, campaignId, editions, categories, rarities, sources, count } = options;

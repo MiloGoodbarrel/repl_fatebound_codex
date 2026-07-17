@@ -1,0 +1,1 @@
+- [Bestiary API + statblock](bestiary-initiative-tracker.md) — local bestiary tables replace external 5e API; live search + type filters + full statblock in combat cards.

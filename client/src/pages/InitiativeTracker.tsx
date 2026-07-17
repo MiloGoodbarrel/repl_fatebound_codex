@@ -111,28 +111,48 @@ interface MonsterAction {
   damage?: Array<{ damage_dice: string; damage_type: string }>;
 }
 
+interface BestiaryTrait {
+  name: string;
+  description: string;
+  type: string;
+}
+
+interface BestiaryDetailedAction {
+  name: string;
+  description: string;
+  category: string;
+  attackBonus?: number;
+  reachFt?: number;
+  saveAbility?: string;
+  saveDc?: number;
+  damageDice?: string;
+  damageType?: string;
+}
+
 interface Monster {
   index: string;
   name: string;
   hp: number;
   hit_dice?: string;
+  hitDiceCount?: number;
+  hitDieSize?: number;
   ac: number;
   cr: string;
   type: string;
   size: string;
   speed?: Record<string, string>;
-  str?: number;
-  dex?: number;
-  con?: number;
-  int?: number;
-  wis?: number;
-  cha?: number;
+  str?: number; dex?: number; con?: number; int?: number; wis?: number; cha?: number;
+  strMod?: number; dexMod?: number; conMod?: number; intMod?: number; wisMod?: number; chaMod?: number;
   resistances?: string[];
   immunities?: string[];
   vulnerabilities?: string[];
   actions?: MonsterAction[];
   special_abilities?: Array<{ name: string; desc: string }>;
+  traits?: BestiaryTrait[];
+  detailedActions?: BestiaryDetailedAction[];
   source?: string;
+  alignment?: string;
+  creatureTags?: string;
 }
 
 function rollMonsterHp(hitDice: string, avgHp: number): number {
@@ -200,6 +220,139 @@ interface Combatant {
 
 type CombatState = "setup" | "active" | "ended";
 
+function MonsterStatblock({ monster }: { monster: Monster }) {
+  const [showAllActions, setShowAllActions] = useState(false);
+
+  const abilityScores = [
+    { label: "STR", score: monster.str, mod: monster.strMod },
+    { label: "DEX", score: monster.dex, mod: monster.dexMod },
+    { label: "CON", score: monster.con, mod: monster.conMod },
+    { label: "INT", score: monster.int, mod: monster.intMod },
+    { label: "WIS", score: monster.wis, mod: monster.wisMod },
+    { label: "CHA", score: monster.cha, mod: monster.chaMod },
+  ];
+
+  const formatMod = (mod?: number | null, score?: number | null): string => {
+    if (mod != null) return mod >= 0 ? `+${mod}` : `${mod}`;
+    if (score != null) {
+      const m = Math.floor((score - 10) / 2);
+      return m >= 0 ? `+${m}` : `${m}`;
+    }
+    return "—";
+  };
+
+  const traits = monster.traits ?? (monster.special_abilities?.map(a => ({ name: a.name, description: a.desc, type: "passive" })) ?? []);
+  const allActions = monster.detailedActions ?? (monster.actions?.map(a => ({ name: a.name, description: a.desc, category: "action", attackBonus: a.attack_bonus })) ?? []);
+  const mainActions = allActions.filter(a => a.category === "action" || a.category === "standard" || a.category === "");
+  const otherActions = allActions.filter(a => a.category !== "action" && a.category !== "standard" && a.category !== "" && a.category !== "action");
+  const ACTIONS_PREVIEW = 3;
+  const visibleActions = showAllActions ? mainActions : mainActions.slice(0, ACTIONS_PREVIEW);
+  const hiddenCount = mainActions.length - ACTIONS_PREVIEW;
+
+  return (
+    <div className="mt-3 pt-3 border-t border-border/50 text-xs space-y-3">
+      {/* Subtitle row */}
+      <div className="flex items-center flex-wrap gap-2">
+        <span className="text-muted-foreground">
+          {[monster.size, monster.type, monster.alignment].filter(Boolean).join(" · ")}
+        </span>
+        {monster.source && (
+          <Badge variant="secondary" className="text-[10px] h-4 px-1">{monster.source}</Badge>
+        )}
+      </div>
+
+      {/* Stats: AC, HP */}
+      <div className="flex flex-wrap gap-3">
+        <span className="flex items-center gap-1">
+          <Shield className="w-3 h-3 text-muted-foreground" />
+          <span className="font-semibold">AC</span> {monster.ac}
+        </span>
+        <span className="flex items-center gap-1">
+          <Heart className="w-3 h-3 text-muted-foreground" />
+          <span className="font-semibold">HP</span> avg {monster.hp}
+          {monster.hit_dice && <span className="text-muted-foreground ml-1">({monster.hit_dice})</span>}
+        </span>
+      </div>
+
+      {/* Ability scores */}
+      {abilityScores.some(s => s.score != null) && (
+        <div className="grid grid-cols-6 gap-1 text-center bg-muted/30 rounded p-2">
+          {abilityScores.map(({ label, score, mod }) => (
+            <div key={label} className="space-y-0.5">
+              <div className="text-[10px] font-bold text-muted-foreground">{label}</div>
+              <div className="font-mono font-bold text-sm">{score ?? "—"}</div>
+              <div className="text-[10px] text-muted-foreground">{formatMod(mod, score)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Immunities / Resistances */}
+      {monster.immunities && monster.immunities.length > 0 && (
+        <div><span className="font-semibold text-muted-foreground">Immunities: </span>{monster.immunities.join(", ")}</div>
+      )}
+      {monster.resistances && monster.resistances.length > 0 && (
+        <div><span className="font-semibold text-muted-foreground">Resistances: </span>{monster.resistances.join(", ")}</div>
+      )}
+      {monster.vulnerabilities && monster.vulnerabilities.length > 0 && (
+        <div><span className="font-semibold text-muted-foreground">Vulnerabilities: </span>{monster.vulnerabilities.join(", ")}</div>
+      )}
+
+      {/* Special Abilities / Traits */}
+      {traits.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="font-bold text-foreground/80 uppercase tracking-wide text-[10px]">Special Abilities</div>
+          {traits.map((trait, i) => (
+            <p key={i} className="text-muted-foreground leading-snug">
+              <span className="font-semibold text-foreground/90 italic">{trait.name}. </span>
+              {trait.description}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {/* Actions */}
+      {mainActions.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="font-bold text-foreground/80 uppercase tracking-wide text-[10px]">Actions</div>
+          {visibleActions.map((action, i) => (
+            <p key={i} className="text-muted-foreground leading-snug">
+              <span className="font-semibold text-foreground/90 italic">{action.name}. </span>
+              {action.description}
+              {action.attackBonus != null && (
+                <span className="text-primary/80 ml-1">(+{action.attackBonus} to hit)</span>
+              )}
+            </p>
+          ))}
+          {!showAllActions && hiddenCount > 0 && (
+            <button
+              onClick={() => setShowAllActions(true)}
+              className="text-primary/80 hover:text-primary transition-colors text-[11px] font-medium"
+            >
+              +{hiddenCount} more action{hiddenCount !== 1 ? "s" : ""}
+            </button>
+          )}
+          {showAllActions && hiddenCount > 0 && (
+            <button
+              onClick={() => setShowAllActions(false)}
+              className="text-muted-foreground hover:text-foreground transition-colors text-[11px]"
+            >
+              Show less
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Bonus/Legendary/Lair actions summary */}
+      {otherActions.length > 0 && (
+        <div className="text-muted-foreground italic text-[11px]">
+          + {otherActions.length} bonus/legendary action{otherActions.length !== 1 ? "s" : ""}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function InitiativeTracker() {
   const [showVersionDialog, setShowVersionDialog] = useState(true);
   const [selectedVersions, setSelectedVersions] = useState<string[]>([]);
@@ -209,10 +362,11 @@ export default function InitiativeTracker() {
   const [round, setRound] = useState(1);
   
   // Monster search
-  const [monsters, setMonsters] = useState<Monster[]>([]);
   const [monsterSearch, setMonsterSearch] = useState("");
-  const [selectedMonster, setSelectedMonster] = useState<Monster | null>(null);
-  const [loadingMonsters, setLoadingMonsters] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [typeFilters, setTypeFilters] = useState<string[]>([]);
+  const [showTypeFilters, setShowTypeFilters] = useState(false);
+  const [selectedMonsterId, setSelectedMonsterId] = useState<string | null>(null);
   
   // PC entry
   const [pcName, setPcName] = useState("");
@@ -286,27 +440,41 @@ export default function InitiativeTracker() {
     setCombatants(prev => [...prev, newCombatant]);
   };
 
-  // Fetch monsters when versions are selected
+  // Debounce search input
   useEffect(() => {
-    if (selectedVersions.length > 0) {
-      fetchMonsters();
-    }
-  }, [selectedVersions]);
+    const t = setTimeout(() => setDebouncedSearch(monsterSearch), 300);
+    return () => clearTimeout(t);
+  }, [monsterSearch]);
 
-  const fetchMonsters = async () => {
-    setLoadingMonsters(true);
-    try {
-      const response = await fetch(`/api/monsters?versions=${selectedVersions.join(",")}`);
-      if (response.ok) {
-        const data = await response.json();
-        setMonsters(data);
-      }
-    } catch (error) {
-      console.error("Failed to fetch monsters:", error);
-    } finally {
-      setLoadingMonsters(false);
-    }
-  };
+  // Bestiary creature types
+  const { data: creatureTypes = [] } = useQuery<string[]>({
+    queryKey: ["/api/bestiary/types"],
+    queryFn: () => fetch("/api/bestiary/types").then(r => r.json()),
+    staleTime: Infinity,
+  });
+
+  // Live monster search results
+  const activeSearch = debouncedSearch.trim().length > 0 || typeFilters.length > 0;
+  const { data: monsterResults = [], isFetching: loadingMonsters } = useQuery<Monster[]>({
+    queryKey: ["/api/bestiary/monsters", debouncedSearch, typeFilters.join(",")],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+      if (typeFilters.length) params.set("types", typeFilters.join(","));
+      params.set("limit", "20");
+      return fetch(`/api/bestiary/monsters?${params}`).then(r => r.json());
+    },
+    enabled: activeSearch,
+    staleTime: 30_000,
+  });
+
+  // Fetch full detail when a monster is selected
+  const { data: selectedMonster, isLoading: loadingDetail } = useQuery<Monster>({
+    queryKey: ["/api/bestiary/monsters", selectedMonsterId],
+    queryFn: () => fetch(`/api/bestiary/monsters/${selectedMonsterId}`).then(r => r.json()),
+    enabled: !!selectedMonsterId,
+    staleTime: Infinity,
+  });
 
   const handleVersionConfirm = () => {
     if (selectedVersions.length === 0) return;
@@ -319,9 +487,10 @@ export default function InitiativeTracker() {
     );
   };
 
-  const filteredMonsters = monsters.filter(m => 
-    m.name.toLowerCase().includes(monsterSearch.toLowerCase())
-  );
+  const toggleTypeFilter = (type: string) => {
+    setTypeFilters(prev => prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]);
+    setSelectedMonsterId(null);
+  };
 
   const addMonster = () => {
     if (!selectedMonster) return;
@@ -366,7 +535,7 @@ export default function InitiativeTracker() {
       isDead: false,
     };
     setCombatants(prev => [...prev, newCombatant]);
-    setSelectedMonster(null);
+    setSelectedMonsterId(null);
     setMonsterSearch("");
   };
 
@@ -1129,8 +1298,8 @@ export default function InitiativeTracker() {
             <div className="relative">
               <Input
                 value={monsterSearch}
-                onChange={e => setMonsterSearch(e.target.value)}
-                placeholder="Search monsters..."
+                onChange={e => { setMonsterSearch(e.target.value); setSelectedMonsterId(null); }}
+                placeholder="Search monsters by name..."
                 className="pr-8"
                 data-testid="input-monster-search"
               />
@@ -1138,53 +1307,110 @@ export default function InitiativeTracker() {
                 <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
               )}
             </div>
-            
-            {monsterSearch && filteredMonsters.length > 0 && (
-              <div className="max-h-40 overflow-y-auto border rounded-md bg-background">
-                {filteredMonsters.slice(0, 10).map(monster => (
+
+            {/* Type filter toggle */}
+            <button
+              onClick={() => setShowTypeFilters(v => !v)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              data-testid="button-toggle-type-filters"
+            >
+              <span className={cn("transition-transform", showTypeFilters ? "rotate-90" : "")}>▶</span>
+              Filter by creature type
+              {typeFilters.length > 0 && (
+                <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">{typeFilters.length}</Badge>
+              )}
+            </button>
+
+            {showTypeFilters && creatureTypes.length > 0 && (
+              <div className="max-h-36 overflow-y-auto border rounded-md bg-background p-2 grid grid-cols-2 gap-1">
+                {creatureTypes.map(type => (
+                  <label key={type} className="flex items-center gap-1.5 text-xs cursor-pointer hover:text-foreground text-muted-foreground">
+                    <Checkbox
+                      checked={typeFilters.includes(type)}
+                      onCheckedChange={() => toggleTypeFilter(type)}
+                      className="h-3 w-3"
+                      data-testid={`checkbox-type-${type}`}
+                    />
+                    {type}
+                  </label>
+                ))}
+              </div>
+            )}
+
+            {/* Search results */}
+            {activeSearch && monsterResults.length > 0 && (
+              <div className="max-h-44 overflow-y-auto border rounded-md bg-background divide-y divide-border/50">
+                {monsterResults.map(monster => (
                   <div
                     key={monster.index}
-                    onClick={() => setSelectedMonster(monster)}
+                    onClick={() => setSelectedMonsterId(monster.index)}
                     className={cn(
-                      "p-2 cursor-pointer hover-elevate text-sm flex justify-between",
-                      selectedMonster?.index === monster.index && "bg-primary/10"
+                      "p-2 cursor-pointer hover:bg-primary/5 transition-colors",
+                      selectedMonsterId === monster.index && "bg-primary/10"
                     )}
+                    data-testid={`monster-result-${monster.index}`}
                   >
-                    <span>{monster.name}</span>
-                    <span className="text-muted-foreground text-xs">CR {monster.cr}</span>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">{monster.name}</span>
+                      <div className="flex gap-2 text-[11px] text-muted-foreground shrink-0 ml-2">
+                        <span className="flex items-center gap-0.5"><Shield className="w-3 h-3" />{monster.ac}</span>
+                        <span className="flex items-center gap-0.5"><Heart className="w-3 h-3" />{monster.hp}</span>
+                      </div>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">
+                      {[monster.size, monster.type].filter(Boolean).join(" ")}
+                    </div>
                   </div>
                 ))}
               </div>
             )}
-            
-            {selectedMonster && (
-              <div className="p-3 bg-primary/5 rounded-md space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold">{selectedMonster.name}</span>
-                  <Badge variant="outline">CR {selectedMonster.cr}</Badge>
+            {activeSearch && !loadingMonsters && monsterResults.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-2">No monsters found</p>
+            )}
+
+            {/* Selected monster preview */}
+            {selectedMonsterId && loadingDetail && (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+              </div>
+            )}
+            {selectedMonster && !loadingDetail && (
+              <div className="p-3 bg-primary/5 border border-primary/20 rounded-md space-y-2">
+                <div className="flex justify-between items-start gap-2">
+                  <span className="font-bold text-sm">{selectedMonster.name}</span>
+                  {selectedMonster.source && (
+                    <Badge variant="outline" className="text-[10px] shrink-0">{selectedMonster.source}</Badge>
+                  )}
                 </div>
-                <div className="text-xs text-muted-foreground grid grid-cols-2 gap-2">
-                  <span><Heart className="w-3 h-3 inline mr-1" />HP: {selectedMonster.hp}</span>
-                  <span><Shield className="w-3 h-3 inline mr-1" />AC: {selectedMonster.ac}</span>
-                  <span>{selectedMonster.size} {selectedMonster.type}</span>
-                  {selectedMonster.source && <span className="text-primary/70">{selectedMonster.source}</span>}
+                <div className="text-xs text-muted-foreground">
+                  {[selectedMonster.size, selectedMonster.type, selectedMonster.alignment].filter(Boolean).join(" · ")}
                 </div>
-                {selectedMonster.resistances && selectedMonster.resistances.length > 0 && (
-                  <div className="text-xs">
-                    <span className="text-muted-foreground">Resistances: </span>
-                    {selectedMonster.resistances.join(", ")}
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="text-center bg-background/60 rounded p-1.5">
+                    <div className="font-bold text-base">{selectedMonster.ac}</div>
+                    <div className="text-muted-foreground flex items-center justify-center gap-0.5"><Shield className="w-3 h-3" />AC</div>
                   </div>
-                )}
+                  <div className="text-center bg-background/60 rounded p-1.5">
+                    <div className="font-bold text-base">{selectedMonster.hp}</div>
+                    <div className="text-muted-foreground flex items-center justify-center gap-0.5"><Heart className="w-3 h-3" />HP avg</div>
+                  </div>
+                  <div className="text-center bg-background/60 rounded p-1.5">
+                    <div className="font-bold text-base">
+                      {selectedMonster.hit_dice || "—"}
+                    </div>
+                    <div className="text-muted-foreground flex items-center justify-center gap-0.5"><Dices className="w-3 h-3" />Dice</div>
+                  </div>
+                </div>
               </div>
             )}
             
             <Button 
               onClick={addMonster} 
-              disabled={!selectedMonster}
+              disabled={!selectedMonster || loadingDetail}
               className="w-full"
               data-testid="button-add-monster"
             >
-              <Plus className="mr-2 w-4 h-4" /> Add Monster
+              <Plus className="mr-2 w-4 h-4" /> Add to Encounter
             </Button>
           </div>
 
@@ -2049,18 +2275,9 @@ export default function InitiativeTracker() {
                           </Button>
                         </div>
 
-                        {/* Monster Details */}
+                        {/* Monster Statblock */}
                         {combatant.monsterData && (
-                          <div className="mt-3 pt-3 border-t border-border/50 text-xs text-muted-foreground flex flex-wrap gap-4">
-                            <span>CR {combatant.monsterData.cr}</span>
-                            <span>{combatant.monsterData.size} {combatant.monsterData.type}</span>
-                            {combatant.monsterData.resistances && combatant.monsterData.resistances.length > 0 && (
-                              <span>Resistances: {combatant.monsterData.resistances.join(", ")}</span>
-                            )}
-                            {combatant.monsterData.immunities && combatant.monsterData.immunities.length > 0 && (
-                              <span>Immunities: {combatant.monsterData.immunities.join(", ")}</span>
-                            )}
-                          </div>
+                          <MonsterStatblock monster={combatant.monsterData} />
                         )}
                       </CardContent>
                     </Card>

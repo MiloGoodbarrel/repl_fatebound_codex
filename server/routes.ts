@@ -228,57 +228,82 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // ── Monster Bestiary ──────────────────────────────────────────────────────
 
-  app.get("/api/monsters", async (req, res) => {
-    try {
-      const versions = (req.query.versions as string)?.split(",") || ["5e"];
-      const monsters: any[] = [];
+  function mapMonsterRow(m: any) {
+    return {
+      index: m.monsterId,
+      name: m.name,
+      hp: m.printedAverageHp || 0,
+      hit_dice: m.hitDiceCount && m.hitDieSize ? `${m.hitDiceCount}d${m.hitDieSize}` : undefined,
+      hitDiceCount: m.hitDiceCount,
+      hitDieSize: m.hitDieSize,
+      ac: m.armorClass || 10,
+      cr: "--",
+      type: m.creatureType || "",
+      size: m.size || "",
+      str: m.strScore, dex: m.dexScore, con: m.conScore,
+      int: m.intScore, wis: m.wisScore, cha: m.chaScore,
+      strMod: m.strMod, dexMod: m.dexMod, conMod: m.conMod,
+      intMod: m.intMod, wisMod: m.wisMod, chaMod: m.chaMod,
+      alignment: m.alignment,
+      creatureTags: m.creatureTags,
+      source: m.sourceBook || m.sourceKey || "",
+    };
+  }
 
-      if (versions.includes("5e") || versions.includes("onednd")) {
-        const response = await fetch("https://www.dnd5eapi.co/api/monsters");
-        if (response.ok) {
-          const data = await response.json() as { results: Array<{ index: string; name: string; url: string }> };
-          const promises = data.results.map(async (m) => {
-            try {
-              const detailRes = await fetch(`https://www.dnd5eapi.co${m.url}`);
-              if (detailRes.ok) {
-                const detail = await detailRes.json() as any;
-                return {
-                  index: m.index,
-                  name: m.name,
-                  hp: detail.hit_points || 0,
-                  hit_dice: detail.hit_dice || "",
-                  ac: detail.armor_class?.[0]?.value || 10,
-                  cr: detail.challenge_rating?.toString() || "0",
-                  type: detail.type || "unknown",
-                  size: detail.size || "Medium",
-                  speed: detail.speed || {},
-                  str: detail.strength || 10,
-                  dex: detail.dexterity || 10,
-                  con: detail.constitution || 10,
-                  int: detail.intelligence || 10,
-                  wis: detail.wisdom || 10,
-                  cha: detail.charisma || 10,
-                  resistances: detail.damage_resistances || [],
-                  immunities: detail.damage_immunities || [],
-                  vulnerabilities: detail.damage_vulnerabilities || [],
-                  actions: (detail.actions || []).map((a: any) => ({
-                    name: a.name, desc: a.desc, attack_bonus: a.attack_bonus,
-                    damage: a.damage?.map((d: any) => ({ damage_dice: d.damage_dice, damage_type: d.damage_type?.name })) || [],
-                  })),
-                  special_abilities: (detail.special_abilities || []).map((a: any) => ({ name: a.name, desc: a.desc })),
-                  source: "SRD",
-                };
-              }
-            } catch { return null; }
-          });
-          const results = await Promise.all(promises);
-          monsters.push(...results.filter(Boolean));
-        }
-      }
-      res.json(monsters);
+  app.get("/api/bestiary/types", async (_req, res) => {
+    try {
+      const types = await storage.getBestiaryTypes();
+      res.json(types);
     } catch (err) {
-      console.error("Error fetching monsters:", err);
-      res.status(500).json({ message: "Failed to fetch monsters" });
+      res.status(500).json({ message: "Failed to fetch creature types" });
+    }
+  });
+
+  app.get("/api/bestiary/monsters", async (req, res) => {
+    try {
+      const search = (req.query.search as string) || "";
+      const typesParam = (req.query.types as string) || "";
+      const types = typesParam ? typesParam.split(",").filter(Boolean) : [];
+      const limit = Math.min(parseInt((req.query.limit as string) || "20"), 100);
+      const rows = await storage.searchBestiary(search, types, limit);
+      res.json(rows.map(mapMonsterRow));
+    } catch (err) {
+      res.status(500).json({ message: "Failed to search bestiary" });
+    }
+  });
+
+  app.get("/api/bestiary/monsters/:id", async (req, res) => {
+    try {
+      const detail = await storage.getBestiaryMonsterDetail(req.params.id);
+      if (!detail) return res.status(404).json({ message: "Monster not found" });
+      const base = mapMonsterRow(detail);
+      const result = {
+        ...base,
+        traits: (detail.traits || []).map((t: any) => ({
+          name: t.traitName || "",
+          description: t.traitDescription || "",
+          type: t.traitType || "passive",
+        })),
+        detailedActions: (detail.actions || []).map((a: any) => ({
+          name: a.actionName || "",
+          description: a.actionDescription || "",
+          category: a.actionCategory || "action",
+          attackBonus: a.attackBonus ?? undefined,
+          reachFt: a.reachFt ?? undefined,
+          saveAbility: a.saveAbility ?? undefined,
+          saveDc: a.saveDc ?? undefined,
+          damageDice: a.damageDice ?? undefined,
+          damageType: a.damageType ?? undefined,
+        })),
+        special_abilities: (detail.traits || [])
+          .map((t: any) => ({ name: t.traitName || "", desc: t.traitDescription || "" })),
+        actions: (detail.actions || [])
+          .filter((a: any) => a.actionCategory === "action" || a.actionCategory === "standard")
+          .map((a: any) => ({ name: a.actionName || "", desc: a.actionDescription || "", attack_bonus: a.attackBonus })),
+      };
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch monster detail" });
     }
   });
 
