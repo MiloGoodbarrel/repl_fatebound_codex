@@ -3,7 +3,7 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { insertCampaignSchema, insertCampaignCharacterSchema, type InsertItem } from "@shared/schema";
+import { insertCampaignSchema, insertCampaignCharacterSchema, type InsertItem, type InsertHomebrewItem } from "@shared/schema";
 import { seedLootTable } from "./seedLoot";
 
 function parseCSV(csvText: string): Omit<InsertItem, never>[] {
@@ -80,12 +80,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/import/5e", async (req, res) => {
     try {
       const csvText = await readBody(req);
-      const items = parseCSV(csvText);
-      await storage.createItems5e(items);
-      res.json({ message: `Imported ${items.length} items into 5e compendium`, count: items.length });
+      const items = parseCSV(csvText) as Omit<InsertHomebrewItem, "source">[];
+      await storage.addHomebrewItems(items);
+      res.json({ message: `Added ${items.length} items to Homebrew table`, count: items.length });
     } catch (err) {
       res.status(400).json({ message: err instanceof Error ? err.message : "Error parsing CSV" });
     }
+  });
+
+  app.delete("/api/items/homebrew", async (req, res) => {
+    await storage.clearHomebrewItems();
+    res.json({ message: "Homebrew table cleared" });
   });
 
   app.delete("/api/items/5e", async (req, res) => {

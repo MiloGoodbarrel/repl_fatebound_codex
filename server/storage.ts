@@ -1,7 +1,8 @@
 import { db } from "./db";
 import {
-  items5e, campaignItems, campaigns, campaignCharacters,
+  items5e, homebrewItems, campaignItems, campaigns, campaignCharacters,
   type InsertItem, type Item,
+  type HomebrewItem, type InsertHomebrewItem,
   type Campaign, type InsertCampaign,
   type CampaignItem, type InsertCampaignItem,
   type CampaignCharacter, type InsertCampaignCharacter,
@@ -14,6 +15,11 @@ export interface IStorage {
   getItems5e(): Promise<Item[]>;
   createItems5e(items: InsertItem[]): Promise<Item[]>;
   clearItems5e(): Promise<void>;
+
+  // Homebrew
+  getHomebrewItems(): Promise<HomebrewItem[]>;
+  addHomebrewItems(items: Omit<InsertHomebrewItem, "source">[]): Promise<HomebrewItem[]>;
+  clearHomebrewItems(): Promise<void>;
 
   // Campaigns
   getCampaigns(): Promise<Campaign[]>;
@@ -34,7 +40,7 @@ export interface IStorage {
 
   // Draw
   getSources5e(): Promise<string[]>;
-  drawItems(options: DrawOptions): Promise<Item[] | CampaignItem[]>;
+  drawItems(options: DrawOptions): Promise<(Item | HomebrewItem | CampaignItem)[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -52,6 +58,22 @@ export class DatabaseStorage implements IStorage {
 
   async clearItems5e(): Promise<void> {
     await db.delete(items5e);
+  }
+
+  // ── Homebrew ───────────────────────────────────────────────────────────────
+
+  async getHomebrewItems(): Promise<HomebrewItem[]> {
+    return await db.select().from(homebrewItems);
+  }
+
+  async addHomebrewItems(items: Omit<InsertHomebrewItem, "source">[]): Promise<HomebrewItem[]> {
+    if (items.length === 0) return [];
+    const withSource = items.map(i => ({ ...i, source: "Homebrew" as const }));
+    return await db.insert(homebrewItems).values(withSource).returning();
+  }
+
+  async clearHomebrewItems(): Promise<void> {
+    await db.delete(homebrewItems);
   }
 
   // ── Campaigns ─────────────────────────────────────────────────────────────
@@ -79,7 +101,10 @@ export class DatabaseStorage implements IStorage {
   // ── Campaign items ─────────────────────────────────────────────────────────
 
   async getCampaignItems(campaignId: number): Promise<CampaignItem[]> {
-    return await db.select().from(campaignItems).where(eq(campaignItems.campaignId, campaignId));
+    return await db
+      .select()
+      .from(campaignItems)
+      .where(eq(campaignItems.campaignId, campaignId));
   }
 
   async importCampaignItems(
@@ -87,7 +112,7 @@ export class DatabaseStorage implements IStorage {
     items: Omit<InsertCampaignItem, "campaignId">[]
   ): Promise<CampaignItem[]> {
     if (items.length === 0) return [];
-    const withId = items.map(item => ({ ...item, campaignId }));
+    const withId = items.map(i => ({ ...i, campaignId }));
     return await db.insert(campaignItems).values(withId).returning();
   }
 
@@ -136,9 +161,10 @@ export class DatabaseStorage implements IStorage {
     return rows.map(r => r.source).filter((s): s is string => s != null);
   }
 
-  async drawItems(options: DrawOptions): Promise<Item[] | CampaignItem[]> {
+  async drawItems(options: DrawOptions): Promise<(Item | HomebrewItem | CampaignItem)[]> {
     const { source, campaignId, editions, categories, rarities, sources, count } = options;
 
+    // ── Campaign draw ──────────────────────────────────────────────────────
     if (source === "campaign" && campaignId != null) {
       return await db
         .select()
@@ -154,26 +180,43 @@ export class DatabaseStorage implements IStorage {
         .limit(count);
     }
 
+    // ── Compendium draw ────────────────────────────────────────────────────
+    const includeHomebrew = !sources || sources.includes("Homebrew");
+    const officialSources = sources
+      ? sources.filter(s => s !== "Homebrew")
+      : null; // null = no filter
+
     const editionFilter = editions && editions.length > 0
       ? inArray(items5e.edition, editions)
       : undefined;
-    const sourceFilter = sources && sources.length > 0
-      ? inArray(items5e.source, sources)
+    const sourceFilter = officialSources && officialSources.length > 0
+      ? inArray(items5e.source, officialSources)
       : undefined;
 
-    return await db
-      .select()
-      .from(items5e)
-      .where(
-        and(
-          editionFilter,
-          sourceFilter,
-          inArray(items5e.category, categories),
-          inArray(items5e.rarity, rarities)
-        )
-      )
-      .orderBy(sql`RANDOM()`)
-      .limit(count);
+    // Decide whether we need official items at all
+    const needOfficial = !sources || officialSources === null || (officialSources && officialSources.length > 0);
+
+    const officialItems: Item[] = needOfficial
+      ? await db
+          .select()
+          .from(items5e)
+          .where(and(editionFilter, sourceFilter, inArray(items5e.category, categories), inArray(items5e.rarity, rarities)))
+          .orderBy(sql`RANDOM()`)
+          .limit(count)
+      : [];
+
+    const brewed: HomebrewItem[] = includeHomebrew
+      ? await db
+          .select()
+          .from(homebrewItems)
+          .where(and(inArray(homebrewItems.category, categories), inArray(homebrewItems.rarity, rarities)))
+          .orderBy(sql`RANDOM()`)
+          .limit(count)
+      : [];
+
+    // Combine, shuffle, and trim to count
+    const combined = [...officialItems, ...brewed].sort(() => Math.random() - 0.5);
+    return combined.slice(0, count);
   }
 }
 

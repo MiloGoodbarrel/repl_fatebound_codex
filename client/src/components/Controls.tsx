@@ -1,11 +1,11 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { type DrawOptions } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Sparkles, Dices, Layers, Upload, Search, X, Scroll, RefreshCw, BookOpen } from "lucide-react";
+import { Sparkles, Dices, Layers, Upload, Search, X, Scroll, RefreshCw, BookOpen, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useCampaign } from "@/lib/campaignContext";
@@ -50,6 +50,8 @@ const RARITIES = [
   { value: "Unique",    label: "Unique",    color: "bg-orange-500 border-orange-500" },
 ];
 
+const HOMEBREW_SOURCE = "Homebrew";
+
 interface ControlsProps {
   onDraw: (options: DrawOptions) => void;
   isDrawing: boolean;
@@ -62,27 +64,42 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
   const [editions, setEditions] = useState<string[]>(["5e"]);
   const [categories, setCategories] = useState<string[]>([...CATEGORIES]);
   const [rarities, setRarities] = useState<string[]>(RARITIES.map(r => r.value));
-  const [sources, setSources] = useState<string[]>([]); // empty = all sources
+
+  // Explicit selected sources set. Initialized from allSources + Homebrew once loaded.
+  const [selectedSources, setSelectedSources] = useState<Set<string>>(new Set([HOMEBREW_SOURCE]));
+  const [sourcesReady, setSourcesReady] = useState(false);
   const [sourceSearch, setSourceSearch] = useState("");
+
   const [count, setCount] = useState([5]);
   const [uploading, setUploading] = useState(false);
   const [reloading, setReloading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const { data: allSources = [] } = useQuery<string[]>({
+  const { data: officialSources = [] } = useQuery<string[]>({
     queryKey: ["/api/items/5e/sources"],
     enabled: !activeCampaign,
   });
 
+  // All sources = official ones + Homebrew at the top
+  const allSources = [HOMEBREW_SOURCE, ...officialSources];
+
+  // Initialize to all sources selected on first load
+  useEffect(() => {
+    if (officialSources.length > 0 && !sourcesReady) {
+      setSelectedSources(new Set([HOMEBREW_SOURCE, ...officialSources]));
+      setSourcesReady(true);
+    }
+  }, [officialSources, sourcesReady]);
+
   const drawSource: DrawOptions["source"] = activeCampaign ? "campaign" : "5e";
 
-  const filteredSources = allSources.filter(s =>
+  const filteredOfficialSources = officialSources.filter(s =>
     s.toLowerCase().includes(sourceSearch.toLowerCase())
   );
+  const showHomebrew = HOMEBREW_SOURCE.toLowerCase().includes(sourceSearch.toLowerCase());
 
-  // sources state: empty array = "all sources" (no filter applied)
-  const selectedSources = sources.length === 0 ? allSources : sources;
+  // ── Toggle handlers ──────────────────────────────────────────────────────
 
   const toggleEdition = (val: string) =>
     setEditions(prev => prev.includes(val) ? prev.filter(e => e !== val) : [...prev, val]);
@@ -100,36 +117,41 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
     setRarities(rarities.length === RARITIES.length ? [] : RARITIES.map(r => r.value));
 
   const toggleSource = (val: string) => {
-    setSources(prev => {
-      // If currently "all", clicking one source means "deselect all except this one"... 
-      // Actually simpler: maintain a selected set. Empty = all.
-      if (prev.length === 0) {
-        // Was "all selected", now deselect just this one
-        return allSources.filter(s => s !== val);
-      }
-      return prev.includes(val) ? prev.filter(s => s !== val) : [...prev, val];
+    setSelectedSources(prev => {
+      const next = new Set(prev);
+      next.has(val) ? next.delete(val) : next.add(val);
+      return next;
     });
   };
-  const toggleAllSources = () => setSources([]);
-  const clearAllSources = () => setSources(allSources.length > 0 ? allSources.filter(() => false) : []);
 
-  const isSourceSelected = (val: string) =>
-    sources.length === 0 || sources.includes(val);
+  const selectAllSources = () => setSelectedSources(new Set(allSources));
+  const clearAllSources = () => setSelectedSources(new Set());
 
-  const allSourcesSelected = sources.length === 0;
-  const someSourcesSelected = sources.length > 0 && sources.length < allSources.length;
+  const allSelected = allSources.length > 0 && allSources.every(s => selectedSources.has(s));
+  const noneSelected = selectedSources.size === 0;
+
+  // ── Draw ─────────────────────────────────────────────────────────────────
 
   const handleDraw = () => {
+    // Pass selected sources to the API; undefined means no filter (all)
+    const sourcesArray = [...selectedSources];
     onDraw({
       source: drawSource,
       campaignId: activeCampaign?.id,
       editions: drawSource === "5e" ? editions : undefined,
       categories,
       rarities,
-      sources: sources.length > 0 ? sources : undefined,
+      sources: sourcesReady ? sourcesArray : undefined,
       count: count[0],
     });
   };
+
+  const canDraw = !isDrawing
+    && categories.length > 0
+    && rarities.length > 0
+    && (!activeCampaign ? editions.length > 0 && !noneSelected : true);
+
+  // ── CSV Upload ────────────────────────────────────────────────────────────
 
   const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -195,7 +217,7 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
           )}
         </div>
 
-        {/* Edition Filter — only when drawing from compendium */}
+        {/* Edition Filter */}
         {!activeCampaign && (
           <div className="space-y-3">
             <div className="flex justify-between items-center">
@@ -223,7 +245,7 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
           </div>
         )}
 
-        {/* Search */}
+        {/* Search drawn items */}
         <div className="space-y-2">
           <Label className="font-display text-sm flex items-center gap-2">
             <Search className="w-4 h-4" /> Search Drawn Items
@@ -245,7 +267,7 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
           </div>
         </div>
 
-        {/* Count */}
+        {/* Card Count */}
         <div className="space-y-4 bg-background/30 p-4 rounded-lg border border-border/50">
           <div className="flex justify-between items-center">
             <Label className="font-display text-lg">Card Count</Label>
@@ -310,32 +332,32 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
           </div>
         </div>
 
-        {/* Source / Sourcebook Filter */}
-        {!activeCampaign && allSources.length > 0 && (
+        {/* Sourcebooks — only for compendium draws */}
+        {!activeCampaign && (
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <Label className="font-display text-lg flex items-center gap-2">
                 <BookOpen className="w-4 h-4" /> Sourcebooks
               </Label>
               <div className="flex items-center gap-2">
-                {!allSourcesSelected && (
+                {!allSelected && selectedSources.size > 0 && (
                   <span className="text-xs text-primary font-mono">
-                    {sources.length}/{allSources.length}
+                    {selectedSources.size}/{allSources.length}
                   </span>
                 )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={allSourcesSelected ? () => setSources([...allSources]) : toggleAllSources}
-                  className="h-6 text-xs text-muted-foreground hover:text-primary"
-                  data-testid="button-toggle-all-sources"
-                >
-                  {allSourcesSelected ? "Clear All" : "Select All"}
-                </Button>
+                {allSelected ? (
+                  <Button variant="ghost" size="sm" onClick={clearAllSources} className="h-6 text-xs text-muted-foreground hover:text-primary" data-testid="button-clear-all-sources">
+                    Clear All
+                  </Button>
+                ) : (
+                  <Button variant="ghost" size="sm" onClick={selectAllSources} className="h-6 text-xs text-muted-foreground hover:text-primary" data-testid="button-select-all-sources">
+                    Select All
+                  </Button>
+                )}
               </div>
             </div>
 
-            {/* Search sources */}
+            {/* Search */}
             <div className="relative">
               <input
                 value={sourceSearch}
@@ -346,48 +368,71 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
               />
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
               {sourceSearch && (
-                <button
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  onClick={() => setSourceSearch("")}
-                >
+                <button className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setSourceSearch("")}>
                   <X className="w-3 h-3" />
                 </button>
               )}
             </div>
 
             {/* Source list */}
-            <div className="max-h-48 overflow-y-auto scrollbar-fantasy bg-background/30 rounded-lg border border-border/50 p-3">
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-                {filteredSources.map(src => (
-                  <div key={src} className="flex items-center space-x-1.5">
+            <div className="bg-background/30 rounded-lg border border-border/50 overflow-hidden">
+
+              {/* Homebrew — pinned at top */}
+              {showHomebrew && (
+                <div className="border-b border-border/40">
+                  <div className="flex items-center space-x-2 px-3 py-2 bg-amber-950/20 hover:bg-amber-950/30 transition-colors">
                     <Checkbox
-                      id={`src-${src}`}
-                      checked={isSourceSelected(src)}
-                      onCheckedChange={() => toggleSource(src)}
-                      data-testid={`checkbox-source-${src}`}
-                      className="border-muted-foreground data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground h-3.5 w-3.5"
+                      id="src-Homebrew"
+                      checked={selectedSources.has(HOMEBREW_SOURCE)}
+                      onCheckedChange={() => toggleSource(HOMEBREW_SOURCE)}
+                      data-testid="checkbox-source-Homebrew"
+                      className="border-amber-600 data-[state=checked]:bg-amber-700 data-[state=checked]:border-amber-700 h-3.5 w-3.5"
                     />
-                    <label
-                      htmlFor={`src-${src}`}
-                      className="text-xs font-mono font-medium leading-none cursor-pointer text-muted-foreground hover:text-foreground"
-                      title={src}
-                    >
-                      {src}
+                    <label htmlFor="src-Homebrew" className="flex items-center gap-1.5 text-xs font-medium cursor-pointer text-amber-400">
+                      <Wand2 className="w-3 h-3" /> Homebrew
                     </label>
                   </div>
-                ))}
-              </div>
-              {filteredSources.length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-2 italic">No sourcebooks match.</p>
+                </div>
               )}
+
+              {/* Official sources — scrollable */}
+              <div className="max-h-44 overflow-y-auto scrollbar-fantasy p-3">
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                  {filteredOfficialSources.map(src => (
+                    <div key={src} className="flex items-center space-x-1.5">
+                      <Checkbox
+                        id={`src-${src}`}
+                        checked={selectedSources.has(src)}
+                        onCheckedChange={() => toggleSource(src)}
+                        data-testid={`checkbox-source-${src}`}
+                        className="border-muted-foreground data-[state=checked]:bg-primary data-[state=checked]:border-primary h-3.5 w-3.5"
+                      />
+                      <label
+                        htmlFor={`src-${src}`}
+                        className="text-xs font-mono font-medium leading-none cursor-pointer text-muted-foreground hover:text-foreground"
+                        title={src}
+                      >
+                        {src}
+                      </label>
+                    </div>
+                  ))}
+                  {filteredOfficialSources.length === 0 && !showHomebrew && (
+                    <p className="col-span-2 text-xs text-muted-foreground text-center py-2 italic">No sourcebooks match.</p>
+                  )}
+                </div>
+              </div>
             </div>
+
+            {noneSelected && (
+              <p className="text-xs text-destructive text-center">Select at least one source to draw.</p>
+            )}
           </div>
         )}
 
         {/* CSV Import */}
         <div className="space-y-2 bg-background/30 p-4 rounded-lg border border-dashed border-border/50">
           <Label className="font-display text-sm">
-            {activeCampaign ? `Import into "${activeCampaign.name}" (CSV)` : "Import Items (CSV)"}
+            {activeCampaign ? `Import into "${activeCampaign.name}" (CSV)` : "Import Homebrew Items (CSV)"}
           </Label>
           <p className="text-xs text-muted-foreground">
             Required: <span className="font-mono">name, category, rarity</span><br />
@@ -416,7 +461,7 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
         {/* Draw Button */}
         <Button
           onClick={handleDraw}
-          disabled={isDrawing || categories.length === 0 || rarities.length === 0 || (!activeCampaign && editions.length === 0)}
+          disabled={!canDraw}
           className="w-full h-14 text-lg font-display font-bold uppercase tracking-widest relative overflow-hidden group shadow-lg hover:shadow-primary/20 transition-all"
           data-testid="button-draw-cards"
         >
