@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { insertCampaignSchema, insertCampaignCharacterSchema, type InsertItem } from "@shared/schema";
+import { seedLootTable } from "./seedLoot";
 
 function parseCSV(csvText: string): Omit<InsertItem, never>[] {
   const lines = csvText.trim().split('\n');
@@ -85,6 +86,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.delete("/api/items/5e", async (req, res) => {
     await storage.clearItems5e();
     res.json({ message: "5e compendium cleared" });
+  });
+
+  app.post("/api/admin/seed-loot/:edition", async (req, res) => {
+    const { edition } = req.params;
+    try {
+      const result = await seedLootTable(edition, true);
+      res.json({ message: `Seeded ${result.inserted} items for edition "${edition}"`, ...result });
+    } catch (err) {
+      res.status(500).json({ message: err instanceof Error ? err.message : "Seed failed" });
+    }
   });
 
   // ── Draw ─────────────────────────────────────────────────────────────────

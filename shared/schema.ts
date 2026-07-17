@@ -16,6 +16,7 @@ const itemColumns = {
   cost: text("cost"),
   properties: text("properties"),
   attunement: text("attunement"),
+  edition: text("edition").notNull().default("5e"),
 };
 
 export const items5e = pgTable("items_5e", itemColumns);

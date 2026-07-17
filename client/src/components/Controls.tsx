@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Sparkles, Dices, Layers, Upload, Search, X, Scroll } from "lucide-react";
+import { Sparkles, Dices, Layers, Upload, Search, X, Scroll, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useCampaign } from "@/lib/campaignContext";
@@ -20,11 +20,34 @@ const EDITIONS = [
 ];
 
 const CATEGORIES = [
-  "Weapons", "Armor", "Potions", "Rings", "Wands",
-  "Staves", "Scrolls", "Rods", "Wondrous Items", "Magical",
+  "Adventuring Gear",
+  "Armor",
+  "Magic Tattoos",
+  "Miscellaneous",
+  "Mounts & Vehicles",
+  "Potions",
+  "Relics",
+  "Rings",
+  "Rods",
+  "Scrolls",
+  "Staves",
+  "Tools",
+  "Wands",
+  "Weapons",
+  "Wondrous Items",
 ];
 
-const RARITIES = ["Common", "Uncommon", "Rare", "Very Rare", "Legendary", "Artifact"];
+const RARITIES = [
+  { value: "Mundane",   label: "Mundane",   color: "bg-zinc-400 border-zinc-400" },
+  { value: "Common",    label: "Common",    color: "bg-zinc-500 border-zinc-500" },
+  { value: "Uncommon",  label: "Uncommon",  color: "bg-emerald-500 border-emerald-500" },
+  { value: "Rare",      label: "Rare",      color: "bg-blue-500 border-blue-500" },
+  { value: "Very Rare", label: "Very Rare", color: "bg-purple-500 border-purple-500" },
+  { value: "Legendary", label: "Legendary", color: "bg-amber-500 border-amber-500" },
+  { value: "Artifact",  label: "Artifact",  color: "bg-red-600 border-red-600" },
+  { value: "Special",   label: "Special",   color: "bg-pink-500 border-pink-500" },
+  { value: "Unique",    label: "Unique",    color: "bg-orange-500 border-orange-500" },
+];
 
 interface ControlsProps {
   onDraw: (options: DrawOptions) => void;
@@ -36,10 +59,11 @@ interface ControlsProps {
 export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }: ControlsProps) {
   const { activeCampaign } = useCampaign();
   const [editions, setEditions] = useState<string[]>(["5e"]);
-  const [categories, setCategories] = useState<string[]>(CATEGORIES);
-  const [rarities, setRarities] = useState<string[]>(RARITIES);
+  const [categories, setCategories] = useState<string[]>([...CATEGORIES]);
+  const [rarities, setRarities] = useState<string[]>(RARITIES.map(r => r.value));
   const [count, setCount] = useState([5]);
   const [uploading, setUploading] = useState(false);
+  const [reloading, setReloading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -55,10 +79,10 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
   const toggleAllCategories = () =>
     setCategories(categories.length === CATEGORIES.length ? [] : [...CATEGORIES]);
 
-  const toggleRarity = (rar: string) =>
-    setRarities(prev => prev.includes(rar) ? prev.filter(r => r !== rar) : [...prev, rar]);
+  const toggleRarity = (val: string) =>
+    setRarities(prev => prev.includes(val) ? prev.filter(r => r !== val) : [...prev, val]);
   const toggleAllRarities = () =>
-    setRarities(rarities.length === RARITIES.length ? [] : [...RARITIES]);
+    setRarities(rarities.length === RARITIES.length ? [] : RARITIES.map(r => r.value));
 
   const handleDraw = () => {
     onDraw({
@@ -80,7 +104,6 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
       const endpoint = activeCampaign
         ? `/api/campaigns/${activeCampaign.id}/import`
         : "/api/import/5e";
-
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
@@ -100,6 +123,23 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
     }
   };
 
+  const handleReloadLootTable = async () => {
+    setReloading(true);
+    try {
+      const res = await fetch("/api/admin/seed-loot/5e", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        toast({ title: "Loot Table Reloaded", description: data.message });
+      } else {
+        toast({ title: "Reload Failed", description: data.message, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to reload loot table.", variant: "destructive" });
+    } finally {
+      setReloading(false);
+    }
+  };
+
   return (
     <div className="h-full overflow-y-auto p-6 bg-card border-r border-border scrollbar-fantasy">
       <div className="space-y-8">
@@ -115,11 +155,11 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
               Drawing from <span className="text-primary font-medium">{activeCampaign.name}</span>
             </p>
           ) : (
-            <p className="text-sm text-muted-foreground">Drawing from the 5e compendium.</p>
+            <p className="text-sm text-muted-foreground">Drawing from the compendium.</p>
           )}
         </div>
 
-        {/* Edition Filter — only shown when drawing from compendium */}
+        {/* Edition Filter — only when drawing from compendium */}
         {!activeCampaign && (
           <div className="space-y-3">
             <div className="flex justify-between items-center">
@@ -195,7 +235,7 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
                   id={`cat-${cat}`}
                   checked={categories.includes(cat)}
                   onCheckedChange={() => toggleCategory(cat)}
-                  data-testid={`checkbox-category-${cat}`}
+                  data-testid={`checkbox-category-${cat.replace(/[^a-zA-Z0-9]/g, '-')}`}
                   className="border-muted-foreground data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
                 />
                 <label htmlFor={`cat-${cat}`} className="text-sm font-medium leading-none cursor-pointer text-muted-foreground">
@@ -217,30 +257,17 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
             </Button>
           </div>
           <div className="space-y-2 bg-background/30 p-4 rounded-lg border border-border/50">
-            {RARITIES.map(rar => (
-              <div key={rar} className="flex items-center space-x-2">
+            {RARITIES.map(r => (
+              <div key={r.value} className="flex items-center space-x-2">
                 <Checkbox
-                  id={`rar-${rar}`}
-                  checked={rarities.includes(rar)}
-                  onCheckedChange={() => toggleRarity(rar)}
-                  data-testid={`checkbox-rarity-${rar}`}
-                  className={cn(
-                    "border-muted-foreground",
-                    rar === "Legendary" && "data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500",
-                    rar === "Artifact" && "data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600",
-                    rar === "Very Rare" && "data-[state=checked]:bg-purple-500 data-[state=checked]:border-purple-500",
-                    rar === "Rare" && "data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500",
-                    rar === "Uncommon" && "data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500",
-                    rar === "Common" && "data-[state=checked]:bg-zinc-500 data-[state=checked]:border-zinc-500"
-                  )}
+                  id={`rar-${r.value}`}
+                  checked={rarities.includes(r.value)}
+                  onCheckedChange={() => toggleRarity(r.value)}
+                  data-testid={`checkbox-rarity-${r.value.replace(' ', '-')}`}
+                  className={cn("border-muted-foreground", `data-[state=checked]:${r.color}`)}
                 />
-                <label htmlFor={`rar-${rar}`} className={cn(
-                  "text-sm font-medium leading-none cursor-pointer transition-colors",
-                  rar === "Legendary" ? "text-amber-500/80 hover:text-amber-400" :
-                  rar === "Artifact" ? "text-red-400/80 hover:text-red-300" :
-                  "text-muted-foreground hover:text-foreground"
-                )}>
-                  {rar}
+                <label htmlFor={`rar-${r.value}`} className="text-sm font-medium leading-none cursor-pointer text-muted-foreground">
+                  {r.label}
                 </label>
               </div>
             ))}
@@ -250,7 +277,7 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
         {/* CSV Import */}
         <div className="space-y-2 bg-background/30 p-4 rounded-lg border border-dashed border-border/50">
           <Label className="font-display text-sm">
-            {activeCampaign ? `Import Items into "${activeCampaign.name}" (CSV)` : "Load 5e Compendium (CSV)"}
+            {activeCampaign ? `Import into "${activeCampaign.name}" (CSV)` : "Import Items (CSV)"}
           </Label>
           <p className="text-xs text-muted-foreground">
             Required: <span className="font-mono">name, category, rarity</span><br />
@@ -261,6 +288,19 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
             <Upload className="w-4 h-4 mr-2" />
             {uploading ? "Importing..." : "Choose CSV File"}
           </Button>
+          {!activeCampaign && (
+            <Button
+              onClick={handleReloadLootTable}
+              disabled={reloading}
+              variant="ghost"
+              size="sm"
+              className="w-full text-muted-foreground hover:text-primary"
+              data-testid="button-reload-loot"
+            >
+              <RefreshCw className={cn("w-3.5 h-3.5 mr-2", reloading && "animate-spin")} />
+              {reloading ? "Reloading..." : "Reload 5e Loot Table"}
+            </Button>
+          )}
         </div>
 
         {/* Draw Button */}
