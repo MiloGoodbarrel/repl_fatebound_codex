@@ -79,6 +79,8 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
   const { data: officialSources = [] } = useQuery<string[]>({
     queryKey: ["/api/items/5e/sources"],
     enabled: !activeCampaign,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   // All sources = official ones + Homebrew at the top
