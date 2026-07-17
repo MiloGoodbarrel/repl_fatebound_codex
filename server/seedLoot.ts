@@ -34,6 +34,14 @@ function normalizeEdition(raw: string): string {
   return EDITION_MAP[raw.toLowerCase().trim()] ?? "5e";
 }
 
+function normalizeAttunement(raw: string): string | null {
+  const v = raw.trim().toLowerCase();
+  if (!v || v === "false" || v === "no") return null;
+  if (v === "true" || v === "yes") return "Requires Attunement";
+  // Preserve custom text like "Requires attunement by a spellcaster"
+  return raw.trim();
+}
+
 function normalizeRarity(raw: string): string {
   if (!raw.trim()) return "Mundane";
   // Capitalise first letter, lowercase rest
@@ -77,7 +85,7 @@ function parsePositionalCSV(text: string) {
             weight: get(8) || null,
             cost: get(9) || null,
             properties: get(10) || null,
-            attunement: get(11) || null,
+            attunement: normalizeAttunement(get(11)),
             edition: normalizeEdition(get(14)),
           });
         }
@@ -105,7 +113,7 @@ function parsePositionalCSV(text: string) {
           weight: get(8) || null,
           cost: get(9) || null,
           properties: get(10) || null,
-          attunement: get(11) || null,
+          attunement: normalizeAttunement(get(11)),
           edition: normalizeEdition(get(14)),
         });
       }
