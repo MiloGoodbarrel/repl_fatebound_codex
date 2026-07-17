@@ -86,6 +86,7 @@ function parsePositionalCSV(text: string) {
             cost: get(9) || null,
             properties: get(10) || null,
             attunement: normalizeAttunement(get(11)),
+            source: get(12) || null,
             edition: normalizeEdition(get(14)),
           });
         }
@@ -114,6 +115,7 @@ function parsePositionalCSV(text: string) {
           cost: get(9) || null,
           properties: get(10) || null,
           attunement: normalizeAttunement(get(11)),
+          source: get(12) || null,
           edition: normalizeEdition(get(14)),
         });
       }

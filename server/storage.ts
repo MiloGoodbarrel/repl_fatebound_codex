@@ -33,6 +33,7 @@ export interface IStorage {
   deleteCampaignCharacter(id: number): Promise<void>;
 
   // Draw
+  getSources5e(): Promise<string[]>;
   drawItems(options: DrawOptions): Promise<Item[] | CampaignItem[]>;
 }
 
@@ -127,8 +128,16 @@ export class DatabaseStorage implements IStorage {
 
   // ── Draw ──────────────────────────────────────────────────────────────────
 
+  async getSources5e(): Promise<string[]> {
+    const rows = await db
+      .selectDistinct({ source: items5e.source })
+      .from(items5e)
+      .orderBy(items5e.source);
+    return rows.map(r => r.source).filter((s): s is string => s != null);
+  }
+
   async drawItems(options: DrawOptions): Promise<Item[] | CampaignItem[]> {
-    const { source, campaignId, editions, categories, rarities, count } = options;
+    const { source, campaignId, editions, categories, rarities, sources, count } = options;
 
     if (source === "campaign" && campaignId != null) {
       return await db
@@ -148,6 +157,9 @@ export class DatabaseStorage implements IStorage {
     const editionFilter = editions && editions.length > 0
       ? inArray(items5e.edition, editions)
       : undefined;
+    const sourceFilter = sources && sources.length > 0
+      ? inArray(items5e.source, sources)
+      : undefined;
 
     return await db
       .select()
@@ -155,6 +167,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           editionFilter,
+          sourceFilter,
           inArray(items5e.category, categories),
           inArray(items5e.rarity, rarities)
         )

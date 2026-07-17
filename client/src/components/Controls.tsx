@@ -1,10 +1,11 @@
 import { useState, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { type DrawOptions } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Sparkles, Dices, Layers, Upload, Search, X, Scroll, RefreshCw } from "lucide-react";
+import { Sparkles, Dices, Layers, Upload, Search, X, Scroll, RefreshCw, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useCampaign } from "@/lib/campaignContext";
@@ -61,13 +62,27 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
   const [editions, setEditions] = useState<string[]>(["5e"]);
   const [categories, setCategories] = useState<string[]>([...CATEGORIES]);
   const [rarities, setRarities] = useState<string[]>(RARITIES.map(r => r.value));
+  const [sources, setSources] = useState<string[]>([]); // empty = all sources
+  const [sourceSearch, setSourceSearch] = useState("");
   const [count, setCount] = useState([5]);
   const [uploading, setUploading] = useState(false);
   const [reloading, setReloading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const source: DrawOptions["source"] = activeCampaign ? "campaign" : "5e";
+  const { data: allSources = [] } = useQuery<string[]>({
+    queryKey: ["/api/items/5e/sources"],
+    enabled: !activeCampaign,
+  });
+
+  const drawSource: DrawOptions["source"] = activeCampaign ? "campaign" : "5e";
+
+  const filteredSources = allSources.filter(s =>
+    s.toLowerCase().includes(sourceSearch.toLowerCase())
+  );
+
+  // sources state: empty array = "all sources" (no filter applied)
+  const selectedSources = sources.length === 0 ? allSources : sources;
 
   const toggleEdition = (val: string) =>
     setEditions(prev => prev.includes(val) ? prev.filter(e => e !== val) : [...prev, val]);
@@ -84,13 +99,34 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
   const toggleAllRarities = () =>
     setRarities(rarities.length === RARITIES.length ? [] : RARITIES.map(r => r.value));
 
+  const toggleSource = (val: string) => {
+    setSources(prev => {
+      // If currently "all", clicking one source means "deselect all except this one"... 
+      // Actually simpler: maintain a selected set. Empty = all.
+      if (prev.length === 0) {
+        // Was "all selected", now deselect just this one
+        return allSources.filter(s => s !== val);
+      }
+      return prev.includes(val) ? prev.filter(s => s !== val) : [...prev, val];
+    });
+  };
+  const toggleAllSources = () => setSources([]);
+  const clearAllSources = () => setSources(allSources.length > 0 ? allSources.filter(() => false) : []);
+
+  const isSourceSelected = (val: string) =>
+    sources.length === 0 || sources.includes(val);
+
+  const allSourcesSelected = sources.length === 0;
+  const someSourcesSelected = sources.length > 0 && sources.length < allSources.length;
+
   const handleDraw = () => {
     onDraw({
-      source,
+      source: drawSource,
       campaignId: activeCampaign?.id,
-      editions: source === "5e" ? editions : undefined,
+      editions: drawSource === "5e" ? editions : undefined,
       categories,
       rarities,
+      sources: sources.length > 0 ? sources : undefined,
       count: count[0],
     });
   };
@@ -273,6 +309,80 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
             ))}
           </div>
         </div>
+
+        {/* Source / Sourcebook Filter */}
+        {!activeCampaign && allSources.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <Label className="font-display text-lg flex items-center gap-2">
+                <BookOpen className="w-4 h-4" /> Sourcebooks
+              </Label>
+              <div className="flex items-center gap-2">
+                {!allSourcesSelected && (
+                  <span className="text-xs text-primary font-mono">
+                    {sources.length}/{allSources.length}
+                  </span>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={allSourcesSelected ? () => setSources([...allSources]) : toggleAllSources}
+                  className="h-6 text-xs text-muted-foreground hover:text-primary"
+                  data-testid="button-toggle-all-sources"
+                >
+                  {allSourcesSelected ? "Clear All" : "Select All"}
+                </Button>
+              </div>
+            </div>
+
+            {/* Search sources */}
+            <div className="relative">
+              <input
+                value={sourceSearch}
+                onChange={e => setSourceSearch(e.target.value)}
+                placeholder="Search sourcebooks..."
+                data-testid="input-source-search"
+                className="w-full pl-8 pr-7 py-1.5 text-xs bg-background/50 border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+              {sourceSearch && (
+                <button
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setSourceSearch("")}
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            {/* Source list */}
+            <div className="max-h-48 overflow-y-auto scrollbar-fantasy bg-background/30 rounded-lg border border-border/50 p-3">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                {filteredSources.map(src => (
+                  <div key={src} className="flex items-center space-x-1.5">
+                    <Checkbox
+                      id={`src-${src}`}
+                      checked={isSourceSelected(src)}
+                      onCheckedChange={() => toggleSource(src)}
+                      data-testid={`checkbox-source-${src}`}
+                      className="border-muted-foreground data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground h-3.5 w-3.5"
+                    />
+                    <label
+                      htmlFor={`src-${src}`}
+                      className="text-xs font-mono font-medium leading-none cursor-pointer text-muted-foreground hover:text-foreground"
+                      title={src}
+                    >
+                      {src}
+                    </label>
+                  </div>
+                ))}
+              </div>
+              {filteredSources.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-2 italic">No sourcebooks match.</p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* CSV Import */}
         <div className="space-y-2 bg-background/30 p-4 rounded-lg border border-dashed border-border/50">

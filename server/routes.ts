@@ -72,6 +72,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(items);
   });
 
+  app.get("/api/items/5e/sources", async (req, res) => {
+    const sources = await storage.getSources5e();
+    res.json(sources);
+  });
+
   app.post("/api/import/5e", async (req, res) => {
     try {
       const csvText = await readBody(req);

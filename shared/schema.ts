@@ -17,6 +17,7 @@ const itemColumns = {
   properties: text("properties"),
   attunement: text("attunement"),
   edition: text("edition").notNull().default("5e"),
+  source: text("source"),
 };
 
 export const items5e = pgTable("items_5e", itemColumns);
@@ -84,6 +85,7 @@ export const drawOptionsSchema = z.object({
   editions: z.array(z.string()).optional(),
   categories: z.array(z.string()).min(1, "Select at least one category"),
   rarities: z.array(z.string()).min(1, "Select at least one rarity"),
+  sources: z.array(z.string()).optional(),
   count: z.coerce.number().min(1).max(100),
 });
 
