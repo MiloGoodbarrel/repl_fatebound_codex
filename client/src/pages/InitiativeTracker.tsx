@@ -360,7 +360,8 @@ export default function InitiativeTracker() {
   const [combatState, setCombatState] = useState<CombatState>("setup");
   const [activeIndex, setActiveIndex] = useState(0);
   const [round, setRound] = useState(1);
-  
+  const [mobileTab, setMobileTab] = useState<"controls" | "combat">("controls");
+
   // Monster search
   const [monsterSearch, setMonsterSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -1224,7 +1225,7 @@ export default function InitiativeTracker() {
   const activeCombatant = sortedCombatants[activeIndex];
 
   return (
-    <div className="min-h-screen bg-background flex flex-col md:flex-row h-screen overflow-hidden">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Version Selection Dialog */}
       <Dialog open={showVersionDialog} onOpenChange={setShowVersionDialog}>
         <DialogContent className="sm:max-w-md">
@@ -1261,8 +1262,34 @@ export default function InitiativeTracker() {
         </DialogContent>
       </Dialog>
 
+      {/* Mobile Tab Bar */}
+      <div className="md:hidden flex shrink-0 border-b border-border bg-card">
+        <button
+          onClick={() => setMobileTab("controls")}
+          className={`flex-1 py-3 text-sm font-medium transition-colors ${mobileTab === "controls" ? "border-b-2 border-primary text-primary" : "text-muted-foreground"}`}
+          data-testid="tab-controls"
+        >
+          Controls
+        </button>
+        <button
+          onClick={() => setMobileTab("combat")}
+          className={`flex-1 py-3 text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${mobileTab === "combat" ? "border-b-2 border-primary text-primary" : "text-muted-foreground"}`}
+          data-testid="tab-combat"
+        >
+          Combat Order
+          {combatants.length > 0 && (
+            <span className="bg-primary/20 text-primary text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+              {combatants.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Body: side-by-side on desktop, tab-controlled on mobile */}
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+
       {/* Sidebar - Add Combatants */}
-      <div className="w-full md:w-96 lg:w-[28rem] flex-shrink-0 border-r border-border p-6 bg-card overflow-y-auto scrollbar-fantasy">
+      <div className={`md:w-96 lg:w-[28rem] md:flex-shrink-0 border-r border-border p-6 bg-card overflow-y-auto scrollbar-fantasy flex-1 flex flex-col md:flex-none${mobileTab === "combat" ? " hidden md:flex md:flex-col" : ""}`}>
         <div className="space-y-6">
           <div className="flex justify-between items-center">
             <Link href="/">
@@ -1699,7 +1726,7 @@ export default function InitiativeTracker() {
       </div>
 
       {/* Main Area - Combat List */}
-      <main className="flex-1 overflow-y-auto p-4 md:p-8 relative bg-background/50 scrollbar-fantasy">
+      <main className={`flex-1 overflow-y-auto p-4 md:p-8 relative bg-background/50 scrollbar-fantasy${mobileTab === "controls" ? " hidden md:block" : ""}`}>
         <div className="max-w-5xl mx-auto space-y-4">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-display font-bold">Combat Order</h1>
@@ -2288,6 +2315,7 @@ export default function InitiativeTracker() {
           )}
         </div>
       </main>
+      </div>
     </div>
   );
 }
