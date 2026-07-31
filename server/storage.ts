@@ -259,6 +259,23 @@ export class DatabaseStorage implements IStorage {
     if (sources.length > 0) baseConditions.push(inArray(bestiaryMonsters.sourceBook, sources));
     if (search.trim()) baseConditions.push(ilike(bestiaryMonsters.name, `%${search.trim()}%`));
 
+    // Enriches a list of bare monster rows with their traits + actions
+    const enrich = async (monsters: any[]) => {
+      return Promise.all(monsters.map(async (m) => {
+        const traits = await db
+          .select()
+          .from(bestiaryMonsterTraits)
+          .where(eq(bestiaryMonsterTraits.monsterId, m.monsterId))
+          .orderBy(asc(bestiaryMonsterTraits.traitOrder));
+        const actions = await db
+          .select()
+          .from(bestiaryMonsterActions)
+          .where(eq(bestiaryMonsterActions.monsterId, m.monsterId))
+          .orderBy(asc(bestiaryMonsterActions.actionOrder));
+        return { ...m, traits, actions };
+      }));
+    };
+
     // For CR 0 or very low, just return a single monster
     const doCombo = targetUnits >= 8 && Math.random() < 0.5;
 
@@ -267,7 +284,7 @@ export class DatabaseStorage implements IStorage {
       const rows = await db.select().from(bestiaryMonsters)
         .where(and(...baseConditions, sql`challenge_rating = ${targetCr}`))
         .orderBy(sql`RANDOM()`).limit(1);
-      return rows;
+      return enrich(rows);
     }
 
     // Combo mode: pick monsters whose CR units sum to targetUnits (no cap on count)
@@ -309,7 +326,7 @@ export class DatabaseStorage implements IStorage {
       if (unitsToValidCr(remaining) === null && remaining < 1) break;
     }
 
-    return group.length > 0 ? group : [];
+    return group.length > 0 ? enrich(group) : [];
   }
 
   async getBestiaryMonsterDetail(monsterId: string): Promise<any | null> {
