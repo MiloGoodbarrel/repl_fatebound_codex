@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +29,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Swords, Plus, Trash2, User, Heart, Shield, 
   RotateCcw, Home, Search, Play, SkipForward, Square, Skull, AlertCircle,
-  Loader2, Zap, Dices, CircleCheck, CircleX, HeartPulse, BookUser, Save
+  Loader2, Zap, Dices, CircleCheck, CircleX, HeartPulse, BookUser, Save,
+  Upload, FileDown, BookOpen, ChevronRight, ChevronDown
 } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
@@ -153,6 +154,100 @@ interface Monster {
   source?: string;
   alignment?: string;
   creatureTags?: string;
+}
+
+interface HomebrewAction {
+  id: number;
+  monsterRefId: number;
+  actionOrder: number;
+  actionName: string | null;
+  actionDescription: string | null;
+  attackBonus: number | null;
+}
+
+interface HomebrewMonster {
+  id: number;
+  campaignId: number;
+  name: string;
+  creatureType: string | null;
+  size: string | null;
+  alignment: string | null;
+  armorClass: number | null;
+  printedAverageHp: number | null;
+  hitDice: string | null;
+  dexScore: number | null;
+  challengeRating: string | null;
+  actions: HomebrewAction[];
+}
+
+interface HomebrewPreviewRow {
+  name: string;
+  type: string;
+  size: string;
+  cr: string;
+  ac: string;
+  hp: string;
+  hit_dice: string;
+  actionCount: number;
+  error?: string;
+}
+
+function homebrewToMonster(m: HomebrewMonster): Monster {
+  const dexMod = m.dexScore != null ? Math.floor((m.dexScore - 10) / 2) : undefined;
+  return {
+    index: `homebrew-${m.id}`,
+    name: m.name,
+    hp: m.printedAverageHp ?? 10,
+    hit_dice: m.hitDice ?? undefined,
+    ac: m.armorClass ?? 10,
+    cr: m.challengeRating ?? "—",
+    type: m.creatureType ?? "",
+    size: m.size ?? "",
+    alignment: m.alignment ?? undefined,
+    dex: m.dexScore ?? undefined,
+    dexMod,
+    source: "Homebrew",
+    actions: m.actions.map(a => ({
+      name: a.actionName ?? "",
+      desc: a.actionDescription ?? "",
+      attack_bonus: a.attackBonus ?? undefined,
+    })),
+  };
+}
+
+function parseCSVClientSide(csvText: string): HomebrewPreviewRow[] {
+  const lines = csvText.trim().split(/\r?\n/);
+  if (lines.length < 2) return [];
+  const parseFields = (line: string): string[] => {
+    const out: string[] = [];
+    let inQ = false, cur = "";
+    for (const ch of line) {
+      if (ch === '"') { inQ = !inQ; }
+      else if (ch === ',' && !inQ) { out.push(cur.trim()); cur = ""; }
+      else { cur += ch; }
+    }
+    out.push(cur.trim());
+    return out;
+  };
+  const headers = parseFields(lines[0]).map(h => h.toLowerCase());
+  const get = (vals: string[], col: string) => vals[headers.indexOf(col)]?.trim() ?? "";
+  return lines.slice(1).filter(l => l.trim()).map(line => {
+    const v = parseFields(line);
+    const name = get(v, "name");
+    let actionCount = 0;
+    for (let j = 1; j <= 5; j++) if (get(v, `action${j}_name`)) actionCount++;
+    return {
+      name,
+      type: get(v, "type"),
+      size: get(v, "size"),
+      cr: get(v, "cr"),
+      ac: get(v, "ac"),
+      hp: get(v, "hp"),
+      hit_dice: get(v, "hit_dice"),
+      actionCount,
+      error: !name ? "Missing name" : undefined,
+    };
+  });
 }
 
 function rollMonsterHp(hitDice: string, avgHp: number): number {
@@ -379,6 +474,17 @@ export default function InitiativeTracker() {
   const [encounterGroupInitiatives, setEncounterGroupInitiatives] = useState<number[]>([]);
   const [midCombatInitiative, setMidCombatInitiative] = useState<number>(10);
   
+  // Homebrew bestiary
+  const [homebrewSearch, setHomebrewSearch] = useState("");
+  const [debouncedHomebrewSearch, setDebouncedHomebrewSearch] = useState("");
+  const [showHomebrewSection, setShowHomebrewSection] = useState(false);
+  const [selectedHomebrewId, setSelectedHomebrewId] = useState<number | null>(null);
+  const [homebrewImportPreview, setHomebrewImportPreview] = useState<HomebrewPreviewRow[] | null>(null);
+  const [homebrewImportRaw, setHomebrewImportRaw] = useState("");
+  const [homebrewImportLoading, setHomebrewImportLoading] = useState(false);
+  const [homebrewMidCombatInit, setHomebrewMidCombatInit] = useState(10);
+  const homebrewFileRef = useRef<HTMLInputElement>(null);
+
   // PC entry
   const [pcName, setPcName] = useState("");
   const [pcInitiative, setPcInitiative] = useState("");
@@ -512,6 +618,85 @@ export default function InitiativeTracker() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonster?.index, combatState]);
+
+  // Homebrew search debounce
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedHomebrewSearch(homebrewSearch), 300);
+    return () => clearTimeout(t);
+  }, [homebrewSearch]);
+
+  // Homebrew monsters (campaign-scoped)
+  const { data: homebrewMonsters = [], refetch: refetchHomebrew } = useQuery<HomebrewMonster[]>({
+    queryKey: ["/api/campaigns", activeCampaign?.id, "homebrew-bestiary"],
+    queryFn: () => fetch(`/api/campaigns/${activeCampaign!.id}/homebrew-bestiary`).then(r => r.json()),
+    enabled: !!activeCampaign,
+    staleTime: 60_000,
+  });
+
+  // Auto-roll homebrew initiative when active combat + selection changes
+  useEffect(() => {
+    if (combatState === "active" && selectedHomebrewId != null) {
+      const m = homebrewMonsters.find(hm => hm.id === selectedHomebrewId);
+      if (m) setHomebrewMidCombatInit(rollInitiative(m.dexScore != null ? Math.floor((m.dexScore - 10) / 2) : 0));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedHomebrewId, combatState]);
+
+  const filteredHomebrew = debouncedHomebrewSearch.trim()
+    ? homebrewMonsters.filter(m => m.name.toLowerCase().includes(debouncedHomebrewSearch.toLowerCase()))
+    : homebrewMonsters;
+
+  const handleHomebrewFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const raw = evt.target?.result as string;
+      setHomebrewImportRaw(raw);
+      setHomebrewImportPreview(parseCSVClientSide(raw));
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const confirmHomebrewImport = async () => {
+    if (!activeCampaign || !homebrewImportRaw) return;
+    setHomebrewImportLoading(true);
+    try {
+      const res = await fetch(`/api/campaigns/${activeCampaign.id}/homebrew-bestiary/import`, {
+        method: "POST",
+        headers: { "Content-Type": "text/csv" },
+        body: homebrewImportRaw,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      toast({ title: `Imported ${data.count} monsters`, description: `Added to ${activeCampaign.name}'s homebrew bestiary.` });
+      setHomebrewImportPreview(null);
+      setHomebrewImportRaw("");
+      refetchHomebrew();
+    } catch (err) {
+      toast({ title: "Import failed", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
+    } finally {
+      setHomebrewImportLoading(false);
+    }
+  };
+
+  const clearHomebrewBestiary = async () => {
+    if (!activeCampaign) return;
+    if (!confirm(`Clear all homebrew monsters from ${activeCampaign.name}? This cannot be undone.`)) return;
+    await fetch(`/api/campaigns/${activeCampaign.id}/homebrew-bestiary`, { method: "DELETE" });
+    setSelectedHomebrewId(null);
+    refetchHomebrew();
+    toast({ title: "Homebrew bestiary cleared" });
+  };
+
+  const addHomebrewMonster = (m: HomebrewMonster) => {
+    addSingleMonsterToEncounter(
+      homebrewToMonster(m),
+      combatState === "active" ? homebrewMidCombatInit : 0
+    );
+    setSelectedHomebrewId(null);
+  };
 
   const handleVersionConfirm = () => {
     if (selectedVersions.length === 0) return;
@@ -1716,6 +1901,273 @@ export default function InitiativeTracker() {
               {combatState === "active" ? "Add to Active Combat" : "Add to Encounter"}
             </Button>
           </div>
+
+          {/* Homebrew Bestiary */}
+          <div className="space-y-3 bg-background/30 p-4 rounded-lg border border-border/50">
+            {/* Header row */}
+            <div className="flex items-center justify-between gap-2">
+              <button
+                onClick={() => setShowHomebrewSection(v => !v)}
+                className="flex items-center gap-2 text-sm font-display font-semibold hover:text-primary transition-colors"
+              >
+                {showHomebrewSection ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                <BookOpen className="w-4 h-4" />
+                Homebrew Bestiary
+                {activeCampaign && homebrewMonsters.length > 0 && (
+                  <Badge variant="secondary" className="text-[10px] px-1.5 h-4">{homebrewMonsters.length}</Badge>
+                )}
+              </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <a
+                  href="/api/homebrew-bestiary/template.csv"
+                  download="homebrew-bestiary-template.csv"
+                  className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary transition-colors"
+                  title="Download CSV template"
+                >
+                  <FileDown className="w-3.5 h-3.5" /> Template
+                </a>
+                {activeCampaign && (
+                  <>
+                    <span className="text-border">|</span>
+                    <button
+                      onClick={() => homebrewFileRef.current?.click()}
+                      className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary transition-colors"
+                      title="Import CSV"
+                    >
+                      <Upload className="w-3.5 h-3.5" /> Import
+                    </button>
+                    <input
+                      ref={homebrewFileRef}
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="hidden"
+                      onChange={handleHomebrewFileSelect}
+                    />
+                  </>
+                )}
+              </div>
+            </div>
+
+            {showHomebrewSection && (
+              <>
+                {!activeCampaign ? (
+                  <p className="text-xs text-muted-foreground italic">
+                    Select a campaign at startup to access your homebrew bestiary.
+                  </p>
+                ) : homebrewMonsters.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">
+                    No homebrew monsters yet. Download the template, fill it in, then import.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {/* Search */}
+                    <Input
+                      value={homebrewSearch}
+                      onChange={e => { setHomebrewSearch(e.target.value); setSelectedHomebrewId(null); }}
+                      placeholder="Search homebrew..."
+                      className="h-8 text-sm"
+                    />
+
+                    {/* Results list */}
+                    {filteredHomebrew.length > 0 ? (
+                      <div className="max-h-44 overflow-y-auto border rounded-md bg-background divide-y divide-border/50">
+                        {filteredHomebrew.map(m => (
+                          <div
+                            key={m.id}
+                            onClick={() => {
+                              setSelectedHomebrewId(prev => prev === m.id ? null : m.id);
+                            }}
+                            className={cn(
+                              "p-2 cursor-pointer hover:bg-primary/5 transition-colors",
+                              selectedHomebrewId === m.id && "bg-primary/10"
+                            )}
+                          >
+                            <div className="flex justify-between items-center gap-2">
+                              <span className="text-sm font-medium truncate">{m.name}</span>
+                              <div className="flex gap-2 text-[11px] text-muted-foreground shrink-0">
+                                {m.challengeRating && <span className="font-semibold text-primary/70">CR {m.challengeRating}</span>}
+                                {m.armorClass && <span className="flex items-center gap-0.5"><Shield className="w-3 h-3" />{m.armorClass}</span>}
+                                {m.printedAverageHp && <span className="flex items-center gap-0.5"><Heart className="w-3 h-3" />{m.printedAverageHp}</span>}
+                              </div>
+                            </div>
+                            <div className="text-[11px] text-muted-foreground mt-0.5">
+                              {[m.size, m.creatureType].filter(Boolean).join(" ")}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground text-center py-1">No results</p>
+                    )}
+
+                    {/* Selected monster preview */}
+                    {selectedHomebrewId != null && (() => {
+                      const hm = homebrewMonsters.find(m => m.id === selectedHomebrewId);
+                      if (!hm) return null;
+                      return (
+                        <div className="p-3 bg-primary/5 border border-primary/20 rounded-md space-y-2">
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="font-bold text-sm">{hm.name}</span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {hm.challengeRating && <Badge variant="secondary" className="text-[10px]">CR {hm.challengeRating}</Badge>}
+                              <Badge variant="outline" className="text-[10px]">Homebrew</Badge>
+                            </div>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {[hm.size, hm.creatureType, hm.alignment].filter(Boolean).join(" · ")}
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 text-xs">
+                            <div className="text-center bg-background/60 rounded p-1.5">
+                              <div className="font-bold text-base">{hm.armorClass ?? "—"}</div>
+                              <div className="text-muted-foreground flex items-center justify-center gap-0.5"><Shield className="w-3 h-3" />AC</div>
+                            </div>
+                            <div className="text-center bg-background/60 rounded p-1.5">
+                              <div className="font-bold text-base">{hm.printedAverageHp ?? "—"}</div>
+                              <div className="text-muted-foreground flex items-center justify-center gap-0.5"><Heart className="w-3 h-3" />HP avg</div>
+                            </div>
+                            <div className="text-center bg-background/60 rounded p-1.5">
+                              <div className="font-bold text-base">{hm.hitDice ?? "—"}</div>
+                              <div className="text-muted-foreground flex items-center justify-center gap-0.5"><Dices className="w-3 h-3" />Dice</div>
+                            </div>
+                          </div>
+                          {hm.actions.length > 0 && (
+                            <div className="space-y-1 pt-1 border-t border-border/40">
+                              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Actions</p>
+                              {hm.actions.map((a, i) => (
+                                <div key={i} className="text-[11px]">
+                                  <span className="font-semibold">{a.actionName}</span>
+                                  {a.attackBonus != null && (
+                                    <span className="text-primary/70 ml-1">+{a.attackBonus} to hit</span>
+                                  )}
+                                  {a.actionDescription && (
+                                    <p className="text-muted-foreground mt-0.5 leading-snug">{a.actionDescription}</p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {combatState === "active" && (
+                            <div className="flex items-center gap-2 pt-1 border-t border-border/40">
+                              <span className="text-xs text-muted-foreground">Initiative:</span>
+                              <Input
+                                type="number"
+                                value={homebrewMidCombatInit}
+                                onChange={e => { const v = parseInt(e.target.value); if (!isNaN(v)) setHomebrewMidCombatInit(v); }}
+                                className="h-7 w-16 text-sm text-center px-1"
+                              />
+                              <button
+                                onClick={() => {
+                                  const dex = hm.dexScore != null ? Math.floor((hm.dexScore - 10) / 2) : 0;
+                                  setHomebrewMidCombatInit(rollInitiative(dex));
+                                }}
+                                className="text-xs text-primary/70 hover:text-primary flex items-center gap-1"
+                              >
+                                <Dices className="w-3.5 h-3.5" /> Re-roll
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => {
+                          const hm = homebrewMonsters.find(m => m.id === selectedHomebrewId);
+                          if (hm) addHomebrewMonster(hm);
+                        }}
+                        disabled={selectedHomebrewId == null}
+                        className="flex-1"
+                        size="sm"
+                      >
+                        <Plus className="mr-1.5 w-3.5 h-3.5" />
+                        {combatState === "active" ? "Add to Active Combat" : "Add to Encounter"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-muted-foreground hover:text-destructive px-2"
+                        onClick={clearHomebrewBestiary}
+                        title="Clear all homebrew monsters"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Import Preview Dialog */}
+          <Dialog open={homebrewImportPreview != null} onOpenChange={open => { if (!open) { setHomebrewImportPreview(null); setHomebrewImportRaw(""); } }}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle className="font-display">Import Homebrew Monsters</DialogTitle>
+                <DialogDescription>
+                  Review the monsters below before confirming. Rows with errors will be skipped.
+                </DialogDescription>
+              </DialogHeader>
+              {homebrewImportPreview && (
+                <div className="space-y-4">
+                  <div className="border rounded-md overflow-hidden">
+                    <div className="max-h-72 overflow-y-auto">
+                      <table className="w-full text-xs">
+                        <thead className="bg-muted/50 sticky top-0">
+                          <tr>
+                            {["Name","Type","Size","CR","AC","HP","Hit Dice","Actions","Status"].map(h => (
+                              <th key={h} className="text-left px-2 py-1.5 font-semibold text-muted-foreground">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/50">
+                          {homebrewImportPreview.map((row, i) => (
+                            <tr key={i} className={row.error ? "bg-destructive/5" : ""}>
+                              <td className="px-2 py-1.5 font-medium">{row.name || <span className="text-destructive italic">empty</span>}</td>
+                              <td className="px-2 py-1.5 text-muted-foreground">{row.type || "—"}</td>
+                              <td className="px-2 py-1.5 text-muted-foreground">{row.size || "—"}</td>
+                              <td className="px-2 py-1.5">{row.cr || "—"}</td>
+                              <td className="px-2 py-1.5">{row.ac || "—"}</td>
+                              <td className="px-2 py-1.5">{row.hp || "—"}</td>
+                              <td className="px-2 py-1.5 text-muted-foreground">{row.hit_dice || "—"}</td>
+                              <td className="px-2 py-1.5 text-center">{row.actionCount > 0 ? row.actionCount : "—"}</td>
+                              <td className="px-2 py-1.5">
+                                {row.error
+                                  ? <span className="text-destructive">{row.error}</span>
+                                  : <span className="text-green-500 flex items-center gap-0.5"><CircleCheck className="w-3 h-3" /> OK</span>
+                                }
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm text-muted-foreground">
+                      {homebrewImportPreview.filter(r => !r.error).length} of {homebrewImportPreview.length} rows will be imported.
+                      {activeCampaign && homebrewMonsters.length > 0 && (
+                        <span className="text-amber-500 ml-1">This will replace the existing {homebrewMonsters.length} monsters.</span>
+                      )}
+                    </p>
+                    <div className="flex gap-2 shrink-0">
+                      <Button variant="outline" size="sm" onClick={() => { setHomebrewImportPreview(null); setHomebrewImportRaw(""); }}>
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={confirmHomebrewImport}
+                        disabled={homebrewImportLoading || homebrewImportPreview.filter(r => !r.error).length === 0}
+                      >
+                        {homebrewImportLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Upload className="w-3.5 h-3.5 mr-1.5" />}
+                        Confirm Import
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
 
           {/* Campaign Party */}
           {activeCampaign && (

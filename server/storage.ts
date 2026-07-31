@@ -2,6 +2,7 @@ import { db } from "./db";
 import {
   items5e, homebrewItems, campaignItems, campaigns, campaignCharacters,
   bestiaryMonsters, bestiaryMonsterTraits, bestiaryMonsterActions,
+  campaignHomebrewMonsters, campaignHomebrewActions,
   type InsertItem, type Item,
   type HomebrewItem, type InsertHomebrewItem,
   type Campaign, type InsertCampaign,
@@ -47,6 +48,11 @@ export interface IStorage {
   getBestiaryTypes(): Promise<string[]>;
   searchBestiary(search: string, types: string[], limit?: number): Promise<any[]>;
   getBestiaryMonsterDetail(monsterId: string): Promise<any | null>;
+
+  // Campaign homebrew bestiary
+  getCampaignHomebrew(campaignId: number): Promise<any[]>;
+  importCampaignHomebrew(campaignId: number, parsed: { monster: any; actions: any[] }[]): Promise<number>;
+  clearCampaignHomebrew(campaignId: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -101,6 +107,7 @@ export class DatabaseStorage implements IStorage {
   async deleteCampaign(id: number): Promise<void> {
     await db.delete(campaignItems).where(eq(campaignItems.campaignId, id));
     await db.delete(campaignCharacters).where(eq(campaignCharacters.campaignId, id));
+    await this.clearCampaignHomebrew(id);
     await db.delete(campaigns).where(eq(campaigns.id, id));
   }
 
@@ -382,6 +389,63 @@ export class DatabaseStorage implements IStorage {
     // Combine, shuffle, and trim to count
     const combined = [...officialItems, ...brewed].sort(() => Math.random() - 0.5);
     return combined.slice(0, count);
+  }
+
+  // ── Campaign Homebrew Bestiary ─────────────────────────────────────────────
+
+  async getCampaignHomebrew(campaignId: number): Promise<any[]> {
+    const monsters = await db
+      .select()
+      .from(campaignHomebrewMonsters)
+      .where(eq(campaignHomebrewMonsters.campaignId, campaignId))
+      .orderBy(asc(campaignHomebrewMonsters.name));
+    const results: any[] = [];
+    for (const m of monsters) {
+      const actions = await db
+        .select()
+        .from(campaignHomebrewActions)
+        .where(eq(campaignHomebrewActions.monsterRefId, m.id))
+        .orderBy(asc(campaignHomebrewActions.actionOrder));
+      results.push({ ...m, actions });
+    }
+    return results;
+  }
+
+  async importCampaignHomebrew(
+    campaignId: number,
+    parsed: { monster: any; actions: any[] }[]
+  ): Promise<number> {
+    await this.clearCampaignHomebrew(campaignId);
+    let count = 0;
+    for (const { monster, actions } of parsed) {
+      const [inserted] = await db
+        .insert(campaignHomebrewMonsters)
+        .values({ ...monster, campaignId })
+        .returning();
+      for (const action of actions) {
+        await db.insert(campaignHomebrewActions).values({
+          ...action,
+          monsterRefId: inserted.id,
+        });
+      }
+      count++;
+    }
+    return count;
+  }
+
+  async clearCampaignHomebrew(campaignId: number): Promise<void> {
+    const monsterIds = await db
+      .select({ id: campaignHomebrewMonsters.id })
+      .from(campaignHomebrewMonsters)
+      .where(eq(campaignHomebrewMonsters.campaignId, campaignId));
+    if (monsterIds.length > 0) {
+      await db
+        .delete(campaignHomebrewActions)
+        .where(inArray(campaignHomebrewActions.monsterRefId, monsterIds.map(m => m.id)));
+    }
+    await db
+      .delete(campaignHomebrewMonsters)
+      .where(eq(campaignHomebrewMonsters.campaignId, campaignId));
   }
 }
 

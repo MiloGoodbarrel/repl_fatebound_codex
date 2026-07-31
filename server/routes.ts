@@ -53,6 +53,69 @@ function parseCSV(csvText: string): Omit<InsertItem, never>[] {
   return items;
 }
 
+function parseCSVLine(line: string): string[] {
+  const values: string[] = [];
+  let inQuote = false;
+  let current = '';
+  for (const char of line) {
+    if (char === '"') { inQuote = !inQuote; }
+    else if (char === ',' && !inQuote) { values.push(current.trim()); current = ''; }
+    else { current += char; }
+  }
+  values.push(current.trim());
+  return values;
+}
+
+function parseHomebrewCSV(csvText: string): { monster: any; actions: any[] }[] {
+  const lines = csvText.trim().split(/\r?\n/);
+  if (lines.length < 2) throw new Error("CSV must have a header row and at least one data row");
+
+  const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().trim());
+  if (!headers.includes("name")) throw new Error('Missing required column "name"');
+
+  const results: { monster: any; actions: any[] }[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const values = parseCSVLine(line);
+    const get = (col: string) => {
+      const idx = headers.indexOf(col);
+      return idx >= 0 ? (values[idx] ?? "").trim() : "";
+    };
+    const name = get("name");
+    if (!name) continue;
+
+    const monster = {
+      name,
+      creatureType: get("type") || null,
+      size: get("size") || null,
+      alignment: get("alignment") || null,
+      armorClass: parseInt(get("ac")) || null,
+      printedAverageHp: parseInt(get("hp")) || null,
+      hitDice: get("hit_dice") || null,
+      dexScore: parseInt(get("dex")) || null,
+      challengeRating: get("cr") || null,
+    };
+
+    const actions: any[] = [];
+    for (let j = 1; j <= 5; j++) {
+      const aName = get(`action${j}_name`);
+      if (!aName) continue;
+      actions.push({
+        actionOrder: j - 1,
+        actionName: aName,
+        actionDescription: get(`action${j}_desc`) || null,
+        attackBonus: parseInt(get(`action${j}_attack_bonus`)) || null,
+      });
+    }
+
+    results.push({ monster, actions });
+  }
+
+  return results;
+}
+
 function readBody(req: any): Promise<string> {
   return new Promise((resolve, reject) => {
     let body = '';
@@ -321,6 +384,65 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json(rows.map(mapMonsterRow));
     } catch (err) {
       res.status(500).json({ message: "Failed to search bestiary" });
+    }
+  });
+
+  // ── Campaign Homebrew Bestiary ────────────────────────────────────────────
+
+  // CSV template download
+  app.get("/api/homebrew-bestiary/template.csv", (_req, res) => {
+    const header = [
+      "name","type","size","cr","ac","hp","hit_dice","dex","alignment",
+      "action1_name","action1_desc","action1_attack_bonus",
+      "action2_name","action2_desc","action2_attack_bonus",
+      "action3_name","action3_desc","action3_attack_bonus",
+      "action4_name","action4_desc","action4_attack_bonus",
+      "action5_name","action5_desc","action5_attack_bonus",
+    ].join(",");
+    const example = [
+      "Brigand Chief","Humanoid","Medium","1","14","22","4d8+4","12","neutral evil",
+      "Longsword","\"Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 6 (1d8+2) slashing damage.\"","4",
+      "Heavy Crossbow","\"Ranged Weapon Attack: +4 to hit, range 100/400 ft., one target. Hit: 7 (1d10+2) piercing damage.\"","4",
+      "","","","","","","","","",
+    ].join(",");
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=\"homebrew-bestiary-template.csv\"");
+    res.send(`${header}\n${example}\n`);
+  });
+
+  app.get("/api/campaigns/:id/homebrew-bestiary", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid campaign id" });
+    try {
+      const monsters = await storage.getCampaignHomebrew(id);
+      res.json(monsters);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch homebrew bestiary" });
+    }
+  });
+
+  app.post("/api/campaigns/:id/homebrew-bestiary/import", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid campaign id" });
+    try {
+      const csvText = await readBody(req);
+      const parsed = parseHomebrewCSV(csvText);
+      if (parsed.length === 0) return res.status(400).json({ message: "No valid rows found in CSV" });
+      const count = await storage.importCampaignHomebrew(id, parsed);
+      res.json({ message: `Imported ${count} monsters`, count });
+    } catch (err) {
+      res.status(400).json({ message: err instanceof Error ? err.message : "Error parsing CSV" });
+    }
+  });
+
+  app.delete("/api/campaigns/:id/homebrew-bestiary", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid campaign id" });
+    try {
+      await storage.clearCampaignHomebrew(id);
+      res.json({ message: "Homebrew bestiary cleared" });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to clear homebrew bestiary" });
     }
   });
 

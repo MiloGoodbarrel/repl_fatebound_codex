@@ -232,6 +232,34 @@ export const bestiaryMonsterSpells = pgTable("bestiary_monster_spells", {
   notes: text("notes"),
 });
 
+// ─── Campaign Homebrew Bestiary ───────────────────────────────────────────────
+
+export const campaignHomebrewMonsters = pgTable("campaign_homebrew_monsters", {
+  id: serial("id").primaryKey(),
+  campaignId: integer("campaign_id").notNull(),
+  name: text("name").notNull(),
+  creatureType: text("creature_type"),
+  size: text("size"),
+  alignment: text("alignment"),
+  armorClass: integer("armor_class"),
+  printedAverageHp: integer("printed_average_hp"),
+  hitDice: text("hit_dice"),
+  dexScore: integer("dex_score"),
+  challengeRating: text("challenge_rating"),
+});
+
+export const campaignHomebrewActions = pgTable("campaign_homebrew_actions", {
+  id: serial("id").primaryKey(),
+  monsterRefId: integer("monster_ref_id").notNull(),
+  actionOrder: integer("action_order").notNull().default(0),
+  actionName: text("action_name"),
+  actionDescription: text("action_description"),
+  attackBonus: integer("attack_bonus"),
+});
+
+export type CampaignHomebrewMonster = typeof campaignHomebrewMonsters.$inferSelect;
+export type CampaignHomebrewAction = typeof campaignHomebrewActions.$inferSelect;
+
 // ─── Draw Options ─────────────────────────────────────────────────────────────
 
 export const drawOptionsSchema = z.object({
