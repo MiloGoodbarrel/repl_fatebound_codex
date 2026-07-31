@@ -23,10 +23,6 @@ export default function Home() {
     }
   };
 
-  const filteredItems = items.filter(item =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   return (
     <div className="flex flex-col md:flex-row h-screen bg-background overflow-hidden">
       {/* Sidebar */}
@@ -79,7 +75,7 @@ export default function Home() {
               </motion.div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredItems.map((item, index) => (
+                {items.map((item, index) => (
                   <ItemCard key={`${item.id}-${index}`} item={item} index={index} />
                 ))}
               </div>
@@ -90,7 +86,7 @@ export default function Home() {
             <div className="mt-12 text-center">
               <p className="text-sm text-muted-foreground font-mono uppercase tracking-widest opacity-50 flex items-center justify-center gap-2">
                 <Sparkles className="w-3 h-3" />
-                {filteredItems.length} of {items.length} Items Revealed
+                {items.length} Items Revealed
                 <Sparkles className="w-3 h-3" />
               </p>
             </div>
