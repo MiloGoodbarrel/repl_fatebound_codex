@@ -270,6 +270,7 @@ export const drawOptionsSchema = z.object({
   rarities: z.array(z.string()).min(1, "Select at least one rarity"),
   sources: z.array(z.string()).optional(),
   count: z.coerce.number().min(1).max(100),
+  search: z.string().optional(),
 });
 
 export type DrawOptions = z.infer<typeof drawOptionsSchema>;

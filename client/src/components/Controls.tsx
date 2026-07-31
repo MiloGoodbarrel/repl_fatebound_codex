@@ -145,6 +145,7 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
       rarities,
       sources: sourcesReady ? sourcesArray : undefined,
       count: count[0],
+      search: searchTerm.trim() || undefined,
     });
   };
 
@@ -247,16 +248,16 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
           </div>
         )}
 
-        {/* Search drawn items */}
+        {/* Search — constrains the draw pool */}
         <div className="space-y-2">
           <Label className="font-display text-sm flex items-center gap-2">
-            <Search className="w-4 h-4" /> Search Drawn Items
+            <Search className="w-4 h-4" /> Keyword Search
           </Label>
           <div className="relative">
             <input
               value={searchTerm}
               onChange={e => onSearchChange?.(e.target.value)}
-              placeholder="Filter by name..."
+              placeholder="e.g. sword, potion, ring…"
               data-testid="input-search"
               className="w-full pl-9 pr-8 py-2 text-sm bg-background/50 border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
             />
@@ -267,6 +268,9 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
               </button>
             )}
           </div>
+          <p className="text-[11px] text-muted-foreground leading-snug">
+            Draws are randomly sampled from items matching this keyword. Leave blank to draw from the full pool.
+          </p>
         </div>
 
         {/* Card Count */}

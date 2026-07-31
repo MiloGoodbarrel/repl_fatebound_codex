@@ -351,20 +351,21 @@ export class DatabaseStorage implements IStorage {
   // ── Draw ──────────────────────────────────────────────────────────────────
 
   async drawItems(options: DrawOptions): Promise<(Item | HomebrewItem | CampaignItem)[]> {
-    const { source, campaignId, editions, categories, rarities, sources, count } = options;
+    const { source, campaignId, editions, categories, rarities, sources, count, search } = options;
+    const searchTerm = search?.trim();
 
     // ── Campaign draw ──────────────────────────────────────────────────────
     if (source === "campaign" && campaignId != null) {
+      const conditions: any[] = [
+        eq(campaignItems.campaignId, campaignId),
+        inArray(campaignItems.category, categories),
+        inArray(campaignItems.rarity, rarities),
+      ];
+      if (searchTerm) conditions.push(ilike(campaignItems.name, `%${searchTerm}%`));
       return await db
         .select()
         .from(campaignItems)
-        .where(
-          and(
-            eq(campaignItems.campaignId, campaignId),
-            inArray(campaignItems.category, categories),
-            inArray(campaignItems.rarity, rarities)
-          )
-        )
+        .where(and(...conditions))
         .orderBy(sql`RANDOM()`)
         .limit(count);
     }
@@ -381,6 +382,7 @@ export class DatabaseStorage implements IStorage {
     const sourceFilter = officialSources && officialSources.length > 0
       ? inArray(items5e.source, officialSources)
       : undefined;
+    const officialNameFilter = searchTerm ? ilike(items5e.name, `%${searchTerm}%`) : undefined;
 
     // Decide whether we need official items at all
     const needOfficial = !sources || officialSources === null || (officialSources && officialSources.length > 0);
@@ -389,16 +391,17 @@ export class DatabaseStorage implements IStorage {
       ? await db
           .select()
           .from(items5e)
-          .where(and(editionFilter, sourceFilter, inArray(items5e.category, categories), inArray(items5e.rarity, rarities)))
+          .where(and(editionFilter, sourceFilter, officialNameFilter, inArray(items5e.category, categories), inArray(items5e.rarity, rarities)))
           .orderBy(sql`RANDOM()`)
           .limit(count)
       : [];
 
+    const homebrewNameFilter = searchTerm ? ilike(homebrewItems.name, `%${searchTerm}%`) : undefined;
     const brewed: HomebrewItem[] = includeHomebrew
       ? await db
           .select()
           .from(homebrewItems)
-          .where(and(inArray(homebrewItems.category, categories), inArray(homebrewItems.rarity, rarities)))
+          .where(and(homebrewNameFilter, inArray(homebrewItems.category, categories), inArray(homebrewItems.rarity, rarities)))
           .orderBy(sql`RANDOM()`)
           .limit(count)
       : [];
