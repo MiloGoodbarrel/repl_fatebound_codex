@@ -1403,11 +1403,14 @@ export default function InitiativeTracker() {
   };
 
   // Reset all: clear everything but keep version selection
-  const resetAll = () => {
+  const [showResetAllDialog, setShowResetAllDialog] = useState(false);
+
+  const confirmResetAll = () => {
     setCombatants([]);
     setCombatState("setup");
     setActiveIndex(0);
     setRound(1);
+    setShowResetAllDialog(false);
   };
 
   // Full heal a PC
@@ -2099,6 +2102,41 @@ export default function InitiativeTracker() {
             )}
           </div>
 
+          {/* Reset All Confirmation Dialog */}
+          <Dialog open={showResetAllDialog} onOpenChange={setShowResetAllDialog}>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle className="font-display flex items-center gap-2 text-destructive">
+                  <Trash2 className="w-5 h-5" /> Clear Entire Encounter?
+                </DialogTitle>
+                <DialogDescription className="pt-1 space-y-2 text-sm text-foreground/80">
+                  <span className="block">
+                    This will permanently remove <strong>every combatant</strong> from the tracker — all player characters, NPCs, and monsters — and reset combat back to setup.
+                  </span>
+                  <span className="block text-muted-foreground">
+                    HP, conditions, and initiative rolls will all be lost. This cannot be undone.
+                  </span>
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setShowResetAllDialog(false)}
+                >
+                  Abort
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={confirmResetAll}
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Proceed
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
           {/* Import Preview Dialog */}
           <Dialog open={homebrewImportPreview != null} onOpenChange={open => { if (!open) { setHomebrewImportPreview(null); setHomebrewImportRaw(""); } }}>
             <DialogContent className="max-w-2xl">
@@ -2422,7 +2460,7 @@ export default function InitiativeTracker() {
                 <RotateCcw className="mr-1 w-3 h-3" /> Reset Encounter
               </Button>
               <Button 
-                onClick={resetAll} 
+                onClick={() => setShowResetAllDialog(true)} 
                 variant="ghost"
                 className="flex-1 text-muted-foreground"
                 disabled={combatants.length === 0}
