@@ -371,6 +371,9 @@ export default function InitiativeTracker() {
   const [useCrFilter, setUseCrFilter] = useState(false);
   const [crFilter, setCrFilter] = useState<string>("");
   const [isRandomizing, setIsRandomizing] = useState(false);
+  const [sourceFilters, setSourceFilters] = useState<string[]>([]);
+  const [showSourceFilters, setShowSourceFilters] = useState(false);
+  const [encounterGroup, setEncounterGroup] = useState<Monster[]>([]);
   
   // PC entry
   const [pcName, setPcName] = useState("");
@@ -464,15 +467,23 @@ export default function InitiativeTracker() {
     staleTime: Infinity,
   });
 
+  // Bestiary source books
+  const { data: bestiarySources = [] } = useQuery<string[]>({
+    queryKey: ["/api/bestiary/sources"],
+    queryFn: () => fetch("/api/bestiary/sources").then(r => r.json()),
+    staleTime: Infinity,
+  });
+
   // Live monster search results
   const activeCr = useCrFilter && crFilter ? crFilter : undefined;
-  const activeSearch = debouncedSearch.trim().length > 0 || typeFilters.length > 0 || !!activeCr;
+  const activeSearch = debouncedSearch.trim().length > 0 || typeFilters.length > 0 || !!activeCr || sourceFilters.length > 0;
   const { data: monsterResults = [], isFetching: loadingMonsters } = useQuery<Monster[]>({
-    queryKey: ["/api/bestiary/monsters", debouncedSearch, typeFilters.join(","), activeCr],
+    queryKey: ["/api/bestiary/monsters", debouncedSearch, typeFilters.join(","), activeCr, sourceFilters.join("|")],
     queryFn: () => {
       const params = new URLSearchParams();
       if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
       if (typeFilters.length) params.set("types", typeFilters.join(","));
+      if (sourceFilters.length) params.set("sources", sourceFilters.join("|"));
       if (activeCr) params.set("cr", activeCr);
       params.set("limit", "20");
       return fetch(`/api/bestiary/monsters?${params}`).then(r => r.json());
@@ -503,27 +514,93 @@ export default function InitiativeTracker() {
   const toggleTypeFilter = (type: string) => {
     setTypeFilters(prev => prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]);
     setSelectedMonsterId(null);
+    setEncounterGroup([]);
   };
 
-  const pickRandomMonster = async () => {
+  const toggleSourceFilter = (source: string) => {
+    setSourceFilters(prev => prev.includes(source) ? prev.filter(s => s !== source) : [...prev, source]);
+    setSelectedMonsterId(null);
+    setEncounterGroup([]);
+  };
+
+  const buildEncounter = async () => {
     setIsRandomizing(true);
+    setEncounterGroup([]);
     try {
-      const params = new URLSearchParams();
-      if (typeFilters.length) params.set("types", typeFilters.join(","));
-      if (useCrFilter && crFilter) params.set("cr", crFilter);
-      const res = await fetch(`/api/bestiary/monsters/random?${params}`);
-      if (!res.ok) {
-        toast({ title: "No monsters found", description: "Try different filters.", variant: "destructive" });
-        return;
+      if (useCrFilter && crFilter) {
+        // Use encounter endpoint for CR-based (single or combo)
+        const params = new URLSearchParams();
+        params.set("cr", crFilter);
+        if (typeFilters.length) params.set("types", typeFilters.join(","));
+        if (sourceFilters.length) params.set("sources", sourceFilters.join("|"));
+        if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+        const res = await fetch(`/api/bestiary/encounter?${params}`);
+        if (!res.ok) {
+          toast({ title: "No monsters found", description: "Try different filters.", variant: "destructive" });
+          return;
+        }
+        const group: Monster[] = await res.json();
+        setEncounterGroup(group);
+        setSelectedMonsterId(null);
+      } else {
+        // No CR filter: just pick a single random monster
+        const params = new URLSearchParams();
+        if (typeFilters.length) params.set("types", typeFilters.join(","));
+        if (sourceFilters.length) params.set("sources", sourceFilters.join("|"));
+        if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+        const res = await fetch(`/api/bestiary/monsters/random?${params}`);
+        if (!res.ok) {
+          toast({ title: "No monsters found", description: "Try different filters.", variant: "destructive" });
+          return;
+        }
+        const monster: Monster = await res.json();
+        setEncounterGroup([monster]);
+        setSelectedMonsterId(null);
       }
-      const monster: Monster = await res.json();
-      setSelectedMonsterId(monster.index);
-      setMonsterSearch(monster.name);
     } catch {
-      toast({ title: "Error", description: "Failed to pick a random monster.", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to build encounter.", variant: "destructive" });
     } finally {
       setIsRandomizing(false);
     }
+  };
+
+  const addSingleMonsterToEncounter = (monster: Monster) => {
+    const baseName = monster.name;
+    const existingCount = combatants.filter(c =>
+      c.name === baseName || c.name.match(new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} #\\d+$`))
+    ).length;
+    const displayName = existingCount === 0 ? baseName : `${baseName} #${existingCount + 1}`;
+    if (existingCount === 1) {
+      setCombatants(prev => prev.map(c => c.name === baseName ? { ...c, name: `${baseName} #1` } : c));
+    }
+    const rolledHp = monster.hit_dice
+      ? rollMonsterHp(monster.hit_dice, monster.hp)
+      : rollMonsterHp("", monster.hp);
+    const newCombatant: Combatant = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: displayName,
+      initiative: 0,
+      hp: Math.max(1, rolledHp),
+      maxHp: Math.max(1, rolledHp),
+      tempHp: 0,
+      ac: monster.ac,
+      isMonster: true,
+      combatantType: "monster",
+      conditions: [],
+      isDown: false,
+      monsterData: monster,
+      stance: "enemy",
+      deathSaveSuccesses: 0,
+      deathSaveFailures: 0,
+      isStable: false,
+      isDead: false,
+    };
+    setCombatants(prev => [...prev, newCombatant]);
+  };
+
+  const addAllEncounterMonsters = () => {
+    encounterGroup.forEach(m => addSingleMonsterToEncounter(m));
+    setEncounterGroup([]);
   };
 
   const addMonster = () => {
@@ -1398,7 +1475,7 @@ export default function InitiativeTracker() {
               variant="outline"
               size="sm"
               className="w-full text-xs gap-1.5"
-              onClick={pickRandomMonster}
+              onClick={buildEncounter}
               disabled={isRandomizing || (useCrFilter && !crFilter)}
               data-testid="button-random-monster"
             >
@@ -1407,7 +1484,7 @@ export default function InitiativeTracker() {
               ) : (
                 <Dices className="w-3.5 h-3.5" />
               )}
-              Random Monster{useCrFilter && crFilter ? ` (CR ${crFilter})` : ""}
+              {useCrFilter && crFilter ? `Random Encounter (CR ${crFilter})` : "Random Monster"}
             </Button>
 
             {/* Type filter toggle */}
@@ -1439,13 +1516,42 @@ export default function InitiativeTracker() {
               </div>
             )}
 
+            {/* Source filter toggle */}
+            <button
+              onClick={() => setShowSourceFilters(v => !v)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              data-testid="button-toggle-source-filters"
+            >
+              <span className={cn("transition-transform", showSourceFilters ? "rotate-90" : "")}>▶</span>
+              Filter by source book
+              {sourceFilters.length > 0 && (
+                <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">{sourceFilters.length}</Badge>
+              )}
+            </button>
+
+            {showSourceFilters && bestiarySources.length > 0 && (
+              <div className="max-h-36 overflow-y-auto border rounded-md bg-background p-2 space-y-1">
+                {bestiarySources.map(source => (
+                  <label key={source} className="flex items-center gap-1.5 text-xs cursor-pointer hover:text-foreground text-muted-foreground">
+                    <Checkbox
+                      checked={sourceFilters.includes(source)}
+                      onCheckedChange={() => toggleSourceFilter(source)}
+                      className="h-3 w-3"
+                      data-testid={`checkbox-source-${source}`}
+                    />
+                    <span className="truncate">{source}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+
             {/* Search results */}
             {activeSearch && monsterResults.length > 0 && (
               <div className="max-h-44 overflow-y-auto border rounded-md bg-background divide-y divide-border/50">
                 {monsterResults.map(monster => (
                   <div
                     key={monster.index}
-                    onClick={() => setSelectedMonsterId(monster.index)}
+                    onClick={() => { setSelectedMonsterId(monster.index); setEncounterGroup([]); }}
                     className={cn(
                       "p-2 cursor-pointer hover:bg-primary/5 transition-colors",
                       selectedMonsterId === monster.index && "bg-primary/10"
@@ -1455,6 +1561,7 @@ export default function InitiativeTracker() {
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium">{monster.name}</span>
                       <div className="flex gap-2 text-[11px] text-muted-foreground shrink-0 ml-2">
+                        {monster.cr && monster.cr !== "--" && <span className="font-semibold text-primary/70">CR {monster.cr}</span>}
                         <span className="flex items-center gap-0.5"><Shield className="w-3 h-3" />{monster.ac}</span>
                         <span className="flex items-center gap-0.5"><Heart className="w-3 h-3" />{monster.hp}</span>
                       </div>
@@ -1470,19 +1577,64 @@ export default function InitiativeTracker() {
               <p className="text-xs text-muted-foreground text-center py-2">No monsters found</p>
             )}
 
-            {/* Selected monster preview */}
+            {/* Encounter group preview (from randomizer) */}
+            {encounterGroup.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {encounterGroup.length === 1 ? "Random Monster" : `Encounter Group (${encounterGroup.length} monsters)`}
+                    {useCrFilter && crFilter && (
+                      <span className="ml-1 text-primary/70">· CR {crFilter}</span>
+                    )}
+                  </span>
+                  <button onClick={() => setEncounterGroup([])} className="text-[10px] text-muted-foreground hover:text-foreground">✕ Clear</button>
+                </div>
+                <div className="border rounded-md bg-background divide-y divide-border/50">
+                  {encounterGroup.map((monster, i) => (
+                    <div key={`${monster.index}-${i}`} className="p-2 flex items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-sm font-medium truncate">{monster.name}</span>
+                          {monster.cr && monster.cr !== "--" && (
+                            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 shrink-0">CR {monster.cr}</Badge>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5 flex gap-2">
+                          <span><Shield className="w-2.5 h-2.5 inline mr-0.5" />{monster.ac}</span>
+                          <span><Heart className="w-2.5 h-2.5 inline mr-0.5" />{monster.hp} HP</span>
+                        </div>
+                      </div>
+                      <Button size="sm" variant="secondary" className="h-7 text-xs shrink-0 px-2"
+                        onClick={() => addSingleMonsterToEncounter(monster)}>
+                        <Plus className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <Button onClick={addAllEncounterMonsters} className="w-full" size="sm">
+                  <Plus className="mr-1.5 w-3.5 h-3.5" /> Add All to Encounter
+                </Button>
+              </div>
+            )}
+
+            {/* Selected monster preview (from search) */}
             {selectedMonsterId && loadingDetail && (
               <div className="flex items-center justify-center py-4">
                 <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
               </div>
             )}
-            {selectedMonster && !loadingDetail && (
+            {selectedMonster && !loadingDetail && encounterGroup.length === 0 && (
               <div className="p-3 bg-primary/5 border border-primary/20 rounded-md space-y-2">
                 <div className="flex justify-between items-start gap-2">
                   <span className="font-bold text-sm">{selectedMonster.name}</span>
-                  {selectedMonster.source && (
-                    <Badge variant="outline" className="text-[10px] shrink-0">{selectedMonster.source}</Badge>
-                  )}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {selectedMonster.cr && selectedMonster.cr !== "--" && (
+                      <Badge variant="secondary" className="text-[10px]">CR {selectedMonster.cr}</Badge>
+                    )}
+                    {selectedMonster.source && (
+                      <Badge variant="outline" className="text-[10px]">{selectedMonster.source}</Badge>
+                    )}
+                  </div>
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {[selectedMonster.size, selectedMonster.type, selectedMonster.alignment].filter(Boolean).join(" · ")}
@@ -1508,7 +1660,7 @@ export default function InitiativeTracker() {
             
             <Button 
               onClick={addMonster} 
-              disabled={!selectedMonster || loadingDetail}
+              disabled={!selectedMonster || loadingDetail || encounterGroup.length > 0}
               className="w-full"
               data-testid="button-add-monster"
             >

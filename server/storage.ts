@@ -173,9 +173,16 @@ export class DatabaseStorage implements IStorage {
     const rows = await db
       .selectDistinct({ creatureType: bestiaryMonsters.creatureType })
       .from(bestiaryMonsters)
-      .where(sql`creature_type IS NOT NULL`)
-      .orderBy(bestiaryMonsters.creatureType);
-    return rows.map(r => r.creatureType).filter((t): t is string => t != null);
+      .where(sql`creature_type IS NOT NULL AND printed_average_hp IS NOT NULL`);
+    return rows.map(r => r.creatureType).filter((t): t is string => t != null).sort();
+  }
+
+  async getBestiarySources(): Promise<string[]> {
+    const rows = await db
+      .selectDistinct({ sourceBook: bestiaryMonsters.sourceBook })
+      .from(bestiaryMonsters)
+      .where(sql`source_book IS NOT NULL AND printed_average_hp IS NOT NULL`);
+    return rows.map(r => r.sourceBook).filter((s): s is string => s != null).sort();
   }
 
   async getBestiaryCRs(): Promise<string[]> {
@@ -186,17 +193,18 @@ export class DatabaseStorage implements IStorage {
     const crOrder: Record<string, number> = {
       '0': 0, '1/8': 1, '1/4': 2, '1/2': 3,
     };
-    for (let i = 1; i <= 30; i++) crOrder[String(i)] = i + 3;
+    for (let i = 1; i <= 35; i++) crOrder[String(i)] = i + 3;
     return rows
       .map(r => r.cr)
       .filter((c): c is string => c != null)
       .sort((a, b) => (crOrder[a] ?? 999) - (crOrder[b] ?? 999));
   }
 
-  async searchBestiary(search: string, types: string[], limit = 20, cr?: string): Promise<any[]> {
+  async searchBestiary(search: string, types: string[], limit = 20, cr?: string, sources?: string[]): Promise<any[]> {
     const conditions: any[] = [sql`printed_average_hp IS NOT NULL`];
     if (search.trim()) conditions.push(ilike(bestiaryMonsters.name, `%${search.trim()}%`));
     if (types.length > 0) conditions.push(inArray(bestiaryMonsters.creatureType, types));
+    if (sources && sources.length > 0) conditions.push(inArray(bestiaryMonsters.sourceBook, sources));
     if (cr) conditions.push(sql`challenge_rating = ${cr}`);
     return await db
       .select()
@@ -206,9 +214,10 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
   }
 
-  async getRandomBestiaryMonster(types: string[], cr?: string): Promise<any | null> {
+  async getRandomBestiaryMonster(types: string[], cr?: string, sources?: string[]): Promise<any | null> {
     const conditions: any[] = [sql`printed_average_hp IS NOT NULL`];
     if (types.length > 0) conditions.push(inArray(bestiaryMonsters.creatureType, types));
+    if (sources && sources.length > 0) conditions.push(inArray(bestiaryMonsters.sourceBook, sources));
     if (cr) conditions.push(sql`challenge_rating = ${cr}`);
     const rows = await db
       .select()
@@ -217,6 +226,84 @@ export class DatabaseStorage implements IStorage {
       .orderBy(sql`RANDOM()`)
       .limit(1);
     return rows[0] ?? null;
+  }
+
+  async getEncounterGroup(targetCr: string, types: string[], sources: string[], search: string): Promise<any[]> {
+    function crToUnits(cr: string): number {
+      if (!cr || cr === '0') return 0;
+      if (cr === '1/8') return 1;
+      if (cr === '1/4') return 2;
+      if (cr === '1/2') return 4;
+      const n = parseInt(cr, 10);
+      return isNaN(n) ? 0 : n * 8;
+    }
+    function unitsToValidCr(units: number): string | null {
+      if (units === 0) return '0';
+      if (units === 1) return '1/8';
+      if (units === 2) return '1/4';
+      if (units === 4) return '1/2';
+      if (units >= 8 && units % 8 === 0) return String(units / 8);
+      return null;
+    }
+
+    const targetUnits = crToUnits(targetCr);
+    const baseConditions: any[] = [sql`printed_average_hp IS NOT NULL`, sql`challenge_rating IS NOT NULL`];
+    if (types.length > 0) baseConditions.push(inArray(bestiaryMonsters.creatureType, types));
+    if (sources.length > 0) baseConditions.push(inArray(bestiaryMonsters.sourceBook, sources));
+    if (search.trim()) baseConditions.push(ilike(bestiaryMonsters.name, `%${search.trim()}%`));
+
+    // For CR 0 or very low, just return a single monster
+    const doCombo = targetUnits >= 8 && Math.random() < 0.5;
+
+    if (!doCombo) {
+      // Single exact-CR monster
+      const rows = await db.select().from(bestiaryMonsters)
+        .where(and(...baseConditions, sql`challenge_rating = ${targetCr}`))
+        .orderBy(sql`RANDOM()`).limit(1);
+      return rows;
+    }
+
+    // Combo mode: pick monsters whose CR units sum to targetUnits
+    const group: any[] = [];
+    let remaining = targetUnits;
+    const maxMonsters = 6;
+
+    while (remaining > 0 && group.length < maxMonsters) {
+      // Get distinct available CRs in pool that are ≤ remaining and > 0
+      const crRows = await db
+        .selectDistinct({ cr: bestiaryMonsters.challengeRating })
+        .from(bestiaryMonsters)
+        .where(and(...baseConditions));
+
+      const eligible = crRows
+        .map(r => r.cr)
+        .filter((c): c is string => c != null && crToUnits(c) > 0 && crToUnits(c) <= remaining);
+
+      if (eligible.length === 0) break;
+
+      // Weight toward larger CRs using their unit value as weight
+      const totalWeight = eligible.reduce((sum, c) => sum + crToUnits(c), 0);
+      let rand = Math.random() * totalWeight;
+      let pickedCr = eligible[eligible.length - 1];
+      for (const c of eligible) {
+        rand -= crToUnits(c);
+        if (rand <= 0) { pickedCr = c; break; }
+      }
+
+      // Pick a random monster with that CR
+      const rows = await db.select().from(bestiaryMonsters)
+        .where(and(...baseConditions, sql`challenge_rating = ${pickedCr}`))
+        .orderBy(sql`RANDOM()`).limit(1);
+
+      if (rows.length === 0) break;
+      group.push(rows[0]);
+      remaining -= crToUnits(pickedCr);
+
+      // If remaining can't be filled by any standard CR, stop
+      if (unitsToValidCr(remaining) === null && remaining < 1) break;
+    }
+
+    return group.length > 0 ? group : [];
   }
 
   async getBestiaryMonsterDetail(monsterId: string): Promise<any | null> {

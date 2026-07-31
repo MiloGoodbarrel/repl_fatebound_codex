@@ -268,12 +268,39 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.get("/api/bestiary/sources", async (_req, res) => {
+    try {
+      const sources = await storage.getBestiarySources();
+      res.json(sources);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch sources" });
+    }
+  });
+
+  app.get("/api/bestiary/encounter", async (req, res) => {
+    try {
+      const typesParam = (req.query.types as string) || "";
+      const sourcesParam = (req.query.sources as string) || "";
+      const types = typesParam ? typesParam.split(",").filter(Boolean) : [];
+      const sources = sourcesParam ? sourcesParam.split("|").filter(Boolean) : [];
+      const cr = (req.query.cr as string) || "1";
+      const search = (req.query.search as string) || "";
+      const group = await storage.getEncounterGroup(cr, types, sources, search);
+      if (group.length === 0) return res.status(404).json({ message: "No monsters found matching filters" });
+      res.json(group.map(mapMonsterRow));
+    } catch (err) {
+      res.status(500).json({ message: "Failed to build encounter" });
+    }
+  });
+
   app.get("/api/bestiary/monsters/random", async (req, res) => {
     try {
       const typesParam = (req.query.types as string) || "";
+      const sourcesParam = (req.query.sources as string) || "";
       const types = typesParam ? typesParam.split(",").filter(Boolean) : [];
+      const sources = sourcesParam ? sourcesParam.split("|").filter(Boolean) : [];
       const cr = (req.query.cr as string) || undefined;
-      const monster = await storage.getRandomBestiaryMonster(types, cr);
+      const monster = await storage.getRandomBestiaryMonster(types, cr, sources);
       if (!monster) return res.status(404).json({ message: "No monsters found matching filters" });
       res.json(mapMonsterRow(monster));
     } catch (err) {
@@ -285,10 +312,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const search = (req.query.search as string) || "";
       const typesParam = (req.query.types as string) || "";
+      const sourcesParam = (req.query.sources as string) || "";
       const types = typesParam ? typesParam.split(",").filter(Boolean) : [];
+      const sources = sourcesParam ? sourcesParam.split("|").filter(Boolean) : [];
       const limit = Math.min(parseInt((req.query.limit as string) || "20"), 100);
       const cr = (req.query.cr as string) || undefined;
-      const rows = await storage.searchBestiary(search, types, limit, cr);
+      const rows = await storage.searchBestiary(search, types, limit, cr, sources);
       res.json(rows.map(mapMonsterRow));
     } catch (err) {
       res.status(500).json({ message: "Failed to search bestiary" });
