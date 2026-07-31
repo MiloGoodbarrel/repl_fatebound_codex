@@ -216,6 +216,8 @@ interface Combatant {
   maxHealingSurges?: number;
   // 3.5e-specific: disabled state (at exactly 0 HP)
   isDisabled?: boolean;
+  // Mid-combat reinforcement: skip this turn until the next round begins
+  joiningNextRound?: boolean;
 }
 
 type CombatState = "setup" | "active" | "ended";
@@ -617,6 +619,7 @@ export default function InitiativeTracker() {
       deathSaveFailures: 0,
       isStable: false,
       isDead: false,
+      joiningNextRound: combatState === "active",
     };
     setCombatants(prev => [...prev, newCombatant]);
   };
@@ -1128,6 +1131,8 @@ export default function InitiativeTracker() {
 
   // Check if a combatant should be skipped in initiative
   const shouldSkipTurn = (c: Combatant): boolean => {
+    // Reinforcements waiting for the next round
+    if (c.joiningNextRound) return true;
     // Dead combatants are skipped
     if (c.isDead) return true;
     
@@ -1184,6 +1189,8 @@ export default function InitiativeTracker() {
     // Check for new round
     if (nextIndex <= activeIndex) {
       setRound(r => r + 1);
+      // Clear the "joining next round" flag — reinforcements now act normally
+      setCombatants(prev => prev.map(c => c.joiningNextRound ? { ...c, joiningNextRound: false } : c));
     }
     
     setActiveIndex(nextIndex);
@@ -2091,6 +2098,11 @@ export default function InitiativeTracker() {
                                     }}>
                                       {combatant.name}
                                     </span>
+                                    {combatant.joiningNextRound && (
+                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-normal border-amber-500/50 text-amber-500 shrink-0">
+                                        Joins next round
+                                      </Badge>
+                                    )}
                                   </h3>
                                 </HoverCardTrigger>
                                 <HoverCardContent className="w-96 p-0" side="right" align="start">
