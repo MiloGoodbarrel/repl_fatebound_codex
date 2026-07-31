@@ -387,11 +387,20 @@ export class DatabaseStorage implements IStorage {
     // Decide whether we need official items at all
     const needOfficial = !sources || officialSources === null || (officialSources && officialSources.length > 0);
 
+    // Normalise rarity to lowercase for case-insensitive matching (DB stores "Very rare", client sends "Very Rare" etc.)
+    const raritiesLower = rarities.map(r => r.toLowerCase());
+    const officialRarityFilter = raritiesLower.length > 0
+      ? sql`lower(${items5e.rarity}) IN (${sql.join(raritiesLower.map(r => sql`${r}`), sql`, `)})`
+      : undefined;
+    const homebrewRarityFilter = raritiesLower.length > 0
+      ? sql`lower(${homebrewItems.rarity}) IN (${sql.join(raritiesLower.map(r => sql`${r}`), sql`, `)})`
+      : undefined;
+
     const officialItems: Item[] = needOfficial
       ? await db
           .select()
           .from(items5e)
-          .where(and(editionFilter, sourceFilter, officialNameFilter, inArray(items5e.category, categories), inArray(items5e.rarity, rarities)))
+          .where(and(editionFilter, sourceFilter, officialNameFilter, inArray(items5e.category, categories), officialRarityFilter))
           .orderBy(sql`RANDOM()`)
           .limit(count)
       : [];
@@ -401,7 +410,7 @@ export class DatabaseStorage implements IStorage {
       ? await db
           .select()
           .from(homebrewItems)
-          .where(and(homebrewNameFilter, inArray(homebrewItems.category, categories), inArray(homebrewItems.rarity, rarities)))
+          .where(and(homebrewNameFilter, inArray(homebrewItems.category, categories), homebrewRarityFilter))
           .orderBy(sql`RANDOM()`)
           .limit(count)
       : [];
