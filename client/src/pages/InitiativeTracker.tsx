@@ -374,6 +374,8 @@ export default function InitiativeTracker() {
   const [sourceFilters, setSourceFilters] = useState<string[]>([]);
   const [showSourceFilters, setShowSourceFilters] = useState(false);
   const [encounterGroup, setEncounterGroup] = useState<Monster[]>([]);
+  const [encounterGroupInitiatives, setEncounterGroupInitiatives] = useState<number[]>([]);
+  const [midCombatInitiative, setMidCombatInitiative] = useState<number>(10);
   
   // PC entry
   const [pcName, setPcName] = useState("");
@@ -453,6 +455,7 @@ export default function InitiativeTracker() {
     return () => clearTimeout(t);
   }, [monsterSearch]);
 
+
   // Bestiary creature types
   const { data: creatureTypes = [] } = useQuery<string[]>({
     queryKey: ["/api/bestiary/types"],
@@ -500,6 +503,14 @@ export default function InitiativeTracker() {
     staleTime: Infinity,
   });
 
+  // Auto-roll initiative when a monster is selected during active combat
+  useEffect(() => {
+    if (combatState === "active" && selectedMonster) {
+      setMidCombatInitiative(rollInitiative(selectedMonster.dexMod));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMonster?.index, combatState]);
+
   const handleVersionConfirm = () => {
     if (selectedVersions.length === 0) return;
     setShowVersionDialog(false);
@@ -511,24 +522,32 @@ export default function InitiativeTracker() {
     );
   };
 
+  const rollInitiative = (dexMod?: number) => {
+    const mod = dexMod ?? 0;
+    return Math.floor(Math.random() * 20) + 1 + mod;
+  };
+
   const toggleTypeFilter = (type: string) => {
     setTypeFilters(prev => prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]);
     setSelectedMonsterId(null);
     setEncounterGroup([]);
+    setEncounterGroupInitiatives([]);
   };
 
   const toggleSourceFilter = (source: string) => {
     setSourceFilters(prev => prev.includes(source) ? prev.filter(s => s !== source) : [...prev, source]);
     setSelectedMonsterId(null);
     setEncounterGroup([]);
+    setEncounterGroupInitiatives([]);
   };
 
   const buildEncounter = async () => {
     setIsRandomizing(true);
     setEncounterGroup([]);
+    setEncounterGroupInitiatives([]);
     try {
+      let group: Monster[] = [];
       if (useCrFilter && crFilter) {
-        // Use encounter endpoint for CR-based (single or combo)
         const params = new URLSearchParams();
         params.set("cr", crFilter);
         if (typeFilters.length) params.set("types", typeFilters.join(","));
@@ -539,11 +558,8 @@ export default function InitiativeTracker() {
           toast({ title: "No monsters found", description: "Try different filters.", variant: "destructive" });
           return;
         }
-        const group: Monster[] = await res.json();
-        setEncounterGroup(group);
-        setSelectedMonsterId(null);
+        group = await res.json();
       } else {
-        // No CR filter: just pick a single random monster
         const params = new URLSearchParams();
         if (typeFilters.length) params.set("types", typeFilters.join(","));
         if (sourceFilters.length) params.set("sources", sourceFilters.join("|"));
@@ -554,9 +570,13 @@ export default function InitiativeTracker() {
           return;
         }
         const monster: Monster = await res.json();
-        setEncounterGroup([monster]);
-        setSelectedMonsterId(null);
+        group = [monster];
       }
+      setEncounterGroup(group);
+      setEncounterGroupInitiatives(group.map(m => rollInitiative(m.dexMod)));
+      setSelectedMonsterId(null);
+      // Auto-roll midCombatInitiative for single-monster result
+      if (group.length === 1) setMidCombatInitiative(rollInitiative(group[0].dexMod));
     } catch {
       toast({ title: "Error", description: "Failed to build encounter.", variant: "destructive" });
     } finally {
@@ -564,7 +584,7 @@ export default function InitiativeTracker() {
     }
   };
 
-  const addSingleMonsterToEncounter = (monster: Monster) => {
+  const addSingleMonsterToEncounter = (monster: Monster, initiative?: number) => {
     const baseName = monster.name;
     const existingCount = combatants.filter(c =>
       c.name === baseName || c.name.match(new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} #\\d+$`))
@@ -576,10 +596,13 @@ export default function InitiativeTracker() {
     const rolledHp = monster.hit_dice
       ? rollMonsterHp(monster.hit_dice, monster.hp)
       : rollMonsterHp("", monster.hp);
+    const initValue = initiative !== undefined
+      ? initiative
+      : (combatState === "active" ? rollInitiative(monster.dexMod) : 0);
     const newCombatant: Combatant = {
       id: Math.random().toString(36).substr(2, 9),
       name: displayName,
-      initiative: 0,
+      initiative: initValue,
       hp: Math.max(1, rolledHp),
       maxHp: Math.max(1, rolledHp),
       tempHp: 0,
@@ -598,54 +621,26 @@ export default function InitiativeTracker() {
     setCombatants(prev => [...prev, newCombatant]);
   };
 
+  const rerollGroupInitiative = (index: number) => {
+    setEncounterGroupInitiatives(prev => {
+      const next = [...prev];
+      next[index] = rollInitiative(encounterGroup[index]?.dexMod);
+      return next;
+    });
+  };
+
   const addAllEncounterMonsters = () => {
-    encounterGroup.forEach(m => addSingleMonsterToEncounter(m));
+    encounterGroup.forEach((m, i) => addSingleMonsterToEncounter(m, encounterGroupInitiatives[i]));
     setEncounterGroup([]);
+    setEncounterGroupInitiatives([]);
   };
 
   const addMonster = () => {
     if (!selectedMonster) return;
-    
-    // Count existing monsters with same base name to auto-number
-    const baseName = selectedMonster.name;
-    const existingCount = combatants.filter(c => 
-      c.name === baseName || c.name.match(new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} #\\d+$`))
-    ).length;
-    
-    const displayName = existingCount === 0 ? baseName : `${baseName} #${existingCount + 1}`;
-    
-    // If this is the second monster of this type, rename the first one
-    if (existingCount === 1) {
-      setCombatants(prev => prev.map(c => 
-        c.name === baseName ? { ...c, name: `${baseName} #1` } : c
-      ));
-    }
-    
-    // Roll HP using dice formula if available, otherwise use average with variance
-    const rolledHp = selectedMonster.hit_dice 
-      ? rollMonsterHp(selectedMonster.hit_dice, selectedMonster.hp)
-      : rollMonsterHp("", selectedMonster.hp);
-    
-    const newCombatant: Combatant = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: displayName,
-      initiative: 0,
-      hp: Math.max(1, rolledHp),
-      maxHp: Math.max(1, rolledHp),
-      tempHp: 0,
-      ac: selectedMonster.ac,
-      isMonster: true,
-      combatantType: "monster",
-      conditions: [],
-      isDown: false,
-      monsterData: selectedMonster,
-      stance: "enemy",
-      deathSaveSuccesses: 0,
-      deathSaveFailures: 0,
-      isStable: false,
-      isDead: false,
-    };
-    setCombatants(prev => [...prev, newCombatant]);
+    addSingleMonsterToEncounter(
+      selectedMonster,
+      combatState === "active" ? midCombatInitiative : 0
+    );
     setSelectedMonsterId(null);
     setMonsterSearch("");
   };
@@ -1587,27 +1582,56 @@ export default function InitiativeTracker() {
                       <span className="ml-1 text-primary/70">· CR {crFilter}</span>
                     )}
                   </span>
-                  <button onClick={() => setEncounterGroup([])} className="text-[10px] text-muted-foreground hover:text-foreground">✕ Clear</button>
+                  <button onClick={() => { setEncounterGroup([]); setEncounterGroupInitiatives([]); }} className="text-[10px] text-muted-foreground hover:text-foreground">✕ Clear</button>
                 </div>
                 <div className="border rounded-md bg-background divide-y divide-border/50">
                   {encounterGroup.map((monster, i) => (
-                    <div key={`${monster.index}-${i}`} className="p-2 flex items-center justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-sm font-medium truncate">{monster.name}</span>
-                          {monster.cr && monster.cr !== "--" && (
-                            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 shrink-0">CR {monster.cr}</Badge>
-                          )}
+                    <div key={`${monster.index}-${i}`} className="p-2 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-sm font-medium truncate">{monster.name}</span>
+                            {monster.cr && monster.cr !== "--" && (
+                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 shrink-0">CR {monster.cr}</Badge>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5 flex gap-2">
+                            <span><Shield className="w-2.5 h-2.5 inline mr-0.5" />{monster.ac}</span>
+                            <span><Heart className="w-2.5 h-2.5 inline mr-0.5" />{monster.hp} HP</span>
+                          </div>
                         </div>
-                        <div className="text-[11px] text-muted-foreground mt-0.5 flex gap-2">
-                          <span><Shield className="w-2.5 h-2.5 inline mr-0.5" />{monster.ac}</span>
-                          <span><Heart className="w-2.5 h-2.5 inline mr-0.5" />{monster.hp} HP</span>
-                        </div>
+                        <Button size="sm" variant="secondary" className="h-7 text-xs shrink-0 px-2"
+                          onClick={() => {
+                            addSingleMonsterToEncounter(monster, combatState === "active" ? encounterGroupInitiatives[i] : 0);
+                            setEncounterGroup(prev => prev.filter((_, idx) => idx !== i));
+                            setEncounterGroupInitiatives(prev => prev.filter((_, idx) => idx !== i));
+                          }}>
+                          <Plus className="w-3 h-3" />
+                        </Button>
                       </div>
-                      <Button size="sm" variant="secondary" className="h-7 text-xs shrink-0 px-2"
-                        onClick={() => addSingleMonsterToEncounter(monster)}>
-                        <Plus className="w-3 h-3" />
-                      </Button>
+                      {combatState === "active" && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] text-muted-foreground">Initiative:</span>
+                          <Input
+                            type="number"
+                            value={encounterGroupInitiatives[i] ?? 10}
+                            onChange={e => {
+                              const v = parseInt(e.target.value);
+                              if (!isNaN(v)) setEncounterGroupInitiatives(prev => {
+                                const next = [...prev]; next[i] = v; return next;
+                              });
+                            }}
+                            className="h-6 w-14 text-xs text-center px-1"
+                          />
+                          <button
+                            onClick={() => rerollGroupInitiative(i)}
+                            className="text-[11px] text-primary/70 hover:text-primary flex items-center gap-0.5"
+                            title="Re-roll"
+                          >
+                            <Dices className="w-3 h-3" /> Roll
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1655,6 +1679,23 @@ export default function InitiativeTracker() {
                     <div className="text-muted-foreground flex items-center justify-center gap-0.5"><Dices className="w-3 h-3" />Dice</div>
                   </div>
                 </div>
+                {combatState === "active" && (
+                  <div className="flex items-center gap-2 pt-1 border-t border-border/40">
+                    <span className="text-xs text-muted-foreground">Initiative:</span>
+                    <Input
+                      type="number"
+                      value={midCombatInitiative}
+                      onChange={e => { const v = parseInt(e.target.value); if (!isNaN(v)) setMidCombatInitiative(v); }}
+                      className="h-7 w-16 text-sm text-center px-1"
+                    />
+                    <button
+                      onClick={() => setMidCombatInitiative(rollInitiative(selectedMonster.dexMod))}
+                      className="text-xs text-primary/70 hover:text-primary flex items-center gap-1"
+                    >
+                      <Dices className="w-3.5 h-3.5" /> Re-roll
+                    </button>
+                  </div>
+                )}
               </div>
             )}
             
@@ -1664,7 +1705,8 @@ export default function InitiativeTracker() {
               className="w-full"
               data-testid="button-add-monster"
             >
-              <Plus className="mr-2 w-4 h-4" /> Add to Encounter
+              <Plus className="mr-2 w-4 h-4" />
+              {combatState === "active" ? "Add to Active Combat" : "Add to Encounter"}
             </Button>
           </div>
 

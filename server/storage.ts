@@ -263,12 +263,11 @@ export class DatabaseStorage implements IStorage {
       return rows;
     }
 
-    // Combo mode: pick monsters whose CR units sum to targetUnits
+    // Combo mode: pick monsters whose CR units sum to targetUnits (no cap on count)
     const group: any[] = [];
     let remaining = targetUnits;
-    const maxMonsters = 6;
 
-    while (remaining > 0 && group.length < maxMonsters) {
+    while (remaining > 0) {
       // Get distinct available CRs in pool that are ≤ remaining and > 0
       const crRows = await db
         .selectDistinct({ cr: bestiaryMonsters.challengeRating })
