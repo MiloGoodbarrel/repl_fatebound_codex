@@ -132,6 +132,7 @@ export const bestiaryMonsters = pgTable("bestiary_monsters", {
   wisMod: integer("wis_mod"),
   chaScore: integer("cha_score"),
   chaMod: integer("cha_mod"),
+  challengeRating: text("challenge_rating"),
 });
 
 export const bestiaryMonsterTraits = pgTable("bestiary_monster_traits", {

@@ -368,6 +368,9 @@ export default function InitiativeTracker() {
   const [typeFilters, setTypeFilters] = useState<string[]>([]);
   const [showTypeFilters, setShowTypeFilters] = useState(false);
   const [selectedMonsterId, setSelectedMonsterId] = useState<string | null>(null);
+  const [useCrFilter, setUseCrFilter] = useState(false);
+  const [crFilter, setCrFilter] = useState<string>("");
+  const [isRandomizing, setIsRandomizing] = useState(false);
   
   // PC entry
   const [pcName, setPcName] = useState("");
@@ -454,14 +457,23 @@ export default function InitiativeTracker() {
     staleTime: Infinity,
   });
 
+  // Bestiary CR values
+  const { data: crValues = [] } = useQuery<string[]>({
+    queryKey: ["/api/bestiary/cr-values"],
+    queryFn: () => fetch("/api/bestiary/cr-values").then(r => r.json()),
+    staleTime: Infinity,
+  });
+
   // Live monster search results
-  const activeSearch = debouncedSearch.trim().length > 0 || typeFilters.length > 0;
+  const activeCr = useCrFilter && crFilter ? crFilter : undefined;
+  const activeSearch = debouncedSearch.trim().length > 0 || typeFilters.length > 0 || !!activeCr;
   const { data: monsterResults = [], isFetching: loadingMonsters } = useQuery<Monster[]>({
-    queryKey: ["/api/bestiary/monsters", debouncedSearch, typeFilters.join(",")],
+    queryKey: ["/api/bestiary/monsters", debouncedSearch, typeFilters.join(","), activeCr],
     queryFn: () => {
       const params = new URLSearchParams();
       if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
       if (typeFilters.length) params.set("types", typeFilters.join(","));
+      if (activeCr) params.set("cr", activeCr);
       params.set("limit", "20");
       return fetch(`/api/bestiary/monsters?${params}`).then(r => r.json());
     },
@@ -491,6 +503,27 @@ export default function InitiativeTracker() {
   const toggleTypeFilter = (type: string) => {
     setTypeFilters(prev => prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]);
     setSelectedMonsterId(null);
+  };
+
+  const pickRandomMonster = async () => {
+    setIsRandomizing(true);
+    try {
+      const params = new URLSearchParams();
+      if (typeFilters.length) params.set("types", typeFilters.join(","));
+      if (useCrFilter && crFilter) params.set("cr", crFilter);
+      const res = await fetch(`/api/bestiary/monsters/random?${params}`);
+      if (!res.ok) {
+        toast({ title: "No monsters found", description: "Try different filters.", variant: "destructive" });
+        return;
+      }
+      const monster: Monster = await res.json();
+      setSelectedMonsterId(monster.index);
+      setMonsterSearch(monster.name);
+    } catch {
+      toast({ title: "Error", description: "Failed to pick a random monster.", variant: "destructive" });
+    } finally {
+      setIsRandomizing(false);
+    }
   };
 
   const addMonster = () => {
@@ -1334,6 +1367,48 @@ export default function InitiativeTracker() {
                 <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
               )}
             </div>
+
+            {/* CR filter */}
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1.5 text-xs cursor-pointer text-muted-foreground hover:text-foreground transition-colors select-none">
+                <Checkbox
+                  checked={useCrFilter}
+                  onCheckedChange={(v) => { setUseCrFilter(!!v); if (!v) setCrFilter(""); setSelectedMonsterId(null); }}
+                  className="h-3 w-3"
+                  data-testid="checkbox-cr-filter"
+                />
+                Filter by CR
+              </label>
+              {useCrFilter && (
+                <Select value={crFilter} onValueChange={(v) => { setCrFilter(v); setSelectedMonsterId(null); }}>
+                  <SelectTrigger className="h-7 text-xs flex-1">
+                    <SelectValue placeholder="Select CR…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {crValues.map(cr => (
+                      <SelectItem key={cr} value={cr} className="text-xs">CR {cr}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            {/* Randomizer button */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full text-xs gap-1.5"
+              onClick={pickRandomMonster}
+              disabled={isRandomizing || (useCrFilter && !crFilter)}
+              data-testid="button-random-monster"
+            >
+              {isRandomizing ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Dices className="w-3.5 h-3.5" />
+              )}
+              Random Monster{useCrFilter && crFilter ? ` (CR ${crFilter})` : ""}
+            </Button>
 
             {/* Type filter toggle */}
             <button

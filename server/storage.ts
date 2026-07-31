@@ -178,16 +178,45 @@ export class DatabaseStorage implements IStorage {
     return rows.map(r => r.creatureType).filter((t): t is string => t != null);
   }
 
-  async searchBestiary(search: string, types: string[], limit = 20): Promise<any[]> {
-    const conditions: any[] = [];
+  async getBestiaryCRs(): Promise<string[]> {
+    const rows = await db
+      .selectDistinct({ cr: bestiaryMonsters.challengeRating })
+      .from(bestiaryMonsters)
+      .where(sql`challenge_rating IS NOT NULL AND printed_average_hp IS NOT NULL`);
+    const crOrder: Record<string, number> = {
+      '0': 0, '1/8': 1, '1/4': 2, '1/2': 3,
+    };
+    for (let i = 1; i <= 30; i++) crOrder[String(i)] = i + 3;
+    return rows
+      .map(r => r.cr)
+      .filter((c): c is string => c != null)
+      .sort((a, b) => (crOrder[a] ?? 999) - (crOrder[b] ?? 999));
+  }
+
+  async searchBestiary(search: string, types: string[], limit = 20, cr?: string): Promise<any[]> {
+    const conditions: any[] = [sql`printed_average_hp IS NOT NULL`];
     if (search.trim()) conditions.push(ilike(bestiaryMonsters.name, `%${search.trim()}%`));
     if (types.length > 0) conditions.push(inArray(bestiaryMonsters.creatureType, types));
+    if (cr) conditions.push(sql`challenge_rating = ${cr}`);
     return await db
       .select()
       .from(bestiaryMonsters)
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .where(and(...conditions))
       .orderBy(asc(bestiaryMonsters.name))
       .limit(limit);
+  }
+
+  async getRandomBestiaryMonster(types: string[], cr?: string): Promise<any | null> {
+    const conditions: any[] = [sql`printed_average_hp IS NOT NULL`];
+    if (types.length > 0) conditions.push(inArray(bestiaryMonsters.creatureType, types));
+    if (cr) conditions.push(sql`challenge_rating = ${cr}`);
+    const rows = await db
+      .select()
+      .from(bestiaryMonsters)
+      .where(and(...conditions))
+      .orderBy(sql`RANDOM()`)
+      .limit(1);
+    return rows[0] ?? null;
   }
 
   async getBestiaryMonsterDetail(monsterId: string): Promise<any | null> {
