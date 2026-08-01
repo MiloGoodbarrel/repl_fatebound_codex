@@ -143,6 +143,13 @@ export function ItemCard({ item, index }: ItemCardProps) {
             {item.attunement}
           </p>
         )}
+
+        {/* Source */}
+        {item.source && (
+          <p className="text-xs text-muted-foreground/60 font-mono text-right tracking-wide pt-1">
+            {item.source}
+          </p>
+        )}
       </div>
     </motion.div>
   );
