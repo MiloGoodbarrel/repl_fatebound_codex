@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { DiceRoller, DiceText, useDiceRoller } from "@/components/DiceRoller";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -317,7 +318,7 @@ interface Combatant {
 
 type CombatState = "setup" | "active" | "ended";
 
-function MonsterStatblock({ monster }: { monster: Monster }) {
+function MonsterStatblock({ monster, onRoll }: { monster: Monster; onRoll: (notation: string, label?: string) => void }) {
   const [showAllActions, setShowAllActions] = useState(false);
 
   const abilityScores = [
@@ -402,7 +403,7 @@ function MonsterStatblock({ monster }: { monster: Monster }) {
           {traits.map((trait, i) => (
             <p key={i} className="text-muted-foreground leading-snug">
               <span className="font-semibold text-foreground/90 italic">{trait.name}. </span>
-              {trait.description}
+              <DiceText text={trait.description ?? ""} onRoll={onRoll} />
             </p>
           ))}
         </div>
@@ -415,7 +416,7 @@ function MonsterStatblock({ monster }: { monster: Monster }) {
           {visibleActions.map((action, i) => (
             <p key={i} className="text-muted-foreground leading-snug">
               <span className="font-semibold text-foreground/90 italic">{action.name}. </span>
-              {action.description}
+              <DiceText text={action.description ?? ""} onRoll={(n) => onRoll(n, action.name ?? undefined)} />
               {action.attackBonus != null && (
                 <span className="text-primary/80 ml-1">(+{action.attackBonus} to hit)</span>
               )}
@@ -451,6 +452,7 @@ function MonsterStatblock({ monster }: { monster: Monster }) {
 }
 
 export default function InitiativeTracker() {
+  const { open: diceOpen, setOpen: setDiceOpen, requestRoll } = useDiceRoller();
   const [showVersionDialog, setShowVersionDialog] = useState(true);
   const [selectedVersions, setSelectedVersions] = useState<string[]>([]);
   const [combatants, setCombatants] = useState<Combatant[]>([]);
@@ -3075,7 +3077,7 @@ export default function InitiativeTracker() {
 
                         {/* Monster Statblock */}
                         {combatant.monsterData && (
-                          <MonsterStatblock monster={combatant.monsterData} />
+                          <MonsterStatblock monster={combatant.monsterData} onRoll={requestRoll} />
                         )}
                       </CardContent>
                     </Card>
@@ -3087,6 +3089,9 @@ export default function InitiativeTracker() {
         </div>
       </main>
       </div>
+
+      {/* 3D Dice Roller overlay */}
+      {diceOpen && <DiceRoller onClose={() => setDiceOpen(false)} />}
     </div>
   );
 }
