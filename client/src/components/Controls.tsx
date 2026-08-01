@@ -257,6 +257,7 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
             <input
               value={searchTerm}
               onChange={e => onSearchChange?.(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleDraw()}
               placeholder="e.g. sword, potion, ring…"
               data-testid="input-search"
               className="w-full pl-9 pr-8 py-2 text-sm bg-background/50 border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
