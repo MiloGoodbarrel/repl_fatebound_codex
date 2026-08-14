@@ -461,6 +461,9 @@ export default function InitiativeTracker() {
   const [round, setRound] = useState(1);
   const [mobileTab, setMobileTab] = useState<"controls" | "combat">("controls");
 
+  // Inline stat editing (HP current, HP max, AC)
+  const [editingStat, setEditingStat] = useState<{ id: string; field: "hp" | "maxHp" | "ac"; value: string } | null>(null);
+
   // Monster search
   const [monsterSearch, setMonsterSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -917,6 +920,25 @@ export default function InitiativeTracker() {
     setCombatants(combatants.map(c => 
       c.id === id ? { ...c, ...updates } : c
     ));
+  };
+
+  const commitStatEdit = () => {
+    if (!editingStat) return;
+    const { id, field, value } = editingStat;
+    const parsed = parseInt(value, 10);
+    if (!isNaN(parsed)) {
+      const combatant = combatants.find(c => c.id === id);
+      if (!combatant) return;
+      if (field === "hp") {
+        updateCombatant(id, { hp: parsed });
+      } else if (field === "maxHp") {
+        const newMax = Math.max(1, parsed);
+        updateCombatant(id, { maxHp: newMax, hp: Math.min(combatant.hp, newMax) });
+      } else if (field === "ac") {
+        updateCombatant(id, { ac: Math.max(0, parsed) });
+      }
+    }
+    setEditingStat(null);
   };
 
   const updateInitiative = (id: string, value: string) => {
@@ -2773,11 +2795,48 @@ export default function InitiativeTracker() {
                             </div>
                           </div>
 
-                          {/* HP Display */}
+                          {/* HP Display — click current or max to edit inline */}
                           <div className="text-center min-w-[80px]">
                             <div className="flex items-center justify-center gap-1">
-                              <span className="font-mono font-bold text-lg">{combatant.hp}</span>
-                              <span className="text-muted-foreground text-sm">/{combatant.maxHp}</span>
+                              {editingStat?.id === combatant.id && editingStat.field === "hp" ? (
+                                <input
+                                  type="number"
+                                  autoFocus
+                                  className="w-14 text-center font-mono font-bold text-lg bg-muted border border-primary rounded px-1 outline-none"
+                                  value={editingStat.value}
+                                  onChange={e => setEditingStat(s => s ? { ...s, value: e.target.value } : s)}
+                                  onBlur={commitStatEdit}
+                                  onKeyDown={e => { if (e.key === "Enter") commitStatEdit(); if (e.key === "Escape") setEditingStat(null); }}
+                                />
+                              ) : (
+                                <span
+                                  className="font-mono font-bold text-lg cursor-pointer hover:text-primary hover:underline underline-offset-2 transition-colors"
+                                  title="Click to edit current HP"
+                                  onClick={() => setEditingStat({ id: combatant.id, field: "hp", value: String(combatant.hp) })}
+                                >
+                                  {combatant.hp}
+                                </span>
+                              )}
+                              <span className="text-muted-foreground text-sm">/</span>
+                              {editingStat?.id === combatant.id && editingStat.field === "maxHp" ? (
+                                <input
+                                  type="number"
+                                  autoFocus
+                                  className="w-14 text-center font-mono text-sm bg-muted border border-primary rounded px-1 outline-none"
+                                  value={editingStat.value}
+                                  onChange={e => setEditingStat(s => s ? { ...s, value: e.target.value } : s)}
+                                  onBlur={commitStatEdit}
+                                  onKeyDown={e => { if (e.key === "Enter") commitStatEdit(); if (e.key === "Escape") setEditingStat(null); }}
+                                />
+                              ) : (
+                                <span
+                                  className="text-muted-foreground text-sm cursor-pointer hover:text-primary hover:underline underline-offset-2 transition-colors"
+                                  title="Click to edit max HP"
+                                  onClick={() => setEditingStat({ id: combatant.id, field: "maxHp", value: String(combatant.maxHp) })}
+                                >
+                                  {combatant.maxHp}
+                                </span>
+                              )}
                               {combatant.tempHp > 0 && (
                                 <span className="font-mono text-cyan-500 text-sm">(+{combatant.tempHp})</span>
                               )}
@@ -3055,9 +3114,27 @@ export default function InitiativeTracker() {
                             )}
                           </div>
 
-                          {/* AC */}
-                          <div className="text-center w-12">
-                            <span className="font-mono font-bold text-lg">{combatant.ac}</span>
+                          {/* AC — click to edit inline */}
+                          <div className="text-center w-14">
+                            {editingStat?.id === combatant.id && editingStat.field === "ac" ? (
+                              <input
+                                type="number"
+                                autoFocus
+                                className="w-12 text-center font-mono font-bold text-lg bg-muted border border-primary rounded px-1 outline-none"
+                                value={editingStat.value}
+                                onChange={e => setEditingStat(s => s ? { ...s, value: e.target.value } : s)}
+                                onBlur={commitStatEdit}
+                                onKeyDown={e => { if (e.key === "Enter") commitStatEdit(); if (e.key === "Escape") setEditingStat(null); }}
+                              />
+                            ) : (
+                              <span
+                                className="font-mono font-bold text-lg cursor-pointer hover:text-primary hover:underline underline-offset-2 transition-colors"
+                                title="Click to edit AC"
+                                onClick={() => setEditingStat({ id: combatant.id, field: "ac", value: String(combatant.ac) })}
+                              >
+                                {combatant.ac}
+                              </span>
+                            )}
                             <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
                               <Shield className="w-3 h-3" /> AC
                             </div>
