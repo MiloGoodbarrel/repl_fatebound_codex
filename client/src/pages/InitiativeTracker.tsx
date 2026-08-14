@@ -509,6 +509,14 @@ export default function InitiativeTracker() {
   const { activeCampaign } = useCampaign();
   const { toast } = useToast();
   const qc = useQueryClient();
+
+  // Homebrew bestiary is always scoped to the "Aetherfall" campaign regardless of active campaign
+  const { data: allCampaigns = [] } = useQuery<{ id: number; name: string }[]>({
+    queryKey: ["/api/campaigns"],
+    queryFn: () => fetch("/api/campaigns").then(r => r.json()),
+    staleTime: 300_000,
+  });
+  const homebrewCampaign = allCampaigns.find(c => c.name === "Aetherfall") ?? null;
   const [saveToParty, setSaveToParty] = useState(false);
 
   const { data: campaignParty = [] } = useQuery<CampaignCharacter[]>({
@@ -630,11 +638,11 @@ export default function InitiativeTracker() {
     return () => clearTimeout(t);
   }, [homebrewSearch]);
 
-  // Homebrew monsters (campaign-scoped)
+  // Homebrew monsters — always scoped to the Aetherfall campaign
   const { data: homebrewMonsters = [], refetch: refetchHomebrew } = useQuery<HomebrewMonster[]>({
-    queryKey: ["/api/campaigns", activeCampaign?.id, "homebrew-bestiary"],
-    queryFn: () => fetch(`/api/campaigns/${activeCampaign!.id}/homebrew-bestiary`).then(r => r.json()),
-    enabled: !!activeCampaign,
+    queryKey: ["/api/campaigns", homebrewCampaign?.id, "homebrew-bestiary"],
+    queryFn: () => fetch(`/api/campaigns/${homebrewCampaign!.id}/homebrew-bestiary`).then(r => r.json()),
+    enabled: !!homebrewCampaign,
     staleTime: 60_000,
   });
 
@@ -665,17 +673,17 @@ export default function InitiativeTracker() {
   };
 
   const confirmHomebrewImport = async () => {
-    if (!activeCampaign || !homebrewImportRaw) return;
+    if (!homebrewCampaign || !homebrewImportRaw) return;
     setHomebrewImportLoading(true);
     try {
-      const res = await fetch(`/api/campaigns/${activeCampaign.id}/homebrew-bestiary/import`, {
+      const res = await fetch(`/api/campaigns/${homebrewCampaign.id}/homebrew-bestiary/import`, {
         method: "POST",
         headers: { "Content-Type": "text/csv" },
         body: homebrewImportRaw,
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
-      toast({ title: `Imported ${data.count} monsters`, description: `Added to ${activeCampaign.name}'s homebrew bestiary.` });
+      toast({ title: `Imported ${data.count} monsters`, description: `Added to Aetherfall homebrew bestiary.` });
       setHomebrewImportPreview(null);
       setHomebrewImportRaw("");
       refetchHomebrew();
@@ -687,9 +695,9 @@ export default function InitiativeTracker() {
   };
 
   const clearHomebrewBestiary = async () => {
-    if (!activeCampaign) return;
-    if (!confirm(`Clear all homebrew monsters from ${activeCampaign.name}? This cannot be undone.`)) return;
-    await fetch(`/api/campaigns/${activeCampaign.id}/homebrew-bestiary`, { method: "DELETE" });
+    if (!homebrewCampaign) return;
+    if (!confirm(`Clear all homebrew monsters from the Aetherfall bestiary? This cannot be undone.`)) return;
+    await fetch(`/api/campaigns/${homebrewCampaign.id}/homebrew-bestiary`, { method: "DELETE" });
     setSelectedHomebrewId(null);
     refetchHomebrew();
     toast({ title: "Homebrew bestiary cleared" });
@@ -1940,7 +1948,7 @@ export default function InitiativeTracker() {
                 {showHomebrewSection ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                 <BookOpen className="w-4 h-4" />
                 Homebrew Bestiary
-                {activeCampaign && homebrewMonsters.length > 0 && (
+                {homebrewMonsters.length > 0 && (
                   <Badge variant="secondary" className="text-[10px] px-1.5 h-4">{homebrewMonsters.length}</Badge>
                 )}
               </button>
@@ -1953,7 +1961,7 @@ export default function InitiativeTracker() {
                 >
                   <FileDown className="w-3.5 h-3.5" /> Template
                 </a>
-                {activeCampaign && (
+                {homebrewCampaign && (
                   <>
                     <span className="text-border">|</span>
                     <button
@@ -1977,11 +1985,7 @@ export default function InitiativeTracker() {
 
             {showHomebrewSection && (
               <>
-                {!activeCampaign ? (
-                  <p className="text-xs text-muted-foreground italic">
-                    Select a campaign at startup to access your homebrew bestiary.
-                  </p>
-                ) : homebrewMonsters.length === 0 ? (
+                {homebrewMonsters.length === 0 ? (
                   <p className="text-xs text-muted-foreground italic">
                     No homebrew monsters yet. Download the template, fill it in, then import.
                   </p>
@@ -2208,7 +2212,7 @@ export default function InitiativeTracker() {
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm text-muted-foreground">
                       {homebrewImportPreview.filter(r => !r.error).length} of {homebrewImportPreview.length} rows will be imported.
-                      {activeCampaign && homebrewMonsters.length > 0 && (
+                      {homebrewCampaign && homebrewMonsters.length > 0 && (
                         <span className="text-amber-500 ml-1">This will replace the existing {homebrewMonsters.length} monsters.</span>
                       )}
                     </p>
