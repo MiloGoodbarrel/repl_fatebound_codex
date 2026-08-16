@@ -2,7 +2,7 @@ import { db } from "./db";
 import {
   items5e, homebrewItems, campaignItems, campaigns, campaignCharacters,
   bestiaryMonsters, bestiaryMonsterTraits, bestiaryMonsterActions,
-  campaignHomebrewMonsters, campaignHomebrewActions,
+  campaignHomebrewMonsters, campaignHomebrewActions, campaignSavedEncounters,
   type InsertItem, type Item,
   type HomebrewItem, type InsertHomebrewItem,
   type Campaign, type InsertCampaign,
@@ -53,6 +53,11 @@ export interface IStorage {
   getCampaignHomebrew(campaignId: number): Promise<any[]>;
   importCampaignHomebrew(campaignId: number, parsed: { monster: any; actions: any[] }[]): Promise<number>;
   clearCampaignHomebrew(campaignId: number): Promise<void>;
+
+  // Campaign saved encounters
+  getSavedEncounter(campaignId: number): Promise<{ data: any; savedAt: Date } | null>;
+  saveEncounter(campaignId: number, data: any): Promise<void>;
+  clearSavedEncounter(campaignId: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -108,6 +113,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(campaignItems).where(eq(campaignItems.campaignId, id));
     await db.delete(campaignCharacters).where(eq(campaignCharacters.campaignId, id));
     await this.clearCampaignHomebrew(id);
+    await db.delete(campaignSavedEncounters).where(eq(campaignSavedEncounters.campaignId, id));
     await db.delete(campaigns).where(eq(campaigns.id, id));
   }
 
@@ -475,6 +481,38 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(campaignHomebrewMonsters)
       .where(eq(campaignHomebrewMonsters.campaignId, campaignId));
+  }
+
+  // ── Campaign saved encounters ──────────────────────────────────────────────
+
+  async getSavedEncounter(campaignId: number): Promise<{ data: any; savedAt: Date } | null> {
+    const [row] = await db
+      .select()
+      .from(campaignSavedEncounters)
+      .where(eq(campaignSavedEncounters.campaignId, campaignId));
+    if (!row) return null;
+    try {
+      return { data: JSON.parse(row.encounterData), savedAt: row.savedAt };
+    } catch {
+      return null;
+    }
+  }
+
+  async saveEncounter(campaignId: number, data: any): Promise<void> {
+    const json = JSON.stringify(data);
+    await db
+      .insert(campaignSavedEncounters)
+      .values({ campaignId, encounterData: json })
+      .onConflictDoUpdate({
+        target: campaignSavedEncounters.campaignId,
+        set: { encounterData: json, savedAt: new Date() },
+      });
+  }
+
+  async clearSavedEncounter(campaignId: number): Promise<void> {
+    await db
+      .delete(campaignSavedEncounters)
+      .where(eq(campaignSavedEncounters.campaignId, campaignId));
   }
 }
 

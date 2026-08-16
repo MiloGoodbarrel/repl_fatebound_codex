@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, numeric, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -231,6 +231,17 @@ export const bestiaryMonsterSpells = pgTable("bestiary_monster_spells", {
   requiresConcentration: boolean("requires_concentration"),
   notes: text("notes"),
 });
+
+// ─── Campaign Saved Encounters ────────────────────────────────────────────────
+
+export const campaignSavedEncounters = pgTable("campaign_saved_encounters", {
+  id: serial("id").primaryKey(),
+  campaignId: integer("campaign_id").notNull().unique(),
+  encounterData: text("encounter_data").notNull(), // JSON blob of full combat state
+  savedAt: timestamp("saved_at").defaultNow().notNull(),
+});
+
+export type CampaignSavedEncounter = typeof campaignSavedEncounters.$inferSelect;
 
 // ─── Campaign Homebrew Bestiary ───────────────────────────────────────────────
 

@@ -446,6 +446,44 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ── Campaign Saved Encounters ─────────────────────────────────────────────
+
+  app.get("/api/campaigns/:id/encounter", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid campaign id" });
+    try {
+      const saved = await storage.getSavedEncounter(id);
+      if (!saved) return res.status(404).json({ message: "No saved encounter" });
+      res.json({ data: saved.data, savedAt: saved.savedAt });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch saved encounter" });
+    }
+  });
+
+  app.put("/api/campaigns/:id/encounter", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid campaign id" });
+    try {
+      const body = await readBody(req);
+      const data = JSON.parse(body);
+      await storage.saveEncounter(id, data);
+      res.json({ message: "Encounter saved" });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to save encounter" });
+    }
+  });
+
+  app.delete("/api/campaigns/:id/encounter", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid campaign id" });
+    try {
+      await storage.clearSavedEncounter(id);
+      res.json({ message: "Saved encounter cleared" });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to clear saved encounter" });
+    }
+  });
+
   app.get("/api/bestiary/monsters/:id", async (req, res) => {
     try {
       const detail = await storage.getBestiaryMonsterDetail(req.params.id);

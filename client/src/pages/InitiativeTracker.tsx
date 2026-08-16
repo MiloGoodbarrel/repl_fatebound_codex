@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/hover-card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
-  Swords, Plus, Trash2, User, Heart, Shield, 
+  Swords, Plus, Minus, Trash2, User, Heart, Shield, 
   RotateCcw, Home, Search, Play, SkipForward, Square, Skull, AlertCircle,
   Loader2, Zap, Dices, CircleCheck, CircleX, HeartPulse, BookUser, Save,
   Upload, FileDown, BookOpen, ChevronRight, ChevronDown
@@ -314,6 +314,9 @@ interface Combatant {
   isDisabled?: boolean;
   // Mid-combat reinforcement: skip this turn until the next round begins
   joiningNextRound?: boolean;
+  // Group combatant (e.g. goblin horde)
+  isGroup?: boolean;
+  memberHp?: number[];  // current HP for each member; maxHp is shared across all
 }
 
 type CombatState = "setup" | "active" | "ended";
@@ -464,6 +467,10 @@ export default function InitiativeTracker() {
   // Inline stat editing (HP current, HP max, AC)
   const [editingStat, setEditingStat] = useState<{ id: string; field: "hp" | "maxHp" | "ac"; value: string } | null>(null);
 
+  // Encounter save/restore
+  const [showRestoreBanner, setShowRestoreBanner] = useState(false);
+  const [isSavingEncounter, setIsSavingEncounter] = useState(false);
+
   // Monster search
   const [monsterSearch, setMonsterSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -478,6 +485,11 @@ export default function InitiativeTracker() {
   const [encounterGroup, setEncounterGroup] = useState<Monster[]>([]);
   const [encounterGroupInitiatives, setEncounterGroupInitiatives] = useState<number[]>([]);
   const [midCombatInitiative, setMidCombatInitiative] = useState<number>(10);
+  // Group counts for add-monster UI
+  const [monsterGroupCount, setMonsterGroupCount] = useState(1);
+  const [homebrewGroupCount, setHomebrewGroupCount] = useState(1);
+  // Which member is focused for damage/heal per group combatant
+  const [groupFocused, setGroupFocused] = useState<Record<string, number>>({});
   
   // Homebrew bestiary
   const [homebrewSearch, setHomebrewSearch] = useState("");
@@ -517,6 +529,26 @@ export default function InitiativeTracker() {
     staleTime: 300_000,
   });
   const homebrewCampaign = allCampaigns.find(c => c.name === "Aetherfall") ?? null;
+
+  // Saved encounter for active campaign
+  const { data: savedEncounterResult, refetch: refetchSavedEncounter } = useQuery<{ data: any; savedAt: string } | null>({
+    queryKey: ["/api/campaigns", activeCampaign?.id, "encounter"],
+    queryFn: () =>
+      fetch(`/api/campaigns/${activeCampaign!.id}/encounter`)
+        .then(r => (r.ok ? r.json() : null))
+        .catch(() => null),
+    enabled: !!activeCampaign,
+    staleTime: Infinity,
+    retry: false,
+  });
+
+  // Show restore banner when a saved encounter exists and nothing is loaded yet
+  useEffect(() => {
+    if (savedEncounterResult?.data && combatants.length === 0 && combatState === "setup") {
+      setShowRestoreBanner(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedEncounterResult]);
   const [saveToParty, setSaveToParty] = useState(false);
 
   const { data: campaignParty = [] } = useQuery<CampaignCharacter[]>({
@@ -703,11 +735,14 @@ export default function InitiativeTracker() {
     toast({ title: "Homebrew bestiary cleared" });
   };
 
-  const addHomebrewMonster = (m: HomebrewMonster) => {
-    addSingleMonsterToEncounter(
-      homebrewToMonster(m),
-      combatState === "active" ? homebrewMidCombatInit : 0
-    );
+  const addHomebrewMonster = (m: HomebrewMonster, count = 1) => {
+    const monster = homebrewToMonster(m);
+    const init = combatState === "active" ? homebrewMidCombatInit : 0;
+    if (count > 1) {
+      addGroupToEncounter(monster, count, init);
+    } else {
+      addSingleMonsterToEncounter(monster, init);
+    }
     setSelectedHomebrewId(null);
   };
 
@@ -784,6 +819,42 @@ export default function InitiativeTracker() {
     }
   };
 
+  const addGroupToEncounter = (monster: Monster, count: number, initiative?: number) => {
+    const memberHps = Array.from({ length: count }, () => {
+      const hp = monster.hit_dice
+        ? rollMonsterHp(monster.hit_dice, monster.hp)
+        : rollMonsterHp("", monster.hp);
+      return Math.max(1, hp);
+    });
+    const sharedMaxHp = monster.hp > 0 ? monster.hp : memberHps[0];
+    const initValue = initiative !== undefined
+      ? initiative
+      : (combatState === "active" ? rollInitiative(monster.dexMod) : 0);
+    const newCombatant: Combatant = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: monster.name,
+      initiative: initValue,
+      hp: memberHps[0],
+      maxHp: sharedMaxHp,
+      tempHp: 0,
+      ac: monster.ac,
+      isMonster: true,
+      combatantType: "monster",
+      conditions: [],
+      isDown: false,
+      monsterData: monster,
+      stance: "enemy",
+      deathSaveSuccesses: 0,
+      deathSaveFailures: 0,
+      isStable: false,
+      isDead: false,
+      joiningNextRound: combatState === "active",
+      isGroup: true,
+      memberHp: memberHps,
+    };
+    setCombatants(prev => [...prev, newCombatant]);
+  };
+
   const addSingleMonsterToEncounter = (monster: Monster, initiative?: number) => {
     const baseName = monster.name;
     const existingCount = combatants.filter(c =>
@@ -838,12 +909,65 @@ export default function InitiativeTracker() {
 
   const addMonster = () => {
     if (!selectedMonster) return;
-    addSingleMonsterToEncounter(
-      selectedMonster,
-      combatState === "active" ? midCombatInitiative : 0
-    );
+    const init = combatState === "active" ? midCombatInitiative : 0;
+    if (monsterGroupCount > 1) {
+      addGroupToEncounter(selectedMonster, monsterGroupCount, init);
+    } else {
+      addSingleMonsterToEncounter(selectedMonster, init);
+    }
     setSelectedMonsterId(null);
     setMonsterSearch("");
+    setMonsterGroupCount(1);
+  };
+
+  const applyGroupDamage = (id: string) => {
+    const combatant = combatants.find(c => c.id === id);
+    if (!combatant?.isGroup || !combatant.memberHp) return;
+    const damage = getHpInput(id);
+    if (damage <= 0) return;
+    const focIdx = groupFocused[id] ?? 0;
+    const newMemberHp = [...combatant.memberHp];
+    newMemberHp[focIdx] = Math.max(0, newMemberHp[focIdx] - damage);
+    const allDead = newMemberHp.every(h => h <= 0);
+    updateCombatant(id, { memberHp: newMemberHp, isDown: allDead, isDead: allDead });
+    clearHpInput(id);
+    // Auto-focus next alive member
+    if (newMemberHp[focIdx] <= 0) {
+      const next = newMemberHp.findIndex((h, i) => i !== focIdx && h > 0);
+      if (next >= 0) setGroupFocused(prev => ({ ...prev, [id]: next }));
+    }
+  };
+
+  const applyGroupHeal = (id: string) => {
+    const combatant = combatants.find(c => c.id === id);
+    if (!combatant?.isGroup || !combatant.memberHp) return;
+    const heal = getHpInput(id);
+    if (heal <= 0) return;
+    const focIdx = groupFocused[id] ?? 0;
+    const newMemberHp = [...combatant.memberHp];
+    newMemberHp[focIdx] = Math.min(combatant.maxHp, newMemberHp[focIdx] + heal);
+    const allDead = newMemberHp.every(h => h <= 0);
+    updateCombatant(id, { memberHp: newMemberHp, isDown: allDead, isDead: allDead });
+    clearHpInput(id);
+  };
+
+  const addGroupMember = (id: string) => {
+    const combatant = combatants.find(c => c.id === id);
+    if (!combatant?.isGroup || !combatant.memberHp) return;
+    const hp = combatant.maxHp;
+    updateCombatant(id, { memberHp: [...combatant.memberHp, hp], isDown: false, isDead: false });
+  };
+
+  const removeGroupMember = (id: string) => {
+    const combatant = combatants.find(c => c.id === id);
+    if (!combatant?.isGroup || !combatant.memberHp || combatant.memberHp.length <= 1) return;
+    const newMemberHp = combatant.memberHp.slice(0, -1);
+    const allDead = newMemberHp.every(h => h <= 0);
+    const focused = groupFocused[id] ?? 0;
+    if (focused >= newMemberHp.length) {
+      setGroupFocused(prev => ({ ...prev, [id]: newMemberHp.length - 1 }));
+    }
+    updateCombatant(id, { memberHp: newMemberHp, isDown: allDead, isDead: allDead });
   };
 
   const addPC = () => {
@@ -1417,7 +1541,49 @@ export default function InitiativeTracker() {
     setCombatState("ended");
   };
 
+  // ── Encounter persistence ──────────────────────────────────────────────────
+
+  const saveCurrentEncounter = async () => {
+    if (!activeCampaign) return;
+    setIsSavingEncounter(true);
+    try {
+      const payload = { combatants, round, activeIndex, combatState, selectedVersions };
+      const res = await fetch(`/api/campaigns/${activeCampaign.id}/encounter`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("Save failed");
+      toast({ title: "Encounter saved ✓", description: "You can close the app — it'll be here next session." });
+      refetchSavedEncounter();
+    } catch {
+      toast({ title: "Save failed", description: "Could not save the encounter.", variant: "destructive" });
+    } finally {
+      setIsSavingEncounter(false);
+    }
+  };
+
+  const restoreEncounter = () => {
+    if (!savedEncounterResult?.data) return;
+    const { combatants: c, round: r, activeIndex: ai, combatState: cs, selectedVersions: sv } = savedEncounterResult.data;
+    setCombatants(c ?? []);
+    setRound(r ?? 1);
+    setActiveIndex(ai ?? 0);
+    setCombatState(cs ?? "active");
+    setSelectedVersions(sv ?? []);
+    setShowVersionDialog(false);
+    setShowRestoreBanner(false);
+    toast({ title: "Encounter restored", description: `Round ${r} · ${(c ?? []).length} combatants` });
+  };
+
+  const clearSavedEncounterRemote = async () => {
+    if (!activeCampaign) return;
+    await fetch(`/api/campaigns/${activeCampaign.id}/encounter`, { method: "DELETE" });
+    refetchSavedEncounter();
+  };
+
   const resetCombat = () => {
+    clearSavedEncounterRemote();
     setCombatants([]);
     setCombatState("setup");
     setActiveIndex(0);
@@ -1926,6 +2092,28 @@ export default function InitiativeTracker() {
               </div>
             )}
             
+            {/* Group count stepper */}
+            {selectedMonster && !loadingDetail && (
+              <div className="flex items-center gap-2 px-1">
+                <span className="text-xs text-muted-foreground">Count:</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    className="w-6 h-6 rounded border border-border flex items-center justify-center text-sm hover:bg-muted disabled:opacity-40"
+                    onClick={() => setMonsterGroupCount(c => Math.max(1, c - 1))}
+                    disabled={monsterGroupCount <= 1}
+                  >−</button>
+                  <span className="w-6 text-center font-mono text-sm font-bold">{monsterGroupCount}</span>
+                  <button
+                    className="w-6 h-6 rounded border border-border flex items-center justify-center text-sm hover:bg-muted disabled:opacity-40"
+                    onClick={() => setMonsterGroupCount(c => Math.min(20, c + 1))}
+                    disabled={monsterGroupCount >= 20}
+                  >+</button>
+                </div>
+                {monsterGroupCount > 1 && (
+                  <span className="text-xs text-primary/70">→ group of {monsterGroupCount}</span>
+                )}
+              </div>
+            )}
             <Button 
               onClick={addMonster} 
               disabled={!selectedMonster || loadingDetail || encounterGroup.length > 0}
@@ -1933,7 +2121,9 @@ export default function InitiativeTracker() {
               data-testid="button-add-monster"
             >
               <Plus className="mr-2 w-4 h-4" />
-              {combatState === "active" ? "Add to Active Combat" : "Add to Encounter"}
+              {monsterGroupCount > 1
+                ? `Add Group ×${monsterGroupCount}`
+                : combatState === "active" ? "Add to Active Combat" : "Add to Encounter"}
             </Button>
           </div>
 
@@ -2101,18 +2291,41 @@ export default function InitiativeTracker() {
                       );
                     })()}
 
+                    {/* Homebrew group count stepper */}
+                    <div className="flex items-center gap-2 px-1">
+                      <span className="text-xs text-muted-foreground">Count:</span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          className="w-6 h-6 rounded border border-border flex items-center justify-center text-sm hover:bg-muted disabled:opacity-40"
+                          onClick={() => setHomebrewGroupCount(c => Math.max(1, c - 1))}
+                          disabled={homebrewGroupCount <= 1}
+                        >−</button>
+                        <span className="w-6 text-center font-mono text-sm font-bold">{homebrewGroupCount}</span>
+                        <button
+                          className="w-6 h-6 rounded border border-border flex items-center justify-center text-sm hover:bg-muted disabled:opacity-40"
+                          onClick={() => setHomebrewGroupCount(c => Math.min(20, c + 1))}
+                          disabled={homebrewGroupCount >= 20}
+                        >+</button>
+                      </div>
+                      {homebrewGroupCount > 1 && (
+                        <span className="text-xs text-primary/70">→ group of {homebrewGroupCount}</span>
+                      )}
+                    </div>
                     <div className="flex gap-2">
                       <Button
                         onClick={() => {
                           const hm = homebrewMonsters.find(m => m.id === selectedHomebrewId);
-                          if (hm) addHomebrewMonster(hm);
+                          if (hm) addHomebrewMonster(hm, homebrewGroupCount);
+                          setHomebrewGroupCount(1);
                         }}
                         disabled={selectedHomebrewId == null}
                         className="flex-1"
                         size="sm"
                       >
                         <Plus className="mr-1.5 w-3.5 h-3.5" />
-                        {combatState === "active" ? "Add to Active Combat" : "Add to Encounter"}
+                        {homebrewGroupCount > 1
+                          ? `Add Group ×${homebrewGroupCount}`
+                          : combatState === "active" ? "Add to Active Combat" : "Add to Encounter"}
                       </Button>
                       <Button
                         variant="ghost"
@@ -2456,6 +2669,20 @@ export default function InitiativeTracker() {
                 >
                   <SkipForward className="mr-2" /> Next Turn
                 </Button>
+                {activeCampaign && (
+                  <Button
+                    onClick={saveCurrentEncounter}
+                    disabled={isSavingEncounter}
+                    variant="outline"
+                    className="w-full border-primary/50 text-primary hover:bg-primary/10"
+                    data-testid="button-save-encounter"
+                  >
+                    {isSavingEncounter
+                      ? <Loader2 className="mr-2 w-4 h-4 animate-spin" />
+                      : <Save className="mr-2 w-4 h-4" />}
+                    Save Encounter
+                  </Button>
+                )}
                 <Button 
                   onClick={endCombat}
                   variant="destructive"
@@ -2530,6 +2757,37 @@ export default function InitiativeTracker() {
               </Badge>
             )}
           </div>
+
+          {/* Restore Banner */}
+          {showRestoreBanner && savedEncounterResult?.data && (
+            <div className="mb-4 p-4 rounded-lg border border-primary/60 bg-primary/5 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <Save className="w-5 h-5 text-primary shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-primary">Saved encounter found</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    Round {savedEncounterResult.data.round} · {(savedEncounterResult.data.combatants ?? []).length} combatants
+                    {savedEncounterResult.savedAt && (
+                      <> · Saved {new Date(savedEncounterResult.savedAt).toLocaleDateString()}</>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button size="sm" onClick={restoreEncounter} className="h-8">
+                  <Play className="w-3 h-3 mr-1" /> Continue
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 text-muted-foreground"
+                  onClick={() => setShowRestoreBanner(false)}
+                >
+                  Dismiss
+                </Button>
+              </div>
+            </div>
+          )}
 
           {combatants.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground">
@@ -2761,7 +3019,17 @@ export default function InitiativeTracker() {
                                 </HoverCardContent>
                               </HoverCard>
                             </div>
-                            <div className="text-xs text-muted-foreground ml-8">
+                            <div className="text-xs text-muted-foreground ml-8 flex items-center gap-1.5">
+                              {combatant.isGroup && combatant.memberHp ? (
+                                <>
+                                  <span className="font-semibold text-primary/80">
+                                    ×{combatant.memberHp.length}
+                                  </span>
+                                  <span>·</span>
+                                  <span>{combatant.memberHp.filter(h => h > 0).length} alive</span>
+                                  <span>·</span>
+                                </>
+                              ) : null}
                               {combatant.combatantType === "monster" 
                                 ? `Monster - ${(combatant.stance || "enemy").charAt(0).toUpperCase() + (combatant.stance || "enemy").slice(1)}` 
                                 : combatant.combatantType === "npc"
@@ -2799,7 +3067,37 @@ export default function InitiativeTracker() {
                             </div>
                           </div>
 
-                          {/* HP Display — click current or max to edit inline */}
+                          {/* HP Display — group shows member tokens; single shows inline-editable HP */}
+                          {combatant.isGroup && combatant.memberHp ? (
+                            <div className="flex flex-col gap-1.5 min-w-[200px] max-w-[260px]">
+                              <div className="flex flex-wrap gap-1">
+                                {combatant.memberHp.map((mhp, i) => {
+                                  const alive = mhp > 0;
+                                  const focused = (groupFocused[combatant.id] ?? 0) === i;
+                                  return (
+                                    <button
+                                      key={i}
+                                      onClick={() => alive && setGroupFocused(prev => ({ ...prev, [combatant.id]: i }))}
+                                      className={cn(
+                                        "text-[11px] px-1.5 py-0.5 rounded border font-mono transition-colors leading-tight",
+                                        !alive && "opacity-40 line-through cursor-default",
+                                        focused && alive && "border-primary bg-primary/20 text-primary font-bold",
+                                        !focused && alive && "border-border bg-background/60 hover:border-primary/50 cursor-pointer",
+                                      )}
+                                      title={alive ? `G${i+1}: ${mhp}/${combatant.maxHp} HP — click to focus` : `G${i+1}: Dead`}
+                                    >
+                                      {alive ? `G${i+1} ${mhp}` : "☠"}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                                <Heart className="w-3 h-3" />
+                                Focus: G{(groupFocused[combatant.id] ?? 0) + 1}
+                                ({combatant.memberHp[groupFocused[combatant.id] ?? 0] ?? 0}/{combatant.maxHp})
+                              </div>
+                            </div>
+                          ) : (
                           <div className="text-center min-w-[80px]">
                             <div className="flex items-center justify-center gap-1">
                               {editingStat?.id === combatant.id && editingStat.field === "hp" ? (
@@ -2849,6 +3147,7 @@ export default function InitiativeTracker() {
                               <Heart className="w-3 h-3" /> HP
                             </div>
                           </div>
+                          )}
 
                           {/* 3.5e Dying State (negative HP) */}
                           {effectiveRuleset === "3.5e" && combatant.combatantType === "pc" && combatant.hp < 0 && !combatant.isDead && (
@@ -3064,7 +3363,7 @@ export default function InitiativeTracker() {
                               size="sm"
                               variant="destructive"
                               className="h-8 px-2"
-                              onClick={() => applyDamage(combatant.id, false)}
+                              onClick={() => combatant.isGroup ? applyGroupDamage(combatant.id) : applyDamage(combatant.id, false)}
                               data-testid={`button-damage-${combatant.id}`}
                             >
                               <Skull className="w-3 h-3 mr-1" />
@@ -3087,22 +3386,48 @@ export default function InitiativeTracker() {
                               size="sm"
                               variant="default"
                               className="h-8 px-2 bg-green-600 hover:bg-green-700"
-                              onClick={() => applyHeal(combatant.id)}
+                              onClick={() => combatant.isGroup ? applyGroupHeal(combatant.id) : applyHeal(combatant.id)}
                               data-testid={`button-heal-${combatant.id}`}
                             >
                               <Heart className="w-3 h-3 mr-1" />
                               Heal
                             </Button>
-                            <Button 
-                              size="sm"
-                              variant="outline"
-                              className="h-8 px-2 border-cyan-500 text-cyan-500"
-                              onClick={() => applyTempHp(combatant.id)}
-                              data-testid={`button-temp-hp-${combatant.id}`}
-                            >
-                              <Zap className="w-3 h-3 mr-1" />
-                              Temp
-                            </Button>
+                            {/* Group member management */}
+                            {combatant.isGroup && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 px-2 border-primary/50 text-primary"
+                                  onClick={() => addGroupMember(combatant.id)}
+                                  title="Add a member to this group"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 px-2 border-muted-foreground/30 text-muted-foreground"
+                                  onClick={() => removeGroupMember(combatant.id)}
+                                  disabled={(combatant.memberHp?.length ?? 1) <= 1}
+                                  title="Remove last member from this group"
+                                >
+                                  <Minus className="w-3 h-3" />
+                                </Button>
+                              </>
+                            )}
+                            {!combatant.isGroup && (
+                              <Button 
+                                size="sm"
+                                variant="outline"
+                                className="h-8 px-2 border-cyan-500 text-cyan-500"
+                                onClick={() => applyTempHp(combatant.id)}
+                                data-testid={`button-temp-hp-${combatant.id}`}
+                              >
+                                <Zap className="w-3 h-3 mr-1" />
+                                Temp
+                              </Button>
+                            )}
                             {/* Full Heal button for PCs */}
                             {combatant.combatantType === "pc" && (
                               <Button 
