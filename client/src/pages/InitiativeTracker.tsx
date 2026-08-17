@@ -317,6 +317,8 @@ interface Combatant {
   // Group combatant (e.g. goblin horde)
   isGroup?: boolean;
   memberHp?: number[];  // current HP for each member; maxHp is shared across all
+  // PC-specific
+  level?: number;       // character level (1-20)
 }
 
 type CombatState = "setup" | "active" | "ended";
@@ -465,7 +467,7 @@ export default function InitiativeTracker() {
   const [mobileTab, setMobileTab] = useState<"controls" | "combat">("controls");
 
   // Inline stat editing (HP current, HP max, AC)
-  const [editingStat, setEditingStat] = useState<{ id: string; field: "hp" | "maxHp" | "ac"; value: string } | null>(null);
+  const [editingStat, setEditingStat] = useState<{ id: string; field: "hp" | "maxHp" | "ac" | "level"; value: string } | null>(null);
 
   // Encounter save/restore
   const [showRestoreBanner, setShowRestoreBanner] = useState(false);
@@ -507,6 +509,7 @@ export default function InitiativeTracker() {
   const [pcInitiative, setPcInitiative] = useState("");
   const [pcHp, setPcHp] = useState("");
   const [pcAc, setPcAc] = useState("");
+  const [pcLevel, setPcLevel] = useState("");
   
   // NPC entry (DM-created)
   const [npcName, setNpcName] = useState("");
@@ -995,12 +998,14 @@ export default function InitiativeTracker() {
       healingSurges: defaultSurges,
       maxHealingSurges: defaultSurges,
       isDisabled: false,
+      level: pcLevel ? Math.min(20, Math.max(1, parseInt(pcLevel))) : undefined,
     };
     setCombatants(prev => [...prev, newCombatant]);
     setPcName("");
     setPcInitiative("");
     setPcHp("");
     setPcAc("");
+    setPcLevel("");
   };
 
   const addNPC = () => {
@@ -1068,6 +1073,8 @@ export default function InitiativeTracker() {
         updateCombatant(id, { maxHp: newMax, hp: Math.min(combatant.hp, newMax) });
       } else if (field === "ac") {
         updateCombatant(id, { ac: Math.max(0, parsed) });
+      } else if (field === "level") {
+        updateCombatant(id, { level: Math.min(20, Math.max(1, parsed)) });
       }
     }
     setEditingStat(null);
@@ -2511,7 +2518,7 @@ export default function InitiativeTracker() {
               placeholder="Character Name"
               data-testid="input-pc-name"
             />
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               <div>
                 <Label className="text-xs">Initiative</Label>
                 <Input
@@ -2540,6 +2547,18 @@ export default function InitiativeTracker() {
                   onChange={e => setPcAc(e.target.value)}
                   placeholder="10"
                   data-testid="input-pc-ac"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Level</Label>
+                <Input
+                  type="number"
+                  value={pcLevel}
+                  onChange={e => setPcLevel(e.target.value)}
+                  placeholder="1"
+                  min={1}
+                  max={20}
+                  data-testid="input-pc-level"
                 />
               </div>
             </div>
@@ -3019,22 +3038,81 @@ export default function InitiativeTracker() {
                                 </HoverCardContent>
                               </HoverCard>
                             </div>
-                            <div className="text-xs text-muted-foreground ml-8 flex items-center gap-1.5">
-                              {combatant.isGroup && combatant.memberHp ? (
+                            <div className="text-xs text-muted-foreground ml-8 flex items-center gap-1.5 flex-wrap">
+                              {/* Group count */}
+                              {combatant.isGroup && combatant.memberHp && (
                                 <>
-                                  <span className="font-semibold text-primary/80">
-                                    ×{combatant.memberHp.length}
-                                  </span>
+                                  <span className="font-semibold text-primary/80">×{combatant.memberHp.length}</span>
                                   <span>·</span>
                                   <span>{combatant.memberHp.filter(h => h > 0).length} alive</span>
                                   <span>·</span>
                                 </>
-                              ) : null}
-                              {combatant.combatantType === "monster" 
-                                ? `Monster - ${(combatant.stance || "enemy").charAt(0).toUpperCase() + (combatant.stance || "enemy").slice(1)}` 
-                                : combatant.combatantType === "npc"
-                                ? `NPC - ${(combatant.stance || "enemy").charAt(0).toUpperCase() + (combatant.stance || "enemy").slice(1)}`
-                                : "Player Character"}
+                              )}
+
+                              {/* PC: level + proficiency badge */}
+                              {combatant.combatantType === "pc" && (
+                                <>
+                                  {combatant.level ? (
+                                    <>
+                                      <button
+                                        className="font-semibold text-blue-400 hover:text-blue-300 transition-colors"
+                                        title="Click to edit level"
+                                        onClick={() => setEditingStat({ id: combatant.id, field: "level", value: String(combatant.level) })}
+                                      >
+                                        {editingStat?.id === combatant.id && editingStat.field === "level" ? (
+                                          <input
+                                            type="number"
+                                            autoFocus
+                                            className="w-8 text-center bg-muted border border-primary rounded px-0.5 outline-none font-mono"
+                                            value={editingStat.value}
+                                            onChange={e => setEditingStat(s => s ? { ...s, value: e.target.value } : s)}
+                                            onBlur={commitStatEdit}
+                                            onKeyDown={e => { if (e.key === "Enter") commitStatEdit(); if (e.key === "Escape") setEditingStat(null); }}
+                                            onClick={e => e.stopPropagation()}
+                                          />
+                                        ) : (
+                                          `Lv.${combatant.level}`
+                                        )}
+                                      </button>
+                                      <span>·</span>
+                                      <span className="text-emerald-400">
+                                        Prof +{Math.ceil(combatant.level / 4) + 1}
+                                      </span>
+                                      <span>·</span>
+                                    </>
+                                  ) : (
+                                    <button
+                                      className="italic text-muted-foreground/60 hover:text-blue-400 transition-colors"
+                                      onClick={() => setEditingStat({ id: combatant.id, field: "level", value: "1" })}
+                                    >
+                                      Set level
+                                    </button>
+                                  )}
+                                  <span>Player Character</span>
+                                </>
+                              )}
+
+                              {/* Monster / NPC: type label + clickable stance badge */}
+                              {(combatant.combatantType === "monster" || combatant.combatantType === "npc") && (
+                                <>
+                                  <span>{combatant.combatantType === "monster" ? "Monster" : "NPC"}</span>
+                                  <span>·</span>
+                                  <button
+                                    onClick={() => cycleStance(combatant.id)}
+                                    className={cn(
+                                      "px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide border transition-colors",
+                                      (combatant.stance === "ally")
+                                        ? "border-green-500/60 text-green-400 hover:bg-green-500/10"
+                                        : (combatant.stance === "neutral")
+                                        ? "border-gray-400/60 text-gray-300 hover:bg-gray-500/10"
+                                        : "border-red-500/60 text-red-400 hover:bg-red-500/10"
+                                    )}
+                                    title="Click to cycle stance"
+                                  >
+                                    {(combatant.stance === "ally") ? "⚔ Ally" : (combatant.stance === "neutral") ? "◆ Neutral" : "☠ Enemy"}
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </div>
 
@@ -3112,9 +3190,9 @@ export default function InitiativeTracker() {
                                 />
                               ) : (
                                 <span
-                                  className="font-mono font-bold text-lg cursor-pointer hover:text-primary hover:underline underline-offset-2 transition-colors"
-                                  title="Click to edit current HP"
-                                  onClick={() => setEditingStat({ id: combatant.id, field: "hp", value: String(combatant.hp) })}
+                                  className={cn("font-mono font-bold text-lg transition-colors", combatState !== "active" && "cursor-pointer hover:text-primary hover:underline underline-offset-2")}
+                                  title={combatState !== "active" ? "Click to edit current HP" : undefined}
+                                  onClick={() => combatState !== "active" && setEditingStat({ id: combatant.id, field: "hp", value: String(combatant.hp) })}
                                 >
                                   {combatant.hp}
                                 </span>
@@ -3132,9 +3210,9 @@ export default function InitiativeTracker() {
                                 />
                               ) : (
                                 <span
-                                  className="text-muted-foreground text-sm cursor-pointer hover:text-primary hover:underline underline-offset-2 transition-colors"
-                                  title="Click to edit max HP"
-                                  onClick={() => setEditingStat({ id: combatant.id, field: "maxHp", value: String(combatant.maxHp) })}
+                                  className={cn("text-muted-foreground text-sm transition-colors", combatState !== "active" && "cursor-pointer hover:text-primary hover:underline underline-offset-2")}
+                                  title={combatState !== "active" ? "Click to edit max HP" : undefined}
+                                  onClick={() => combatState !== "active" && setEditingStat({ id: combatant.id, field: "maxHp", value: String(combatant.maxHp) })}
                                 >
                                   {combatant.maxHp}
                                 </span>
@@ -3457,9 +3535,9 @@ export default function InitiativeTracker() {
                               />
                             ) : (
                               <span
-                                className="font-mono font-bold text-lg cursor-pointer hover:text-primary hover:underline underline-offset-2 transition-colors"
-                                title="Click to edit AC"
-                                onClick={() => setEditingStat({ id: combatant.id, field: "ac", value: String(combatant.ac) })}
+                                className={cn("font-mono font-bold text-lg transition-colors", combatState !== "active" && "cursor-pointer hover:text-primary hover:underline underline-offset-2")}
+                                title={combatState !== "active" ? "Click to edit AC" : undefined}
+                                onClick={() => combatState !== "active" && setEditingStat({ id: combatant.id, field: "ac", value: String(combatant.ac) })}
                               >
                                 {combatant.ac}
                               </span>
