@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { DiceRoller, DiceText, useDiceRoller } from "@/components/DiceRoller";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -456,6 +456,23 @@ function MonsterStatblock({ monster, onRoll }: { monster: Monster; onRoll: (nota
   );
 }
 
+// ── CR → XP lookup (DMG "Monster Statistics by Challenge Rating") ───────────
+const CR_XP: Record<string, number> = {
+  "0": 10, "1/8": 25, "1/4": 50, "1/2": 100,
+  "1": 200, "2": 450, "3": 700, "4": 1100,
+  "5": 1800, "6": 2300, "7": 2900, "8": 3900,
+  "9": 5000, "10": 5900, "11": 7200, "12": 8400,
+  "13": 10000, "14": 11500, "15": 13000, "16": 15000,
+  "17": 18000, "18": 20000, "19": 22000, "20": 25000,
+  "21": 33000, "22": 41000, "23": 50000, "24": 62000,
+  "25": 75000, "26": 90000, "27": 105000, "28": 120000,
+  "29": 135000, "30": 155000,
+};
+function crToXp(cr: string | undefined): number {
+  if (!cr) return 0;
+  return CR_XP[cr.trim()] ?? 0;
+}
+
 export default function InitiativeTracker() {
   const { open: diceOpen, setOpen: setDiceOpen, requestRoll } = useDiceRoller();
   const [showVersionDialog, setShowVersionDialog] = useState(true);
@@ -472,6 +489,20 @@ export default function InitiativeTracker() {
   // Encounter save/restore
   const [showRestoreBanner, setShowRestoreBanner] = useState(false);
   const [isSavingEncounter, setIsSavingEncounter] = useState(false);
+
+  // ── XP tally: sum XP from defeated enemy monsters/NPCs ──────────────────
+  const encounterXP = useMemo(() => {
+    return combatants
+      .filter(c => c.combatantType !== "pc" && (c.stance === "enemy" || !c.stance))
+      .reduce((sum, c) => {
+        const xpEach = crToXp(c.monsterData?.cr);
+        if (c.isGroup && c.memberHp) {
+          const deadCount = c.memberHp.filter(hp => hp <= 0).length;
+          return sum + xpEach * deadCount;
+        }
+        return sum + ((c.isDown || c.isDead) ? xpEach : 0);
+      }, 0);
+  }, [combatants]);
 
   // Monster search
   const [monsterSearch, setMonsterSearch] = useState("");
@@ -1816,9 +1847,16 @@ export default function InitiativeTracker() {
               <Swords className="w-5 h-5" /> Initiative Tracker
             </h2>
             {combatState === "active" && (
-              <p className="text-sm text-muted-foreground">
-                Round {round} - {activeCombatant?.name}'s turn
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Round {round} - {activeCombatant?.name}'s turn
+                </p>
+                {encounterXP > 0 && (
+                  <span className="text-xs font-mono font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded px-2 py-0.5">
+                    ⚔ {encounterXP.toLocaleString()} XP
+                  </span>
+                )}
+              </div>
             )}
           </div>
 
@@ -2714,8 +2752,37 @@ export default function InitiativeTracker() {
             )}
             
             {combatState === "ended" && (
-              <div className="text-center space-y-4">
-                <p className="text-lg font-display text-muted-foreground">Combat Ended</p>
+              <div className="space-y-4">
+                <p className="text-lg font-display text-muted-foreground text-center">Combat Ended</p>
+
+                {/* XP Summary */}
+                {encounterXP > 0 ? (
+                  <div className="rounded-lg border border-amber-400/40 bg-amber-400/5 p-4 space-y-3">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-amber-400/80 text-center">
+                      Encounter XP
+                    </p>
+                    <p className="text-3xl font-mono font-bold text-amber-400 text-center">
+                      {encounterXP.toLocaleString()}
+                    </p>
+                    {(() => {
+                      const pcCount = combatants.filter(c => c.combatantType === "pc").length;
+                      return pcCount > 0 ? (
+                        <p className="text-xs text-muted-foreground text-center">
+                          ÷ {pcCount} PC{pcCount !== 1 ? "s" : ""} ={" "}
+                          <span className="font-semibold text-foreground">
+                            {Math.floor(encounterXP / pcCount).toLocaleString()} XP each
+                          </span>
+                        </p>
+                      ) : null;
+                    })()}
+                    <p className="text-[10px] text-muted-foreground/60 text-center italic">
+                      Award as you see fit
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center italic">No enemy XP recorded</p>
+                )}
+
                 <Button onClick={resetCombat} variant="outline" className="w-full">
                   <RotateCcw className="mr-2 w-4 h-4" /> New Combat
                 </Button>
