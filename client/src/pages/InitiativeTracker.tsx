@@ -473,6 +473,109 @@ function crToXp(cr: string | undefined): number {
   return CR_XP[cr.trim()] ?? 0;
 }
 
+// ── Cinematic death descriptions ─────────────────────────────────────────────
+// {name} = creature name  |  ___ = weapon blank (DM fills in aloud)
+const DEATH_DESCRIPTIONS: Record<string, string[]> = {
+  humanoid: [
+    "{name} catches the ___ full in the face. Bone and grey matter spray across the ground as the body crumples, legs still running on reflex even as what's left of their skull empties onto the stone.",
+    "The ___ finds the gap between gorget and helm. {name}'s scream cuts off the instant the blade exits the other side, trailing ropes of viscera. They drop in a heap, twitching once, then nothing.",
+    "The ___ opens {name}'s throat in a single clean arc. They clutch at it, dark blood sheeting between their fingers in rhythmic pulses, mouth working silently as they fold to the earth and go still.",
+    "{name}'s chest caves inward under the ___. They stagger backward coughing red foam, hit the wall, and slide slowly down it — leaving a long dark smear — until they're sitting in a spreading pool of themselves.",
+    "The ___ buries itself to the hilt in {name}'s gut. They double over, making a sound like wet paper tearing, then sink to their knees and pitch forward into the dirt. Their fingers are still moving when the rest of them stops.",
+    "{name} looks down at what the ___ has done to their midsection with a kind of tired confusion, then sits down heavily and does not get back up. The light leaves their eyes before they hit the ground.",
+    "The ___ shears through {name}'s sword arm at the elbow. They have just enough time to watch it fall before the blood loss takes them — first to their knees, then flat, face down in the spreading red.",
+    "{name} blocks too late. The ___ punches through the raised forearm and keeps going, through jaw, through skull. They stand upright for a long, impossible moment before the body understands it's dead and falls.",
+  ],
+  beast: [
+    "The ___ connects with a wet crunch and {name} lets out a sound — half screech, half death rattle — that has no business coming from an animal. Its legs fail one by one, and it crashes down, ribs heaving with fewer and fewer breaths until they stop entirely.",
+    "{name}'s massive body shudders under the ___. It snaps at the air once, twice — pure reflex — then the jaw goes slack, tongue lolling between yellowed teeth, and it collapses with a finality that shakes the ground.",
+    "The ___ splits hide and bone. {name} lets out a sound not unlike a scream, then thrashes wildly — claws raking the dirt — before going limp all at once, legs curling inward like a dying spider.",
+    "Blood sprays from {name}'s flank as the ___ buries home. It stumbles, wild eyes going glassy and wrong, and hits the ground hard enough to bounce — all that muscle and heat, now just weight.",
+    "{name} turns to flee and the ___ finds it between the shoulder blades. It covers another few feet on pure animal desperation before the body gives out and it skids across the ground, finally still.",
+  ],
+  undead: [
+    "The ___ shatters {name} mid-lurch. Bones scatter — a femur cracks against the far wall, a skull bounces twice and rolls to rest, jaw hanging open in an expression of permanent outrage. Whatever animated this thing is gone.",
+    "{name} continues reaching even as the ___ caves its chest inward. Only when the last threads of dark necromantic will finally unravel does the body collapse — a heap of rot and rags that smells of old graves and old sins.",
+    "Ancient flesh tears like wet parchment under the ___. {name} claws at the air as its body comes apart, grave-mold and black ichor pattering against the floor, until nothing remains but a stain, a smell, and silence.",
+    "The ___ takes {name} apart piece by piece until there are no more pieces capable of malice. The scattered fragments twitch for a moment with residual spite, then go still. It doesn't look like death. It looks like erasure.",
+    "The necrotic light in {name}'s eyes gutters — flickers — dies. The ___ has done what the grave failed to do. The body unravels from the wound outward, collapsing into a heap of cold meat and yellowed bone that smells like an old wound finally closed.",
+  ],
+  fiend: [
+    "{name}'s final shriek rattles the air like a struck bell. The ___ drives through its chest and the fiend's form collapses inward — a vortex of shadow and ichor — until with a thunderclap of displaced air, it is simply gone. Only the blood remains to prove it was ever here.",
+    "The ___ tears through {name}'s infernal hide and the demon screams — not in pain, but in fury at the indignity. It claws at the wound as if confused by its own mortality, before the hellfire within it consumes the shell from the inside. A scorch mark. Brimstone. Silence.",
+    "The ___ strikes and {name} writhes, its true form bleeding through the rupture — glimpses of something vast and wrong beneath the flesh, too many angles, too many mouths. Then it folds, black ichor running and smoking, making a sound no human throat could produce.",
+    "{name} tries to speak its last curse and finds the ___ has left it no breath to curse with. Its form destabilizes from the wound outward, the carefully maintained illusion of a body losing coherence, until what falls to the ground is barely recognizable as having once been something.",
+  ],
+  dragon: [
+    "The ___ finds the soft scales behind the jaw. {name} rears back, wings slamming the air in agony, a gout of uncontrolled breath weapon spraying wild — then the neck bends, the great head crashes down, and the silence that follows is profound enough to feel like pressure.",
+    "{name}'s death is not quiet. The ___ drives home and the dragon roars until the roar becomes a gurgle. It thrashes for a terrible moment — claws raking stone, tail sweeping the ground — before the body finally settles, breath coming out in one long, dying plume of smoke.",
+    "The ___ has found the gap in the scaled armor beneath the foreleg. Ancient blood pours free — dark as oil, steaming where it hits the cold air. {name} sways, the great eyes losing focus one by one, and falls like a collapsing tower. The impact cracks the floor.",
+    "{name} sees the end coming and tries to take one of you with it. The ___ reaches the brain stem before it can. The dying snap misses by inches as the body crashes down, wings pinning and enormous, heat radiating off scales that are already cooling.",
+  ],
+  giant: [
+    "The ___ connects with a sound like a tree being felled. {name} stands for one long, confused moment — blood running freely — then topples backward, arms windmilling, the impact of their fall sending a shockwave through the floor.",
+    "{name}'s knees buckle under the ___. The giant tries to catch itself, hands pawing at the air, and then all that mass comes down in a crash of flesh and stone that raises dust from the ceiling. It does not get back up.",
+    "The ___ opens a wound across {name}'s torso that a man could step into. The giant prods at it with one confused finger, the mind not yet communicating what the body already knows, then sits down heavily — and slowly falls sideways, and is still.",
+    "{name} swings its last blow wide as the ___ finds the throat. The giant makes a sound like a waterfall shutting off, staggers two enormous steps, and then comes down. The crash is felt in the chest.",
+  ],
+  aberration: [
+    "{name}'s alien body shudders around the ___. Something leaks from the wound that isn't quite blood — thick, bioluminescent, wrong. The creature's eyes — all of them — lose their terrible focus one by one, and it sags to the floor, still moving in ways no natural creature should.",
+    "The ___ punches through {name}'s carapace with a sound like snapping obsidian. Milky fluid seeps from the rupture. The thing broadcasts one final telepathic shriek — felt rather than heard, pressure behind the eyes — before its body goes mercifully, permanently still.",
+    "{name}'s tendrils go rigid, then limp. The ___ has done what the eye cannot: silenced the low-frequency wrongness the thing exuded. The body collapses, folding at joints that shouldn't exist, leaking something that smells of copper and ozone and forgotten places.",
+    "The ___ tears through {name} and the creature's dying thought hits the nearest minds like a fist — a flash of something vast and cold and hungry. Then nothing. The body deflates where it falls, emptying of whatever was using it.",
+  ],
+  elemental: [
+    "The ___ disrupts {name}'s core and the elemental comes apart in a violence of its own nature — fire spinning uncontrolled, stone fragmenting, water churning into mist. Then the animating essence fails, and the energy disperses with a crack, leaving only a mark on the ground and the smell of something spent.",
+    "{name} rages as the ___ strikes — one last thrash of pure elemental fury — then the form collapses inward and is gone. The silence after is total. Elemental death doesn't leave a body. It leaves an absence.",
+  ],
+  fey: [
+    "{name}'s laughter cuts off mid-note as the ___ strikes. The fey dissolves from the wound outward — flesh becoming light, becoming motes, becoming nothing — until only a scatter of flower petals and the fading scent of something beautiful and deeply wrong remain on the still air.",
+    "The ___ finds {name} and the fey's expression shifts — not to pain, but to genuine, unfeigned surprise. They look at the wound with something like wonder. Then they unravel gracefully, a glamour dying alongside the creature that wore it. The petals that fall are the wrong color for this season.",
+    "{name} tries one last charm as the ___ comes down. For a heartbeat you almost feel it catch. Then it doesn't, and the fey collapses in a cascade of dissolving illusions — each face it ever wore flickering past on the way out.",
+  ],
+  celestial: [
+    "{name} takes the ___ and the holy light within them flickers. A celestial death is never quiet — radiant energy bleeds from the wound, and for a terrible moment the creature blazes, blinding, beautiful, and wrong. Then the flame gutters and goes out. A single white feather settles to the floor. The air smells of ozone.",
+    "The ___ should not be able to kill something like {name}. It does anyway. The celestial's form burns bright in its last moment — every scar, every answered prayer, every act of mercy written in light — and then goes dark. Whatever comes next for something like this, it begins now.",
+  ],
+  construct: [
+    "The ___ jams into {name}'s mechanism and the construct stutters — repeating its last motion over and over, slower with each cycle — until the gears grind to a stop and the animating magic bleeds out of the joints in pale sparks. The eyes go dark. Steam vents. Then nothing.",
+    "{name}'s armored body crumples under the ___. It hits the ground in a crash of displaced metal and shattering crystal, parts skittering across the floor. The animating force fades from the chassis in slow pulses, like a heart winding down, until it is merely expensive rubble.",
+    "The ___ finds the core housing. {name} freezes mid-motion — arm raised, mouth open — as the magic is severed from the mechanism. Then it falls, all at once, all of it, hitting the ground in a heap that will never move again under its own power.",
+  ],
+  ooze: [
+    "The ___ cleaves through {name}'s mass, sending globules of acidic flesh spattering in every direction. The ooze strains to recohere — pseudopods reaching, matter straining back toward matter — before the animating will fails and it goes inert, spreading slowly into a faintly smoking puddle that smells of dissolution and regret.",
+    "{name} can't die the way things die. It disperses. The ___ disrupts the unity that made it lethal and the mass comes apart — individual droplets losing purpose, losing motion — until what's left is just a spreading stain on the floor that will strip the varnish by morning.",
+  ],
+  plant: [
+    "Sap sprays from the wound as the ___ finds {name}'s heartwood. The creature shudders, vines coiling inward, leaves wilting in real time as if a season is passing in seconds. Then the central stalk crashes down, branches splaying wide, and the great vegetative mass goes still and begins to smell of green rot.",
+    "The ___ severs something vital and {name} — which has probably been alive for longer than the oldest person you know — comes down like a felled tree. The impact scatters seeds. Something in that is probably poetic. Right now it mostly smells like mulch.",
+  ],
+  swarm: [
+    "The ___ disrupts the unity of {name} and the swarm shatters — each individual creature suddenly alone and confused and dying. They scatter to the edges of the room in a rustling, clicking tide that diminishes and diminishes until the last one stops moving and what was a terrible collective mind is just a carpet of small, inert bodies.",
+    "{name} breaks apart under the ___. The hive-thought that bound them fails all at once and the swarm disperses into chaos — a last chaotic surge that fades in seconds as the individual minds, never large enough to sustain themselves alone, go out like candles in a wind.",
+  ],
+  monstrosity: [
+    "The ___ buries itself in {name}'s torso. The creature makes a sound unlike anything heard before — part screech, part wet click, part something with no name — and its body seizes hard before going limp. Strange ichor pools beneath it. Whatever it was, it's less now.",
+    "Whatever passes for blood in {name} floods the ground as the ___ strikes home. The creature convulses, each spasm smaller than the last, until finally the only movement is the slow cooling of its flesh and the last few twitches of its extremities, unwilling to admit what the center already knows.",
+    "{name} collapses mid-lunge. The ___ has severed something vital and the creature's momentum carries it forward even as it dies — a last involuntary reach that falls short of everything it was trying to kill.",
+    "The ___ hits and {name} shrieks, the sound shredding the air and leaving a ringing in the ears. Ichor sprays. The monstrosity thrashes wildly — all of it, every limb, every appendage — then stops all at once, as if a switch was thrown. It never does anything halfway, even dying.",
+  ],
+};
+
+const DEATH_DESCRIPTIONS_DEFAULT = [
+  "The ___ strikes the killing blow. {name} falls — hard, without grace, the way all things fall — and is still. In the sudden quiet, the violence of a moment ago feels almost impossible.",
+  "{name} goes down under the ___. Not slowly, not dramatically — just suddenly absent from the fight, folded on the ground, taking up less space than expected.",
+  "The ___ ends it. {name} collapses, and the sounds of battle continue around the space where they stood. The ground is wet where they hit it.",
+  "{name}'s body gives out under the final strike of the ___. They had a last moment — it was brief — and now it's over, and the rest of the fight moves on without them.",
+];
+
+function pickDeathDescription(monsterType: string | undefined, name: string): string {
+  const key = (monsterType ?? "").toLowerCase().split(/[\s(]/)[0];
+  const pool = DEATH_DESCRIPTIONS[key] ?? DEATH_DESCRIPTIONS_DEFAULT;
+  const template = pool[Math.floor(Math.random() * pool.length)];
+  return template.replace(/\{name\}/g, name);
+}
+
 export default function InitiativeTracker() {
   const { open: diceOpen, setOpen: setDiceOpen, requestRoll } = useDiceRoller();
   const [showVersionDialog, setShowVersionDialog] = useState(true);
@@ -489,6 +592,22 @@ export default function InitiativeTracker() {
   // Encounter save/restore
   const [showRestoreBanner, setShowRestoreBanner] = useState(false);
   const [isSavingEncounter, setIsSavingEncounter] = useState(false);
+
+  // ── Cinematic death overlay ───────────────────────────────────────────────
+  const [deathScene, setDeathScene] = useState<{ name: string; text: string } | null>(null);
+  useEffect(() => {
+    if (!deathScene) return;
+    const t = setTimeout(() => setDeathScene(null), 9000);
+    return () => clearTimeout(t);
+  }, [deathScene]);
+
+  const triggerDeathScene = (combatant: Combatant) => {
+    if (combatant.combatantType === "pc") return;
+    if (combatant.stance === "ally") return;
+    const monsterType = combatant.monsterData?.type;
+    const text = pickDeathDescription(monsterType, combatant.name);
+    setDeathScene({ name: combatant.name, text });
+  };
 
   // ── XP tally: sum XP from defeated enemy monsters/NPCs ──────────────────
   const encounterXP = useMemo(() => {
@@ -960,11 +1079,20 @@ export default function InitiativeTracker() {
     const damage = getHpInput(id);
     if (damage <= 0) return;
     const focIdx = groupFocused[id] ?? 0;
+    const wasAlive = combatant.memberHp[focIdx] > 0;
     const newMemberHp = [...combatant.memberHp];
     newMemberHp[focIdx] = Math.max(0, newMemberHp[focIdx] - damage);
+    const memberJustDied = wasAlive && newMemberHp[focIdx] <= 0;
     const allDead = newMemberHp.every(h => h <= 0);
     updateCombatant(id, { memberHp: newMemberHp, isDown: allDead, isDead: allDead });
     clearHpInput(id);
+    if (memberJustDied) {
+      // Use a member-specific name for the death scene
+      const memberName = `${combatant.name} #${focIdx + 1}`;
+      const monsterType = combatant.monsterData?.type;
+      const text = pickDeathDescription(monsterType, memberName);
+      setDeathScene({ name: memberName, text });
+    }
     // Auto-focus next alive member
     if (newMemberHp[focIdx] <= 0) {
       const next = newMemberHp.findIndex((h, i) => i !== focIdx && h > 0);
@@ -1169,6 +1297,7 @@ export default function InitiativeTracker() {
         // 3.5e: Taking damage while stable breaks stability (start bleeding again)
         isStable: isDead || newHp > 0 ? false : (newHp < 0 ? false : combatant.isStable)
       });
+      if ((isDown || isDead) && !combatant.isDown) triggerDeathScene(combatant);
     } else if (effectiveRuleset === "4e") {
       // 4e: Death at negative half max HP
       const newHp = combatant.hp - damage;
@@ -1196,6 +1325,7 @@ export default function InitiativeTracker() {
           isDead: instantDeath,
           isStable: isDown ? false : combatant.isStable
         });
+        if ((isDown || instantDeath) && !combatant.isDown) triggerDeathScene(combatant);
       }
     } else {
       // 5e/One D&D: HP floors at 0, death saves, massive damage rule
@@ -1249,6 +1379,7 @@ export default function InitiativeTracker() {
         isDead: instantDeath,
         deathSaveFailures: instantDeath ? 3 : combatant.deathSaveFailures
       });
+      if (newHp === 0 && combatant.hp > 0) triggerDeathScene(combatant);
     }
     
     clearHpInput(id);
@@ -3643,6 +3774,42 @@ export default function InitiativeTracker() {
 
       {/* 3D Dice Roller overlay */}
       {diceOpen && <DiceRoller onClose={() => setDiceOpen(false)} />}
+
+      {/* ── Cinematic Death Scene overlay ─────────────────────────────────── */}
+      {deathScene && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-6 cursor-pointer"
+          style={{ background: "radial-gradient(ellipse at center, rgba(10,0,0,0.92) 0%, rgba(0,0,0,0.97) 100%)" }}
+          onClick={() => setDeathScene(null)}
+        >
+          {/* Blood drip accent */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-red-900 to-transparent opacity-60" />
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-red-900 to-transparent opacity-60" />
+
+          <div className="max-w-2xl w-full text-center space-y-6">
+            {/* Creature name */}
+            <p className="text-red-700/80 text-xs font-mono uppercase tracking-[0.3em] font-semibold">
+              ☠ {deathScene.name} falls ☠
+            </p>
+
+            {/* Death description — ___ rendered as underline blanks */}
+            <p className="font-serif text-xl leading-relaxed text-stone-200/90">
+              {deathScene.text.split("___").map((segment, i, arr) => (
+                <span key={i}>
+                  {segment}
+                  {i < arr.length - 1 && (
+                    <span className="inline-block border-b-2 border-stone-400 px-8 mx-1 text-stone-500 italic text-sm align-baseline">
+                      weapon
+                    </span>
+                  )}
+                </span>
+              ))}
+            </p>
+
+            <p className="text-stone-600 text-xs italic">tap to dismiss</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
