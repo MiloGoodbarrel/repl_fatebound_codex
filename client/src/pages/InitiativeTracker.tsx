@@ -300,6 +300,8 @@ interface Combatant {
   isMonster: boolean;
   combatantType: CombatantType;
   conditions: string[];
+  // Optional remaining rounds for timed conditions; absent entries are untimed.
+  conditionDurations?: Record<string, number>;
   isDown: boolean;
   monsterData?: Monster;
   stance?: NPCStance;
@@ -576,6 +578,14 @@ function pickDeathDescription(monsterType: string | undefined, name: string): st
   return template.replace(/\{name\}/g, name);
 }
 
+function formatConditionDuration(rounds: number): string {
+  if (rounds >= 10 && rounds % 10 === 0) {
+    const minutes = rounds / 10;
+    return `${minutes} min (${rounds} rounds)`;
+  }
+  return `${rounds} round${rounds === 1 ? "" : "s"}`;
+}
+
 export default function InitiativeTracker() {
   const { open: diceOpen, setOpen: setDiceOpen, requestRoll } = useDiceRoller();
   const [showVersionDialog, setShowVersionDialog] = useState(true);
@@ -669,6 +679,7 @@ export default function InitiativeTracker() {
   
   // HP modification inputs per combatant
   const [hpInputs, setHpInputs] = useState<Record<string, string>>({});
+  const [conditionDurationInputs, setConditionDurationInputs] = useState<Record<string, string>>({});
 
   // Campaign party
   const { activeCampaign } = useCampaign();
@@ -1612,18 +1623,45 @@ export default function InitiativeTracker() {
   const toggleCondition = (id: string, condition: string) => {
     const combatant = combatants.find(c => c.id === id);
     if (!combatant) return;
-    const newConditions = combatant.conditions.includes(condition)
+    const isRemoving = combatant.conditions.includes(condition);
+    const newConditions = isRemoving
       ? combatant.conditions.filter(c => c !== condition)
       : [...combatant.conditions, condition];
+    const newDurations = { ...(combatant.conditionDurations ?? {}) };
+
+    if (isRemoving) {
+      delete newDurations[condition];
+    } else {
+      const durationText = conditionDurationInputs[id]?.trim() ?? "";
+      if (durationText !== "") {
+        const durationMinutes = Number(durationText);
+        if (!Number.isFinite(durationMinutes) || durationMinutes < 0) {
+          toast({
+            title: "Invalid duration",
+            description: "Enter a non-negative number of minutes, or leave it blank for an untimed condition.",
+            variant: "destructive",
+          });
+          return;
+        }
+        newDurations[condition] = Math.round(durationMinutes * 10);
+      }
+    }
     
     const isIncapacitated = ["Unconscious", "Paralyzed", "Petrified", "Incapacitated", "Stunned"].some(
       c => newConditions.includes(c)
     );
+    const isOtherwiseDown = combatant.isDead
+      || combatant.hp <= 0
+      || !!(combatant.isGroup && combatant.memberHp?.every(hp => hp <= 0));
     
     updateCombatant(id, { 
       conditions: newConditions,
-      isDown: combatant.hp === 0 || isIncapacitated
+      conditionDurations: Object.keys(newDurations).length > 0 ? newDurations : undefined,
+      isDown: isOtherwiseDown || isIncapacitated
     });
+    if (!isRemoving) {
+      setConditionDurationInputs(prev => ({ ...prev, [id]: "" }));
+    }
   };
 
   const cycleStance = (id: string) => {
@@ -1698,9 +1736,46 @@ export default function InitiativeTracker() {
     
     // Check for new round
     if (nextIndex <= activeIndex) {
+      const expiredConditions: string[] = [];
+      const updatedCombatants = sorted.map(combatant => {
+        const remainingDurations = { ...(combatant.conditionDurations ?? {}) };
+        const remainingConditions = combatant.conditions.filter(condition => {
+          const remainingRounds = remainingDurations[condition];
+          if (remainingRounds == null) return true;
+
+          const nextRemainingRounds = remainingRounds - 1;
+          if (nextRemainingRounds <= 0) {
+            delete remainingDurations[condition];
+            expiredConditions.push(`${combatant.name}: ${condition}`);
+            return false;
+          }
+
+          remainingDurations[condition] = nextRemainingRounds;
+          return true;
+        });
+        const isIncapacitated = ["Unconscious", "Paralyzed", "Petrified", "Incapacitated", "Stunned"].some(
+          condition => remainingConditions.includes(condition)
+        );
+        const isOtherwiseDown = combatant.isDead
+          || combatant.hp <= 0
+          || !!(combatant.isGroup && combatant.memberHp?.every(hp => hp <= 0));
+
+        return {
+          ...combatant,
+          conditions: remainingConditions,
+          conditionDurations: Object.keys(remainingDurations).length > 0 ? remainingDurations : undefined,
+          isDown: isOtherwiseDown || isIncapacitated,
+          joiningNextRound: false,
+        };
+      });
+      setCombatants(updatedCombatants);
       setRound(r => r + 1);
-      // Clear the "joining next round" flag — reinforcements now act normally
-      setCombatants(prev => prev.map(c => c.joiningNextRound ? { ...c, joiningNextRound: false } : c));
+      if (expiredConditions.length > 0) {
+        toast({
+          title: "Conditions expired",
+          description: expiredConditions.join(" · "),
+        });
+      }
     }
     
     setActiveIndex(nextIndex);
@@ -1795,6 +1870,9 @@ export default function InitiativeTracker() {
       deathSaveSuccesses: 0,
       deathSaveFailures: effectiveRuleset === "4e" ? combatant.deathSaveFailures : 0, // 4e: failures persist until rest
       conditions: combatant.conditions.filter(c => !c.startsWith("Exhaustion")), // Keep non-exhaustion conditions
+      conditionDurations: Object.fromEntries(
+        Object.entries(combatant.conditionDurations ?? {}).filter(([condition]) => !condition.startsWith("Exhaustion"))
+      ),
       healingSurges: combatant.maxHealingSurges || 0, // Restore healing surges
     });
   };
@@ -3315,31 +3393,56 @@ export default function InitiativeTracker() {
                           </div>
 
                           {/* Conditions Column */}
-                          <div className="flex flex-col gap-1 min-w-[140px]">
-                            <Select onValueChange={(val) => toggleCondition(combatant.id, val)}>
-                              <SelectTrigger className="h-8 text-xs" data-testid={`select-condition-${combatant.id}`}>
-                                <SelectValue placeholder="Add Condition" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {CONDITIONS.filter(c => !combatant.conditions.includes(c)).map(condition => (
-                                  <SelectItem key={condition} value={condition}>
-                                    {condition}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                          <div className="flex flex-col gap-1 min-w-[160px]">
+                            <div className="flex items-center gap-1">
+                              <Select onValueChange={(val) => toggleCondition(combatant.id, val)}>
+                                <SelectTrigger className="h-8 text-xs flex-1" data-testid={`select-condition-${combatant.id}`}>
+                                  <SelectValue placeholder="Add Condition" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {CONDITIONS.filter(c => !combatant.conditions.includes(c)).map(condition => (
+                                    <SelectItem key={condition} value={condition}>
+                                      {condition}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={conditionDurationInputs[combatant.id] ?? ""}
+                                onChange={e => setConditionDurationInputs(prev => ({
+                                  ...prev,
+                                  [combatant.id]: e.target.value,
+                                }))}
+                                className="h-8 w-14 px-1 text-center text-xs"
+                                placeholder="min"
+                                aria-label={`Duration in minutes for ${combatant.name} condition`}
+                                data-testid={`input-condition-duration-${combatant.id}`}
+                              />
+                            </div>
                             <div className="flex flex-wrap gap-1">
-                              {combatant.conditions.map(condition => (
-                                <Badge 
-                                  key={condition} 
-                                  className="text-xs cursor-pointer text-white border-0"
-                                  style={{ backgroundColor: CONDITION_COLORS[condition] }}
-                                  onClick={() => toggleCondition(combatant.id, condition)}
-                                  data-testid={`badge-condition-${combatant.id}-${condition}`}
-                                >
-                                  {condition} <span className="ml-1 opacity-70">x</span>
-                                </Badge>
-                              ))}
+                              {combatant.conditions.map(condition => {
+                                const remainingRounds = combatant.conditionDurations?.[condition];
+                                const durationLabel = remainingRounds != null
+                                  ? ` · ${formatConditionDuration(remainingRounds)}`
+                                  : "";
+                                return (
+                                  <Badge
+                                    key={condition}
+                                    className="text-xs cursor-pointer text-white border-0"
+                                    style={{ backgroundColor: CONDITION_COLORS[condition] }}
+                                    onClick={() => toggleCondition(combatant.id, condition)}
+                                    title={`${condition}${durationLabel} — click to remove`}
+                                    data-testid={`badge-condition-${combatant.id}-${condition}`}
+                                  >
+                                    {condition}{remainingRounds != null && (
+                                      <span className="ml-1 opacity-90">· {formatConditionDuration(remainingRounds)}</span>
+                                    )} <span className="ml-1 opacity-70">x</span>
+                                  </Badge>
+                                );
+                              })}
                             </div>
                           </div>
 
