@@ -500,12 +500,14 @@ export class DatabaseStorage implements IStorage {
 
   async saveEncounter(campaignId: number, data: any): Promise<void> {
     const json = JSON.stringify(data);
+    const saveRevision = Number.isFinite(data?.saveRevision) ? data.saveRevision : 0;
     await db
       .insert(campaignSavedEncounters)
       .values({ campaignId, encounterData: json })
       .onConflictDoUpdate({
         target: campaignSavedEncounters.campaignId,
         set: { encounterData: json, savedAt: new Date() },
+        setWhere: sql`COALESCE((${campaignSavedEncounters.encounterData}::jsonb ->> 'saveRevision')::bigint, 0) <= ${saveRevision}`,
       });
   }
 

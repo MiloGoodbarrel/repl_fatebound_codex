@@ -31,7 +31,7 @@ import {
   Swords, Plus, Minus, Trash2, User, Heart, Shield, 
   RotateCcw, Home, Search, Play, SkipForward, Square, Skull, AlertCircle,
   Loader2, Zap, Dices, CircleCheck, CircleX, HeartPulse, BookUser, Save,
-  Upload, FileDown, BookOpen, ChevronRight, ChevronDown
+  Upload, FileDown, BookOpen, ChevronRight, ChevronDown, Pencil
 } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
@@ -288,6 +288,25 @@ const STANCE_COLORS: Record<NPCStance, string> = {
 };
 
 type CombatantType = "pc" | "npc" | "monster";
+type AbilityKey = "str" | "dex" | "con" | "int" | "wis" | "cha";
+type AbilityModifierOverrides = Partial<Record<AbilityKey, number>>;
+interface CorrectionDraft {
+  id: string;
+  hp: string;
+  maxHp: string;
+  initiative: string;
+  ac: string;
+  modifiers: Record<AbilityKey, string>;
+}
+
+const ABILITIES: Array<{ key: AbilityKey; label: string }> = [
+  { key: "str", label: "STR" },
+  { key: "dex", label: "DEX" },
+  { key: "con", label: "CON" },
+  { key: "int", label: "INT" },
+  { key: "wis", label: "WIS" },
+  { key: "cha", label: "CHA" },
+];
 
 interface Combatant {
   id: string;
@@ -302,6 +321,7 @@ interface Combatant {
   conditions: string[];
   // Optional remaining rounds for timed conditions; absent entries are untimed.
   conditionDurations?: Record<string, number>;
+  abilityModifierOverrides?: AbilityModifierOverrides;
   isDown: boolean;
   monsterData?: Monster;
   stance?: NPCStance;
@@ -586,6 +606,37 @@ function formatConditionDuration(rounds: number): string {
   return `${rounds} round${rounds === 1 ? "" : "s"}`;
 }
 
+function getCombatantAbilityModifier(combatant: Combatant, ability: AbilityKey): number {
+  const override = combatant.abilityModifierOverrides?.[ability];
+  if (override != null) return override;
+  const monster = combatant.monsterData;
+  if (!monster) return 0;
+  const modifier = monster[`${ability}Mod` as keyof Monster];
+  if (typeof modifier === "number") return modifier;
+  const score = monster[ability];
+  return typeof score === "number" ? Math.floor((score - 10) / 2) : 0;
+}
+
+function formatSignedModifier(value: number): string {
+  return value >= 0 ? `+${value}` : String(value);
+}
+
+function monsterWithOverrides(combatant: Combatant): Monster | undefined {
+  if (!combatant.monsterData) return undefined;
+  const overrides = combatant.abilityModifierOverrides;
+  return {
+    ...combatant.monsterData,
+    hp: combatant.maxHp,
+    ac: combatant.ac,
+    strMod: overrides?.str ?? combatant.monsterData.strMod,
+    dexMod: overrides?.dex ?? combatant.monsterData.dexMod,
+    conMod: overrides?.con ?? combatant.monsterData.conMod,
+    intMod: overrides?.int ?? combatant.monsterData.intMod,
+    wisMod: overrides?.wis ?? combatant.monsterData.wisMod,
+    chaMod: overrides?.cha ?? combatant.monsterData.chaMod,
+  };
+}
+
 export default function InitiativeTracker() {
   const { open: diceOpen, setOpen: setDiceOpen, requestRoll } = useDiceRoller();
   const [showVersionDialog, setShowVersionDialog] = useState(true);
@@ -598,10 +649,18 @@ export default function InitiativeTracker() {
 
   // Inline stat editing (HP current, HP max, AC)
   const [editingStat, setEditingStat] = useState<{ id: string; field: "hp" | "maxHp" | "ac" | "level"; value: string } | null>(null);
+  const [correctionDraft, setCorrectionDraft] = useState<CorrectionDraft | null>(null);
 
   // Encounter save/restore
   const [showRestoreBanner, setShowRestoreBanner] = useState(false);
   const [isSavingEncounter, setIsSavingEncounter] = useState(false);
+  const [autoSaveReady, setAutoSaveReady] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [encounterOwnerCampaignId, setEncounterOwnerCampaignId] = useState<number | null>(null);
+  const latestEncounterRef = useRef<{ campaignId: number; payload: object } | null>(null);
+  const persistenceQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const previousCampaignIdRef = useRef<number | null>(null);
+  const saveRevisionRef = useRef(Date.now());
 
   // ── Cinematic death overlay ───────────────────────────────────────────────
   const [deathScene, setDeathScene] = useState<{ name: string; text: string } | null>(null);
@@ -695,7 +754,11 @@ export default function InitiativeTracker() {
   const homebrewCampaign = allCampaigns.find(c => c.name === "Aetherfall") ?? null;
 
   // Saved encounter for active campaign
-  const { data: savedEncounterResult, refetch: refetchSavedEncounter } = useQuery<{ data: any; savedAt: string } | null>({
+  const {
+    data: savedEncounterResult,
+    refetch: refetchSavedEncounter,
+    isFetching: isFetchingSavedEncounter,
+  } = useQuery<{ data: any; savedAt: string } | null>({
     queryKey: ["/api/campaigns", activeCampaign?.id, "encounter"],
     queryFn: () =>
       fetch(`/api/campaigns/${activeCampaign!.id}/encounter`)
@@ -706,13 +769,118 @@ export default function InitiativeTracker() {
     retry: false,
   });
 
+  const enqueueEncounterRequest = (
+    campaignId: number,
+    method: "PUT" | "DELETE",
+    payload?: object,
+  ): Promise<Response> => {
+    const request = persistenceQueueRef.current
+      .catch(() => undefined)
+      .then(() => fetch(`/api/campaigns/${campaignId}/encounter`, {
+        method,
+        headers: payload ? { "Content-Type": "application/json" } : undefined,
+        body: payload ? JSON.stringify(payload) : undefined,
+      }));
+    persistenceQueueRef.current = request.then(() => undefined, () => undefined);
+    return request;
+  };
+
+  useEffect(() => {
+    const campaignId = activeCampaign?.id ?? null;
+    if (previousCampaignIdRef.current !== campaignId) {
+      previousCampaignIdRef.current = campaignId;
+      latestEncounterRef.current = null;
+      setAutoSaveReady(false);
+      setAutoSaveStatus("idle");
+      setEncounterOwnerCampaignId(campaignId);
+      setShowRestoreBanner(false);
+      setCombatants([]);
+      setCombatState("setup");
+      setActiveIndex(0);
+      setRound(1);
+      setShowVersionDialog(true);
+      setSelectedVersions([]);
+    }
+  }, [activeCampaign?.id]);
+
   // Show restore banner when a saved encounter exists and nothing is loaded yet
   useEffect(() => {
+    const campaignId = activeCampaign?.id ?? null;
+    if (campaignId == null || encounterOwnerCampaignId !== campaignId || isFetchingSavedEncounter) {
+      setAutoSaveReady(false);
+      return;
+    }
     if (savedEncounterResult?.data && combatants.length === 0 && combatState === "setup") {
       setShowRestoreBanner(true);
+      setAutoSaveReady(false);
+    } else {
+      setAutoSaveReady(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [savedEncounterResult]);
+  }, [activeCampaign?.id, encounterOwnerCampaignId, savedEncounterResult, isFetchingSavedEncounter]);
+
+  const encounterPayload = useMemo(() => {
+    saveRevisionRef.current = Math.max(Date.now(), saveRevisionRef.current + 1);
+    return {
+      combatants,
+      round,
+      activeIndex,
+      combatState,
+      selectedVersions,
+      saveRevision: saveRevisionRef.current,
+    };
+  }, [combatants, round, activeIndex, combatState, selectedVersions]);
+
+  if (
+    activeCampaign
+    && previousCampaignIdRef.current === activeCampaign.id
+    && encounterOwnerCampaignId === activeCampaign.id
+    && autoSaveReady
+    && combatants.length > 0
+  ) {
+    latestEncounterRef.current = { campaignId: activeCampaign.id, payload: encounterPayload };
+  } else {
+    latestEncounterRef.current = null;
+  }
+
+  useEffect(() => {
+    if (
+      !activeCampaign
+      || encounterOwnerCampaignId !== activeCampaign.id
+      || !autoSaveReady
+      || combatants.length === 0
+    ) return;
+    setAutoSaveStatus("saving");
+    const timer = window.setTimeout(async () => {
+      try {
+        const res = await enqueueEncounterRequest(activeCampaign.id, "PUT", encounterPayload);
+        if (!res.ok) throw new Error("Autosave failed");
+        setAutoSaveStatus("saved");
+      } catch {
+        setAutoSaveStatus("error");
+      }
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [activeCampaign, encounterOwnerCampaignId, autoSaveReady, combatants.length, encounterPayload]);
+
+  useEffect(() => {
+    const flushLatestEncounter = () => {
+      const latest = latestEncounterRef.current;
+      if (!latest) return;
+      void fetch(`/api/campaigns/${latest.campaignId}/encounter`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(latest.payload),
+        keepalive: true,
+      }).catch(() => undefined);
+    };
+    window.addEventListener("pagehide", flushLatestEncounter);
+    return () => {
+      window.removeEventListener("pagehide", flushLatestEncounter);
+      flushLatestEncounter();
+    };
+  }, []);
+
   const [saveToParty, setSaveToParty] = useState(false);
 
   const { data: campaignParty = [] } = useQuery<CampaignCharacter[]>({
@@ -1229,6 +1397,100 @@ export default function InitiativeTracker() {
     ));
   };
 
+  const openCorrectionEditor = (combatant: Combatant) => {
+    const focusedMember = groupFocused[combatant.id] ?? 0;
+    const currentHp = combatant.isGroup && combatant.memberHp
+      ? (combatant.memberHp[focusedMember] ?? combatant.hp)
+      : combatant.hp;
+    setCorrectionDraft({
+      id: combatant.id,
+      hp: String(currentHp),
+      maxHp: String(combatant.maxHp),
+      initiative: String(combatant.initiative),
+      ac: String(combatant.ac),
+      modifiers: {
+        str: String(getCombatantAbilityModifier(combatant, "str")),
+        dex: String(getCombatantAbilityModifier(combatant, "dex")),
+        con: String(getCombatantAbilityModifier(combatant, "con")),
+        int: String(getCombatantAbilityModifier(combatant, "int")),
+        wis: String(getCombatantAbilityModifier(combatant, "wis")),
+        cha: String(getCombatantAbilityModifier(combatant, "cha")),
+      },
+    });
+  };
+
+  const saveCorrections = () => {
+    if (!correctionDraft) return;
+    const combatant = combatants.find(c => c.id === correctionDraft.id);
+    if (!combatant) return;
+
+    const hp = Number(correctionDraft.hp);
+    const maxHp = Number(correctionDraft.maxHp);
+    const initiative = Number(correctionDraft.initiative);
+    const ac = Number(correctionDraft.ac);
+    const modifiers = Object.fromEntries(
+      ABILITIES.map(({ key }) => [key, Number(correctionDraft.modifiers[key])]),
+    ) as Record<AbilityKey, number>;
+    const allValues = [hp, maxHp, initiative, ac, ...Object.values(modifiers)];
+    if (!allValues.every(Number.isInteger) || maxHp < 1 || ac < 0) {
+      toast({
+        title: "Check corrected stats",
+        description: "Use whole numbers, with base HP at least 1 and AC at least 0.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const activeId = getSortedCombatants()[activeIndex]?.id;
+    const focusedMember = groupFocused[combatant.id] ?? 0;
+    const isIncapacitated = ["Unconscious", "Paralyzed", "Petrified", "Incapacitated", "Stunned"].some(
+      condition => combatant.conditions.includes(condition),
+    );
+    let corrected: Combatant;
+
+    if (combatant.isGroup && combatant.memberHp) {
+      const memberHp = combatant.memberHp.map(value => Math.min(value, maxHp));
+      memberHp[focusedMember] = Math.min(hp, maxHp);
+      const allDead = memberHp.every(value => value <= 0);
+      corrected = {
+        ...combatant,
+        initiative,
+        ac,
+        maxHp,
+        hp: allDead ? 0 : Math.max(...memberHp),
+        memberHp,
+        isDown: allDead || isIncapacitated,
+        isDead: allDead,
+        abilityModifierOverrides: modifiers,
+      };
+    } else {
+      const correctedHp = Math.min(hp, maxHp);
+      corrected = {
+        ...combatant,
+        initiative,
+        ac,
+        maxHp,
+        hp: correctedHp,
+        isDown: correctedHp <= 0 || isIncapacitated,
+        isDead: correctedHp > 0 ? false : combatant.isDead,
+        isStable: correctedHp > 0 ? false : combatant.isStable,
+        isDisabled: effectiveRuleset === "3.5e" && correctedHp === 0,
+        abilityModifierOverrides: modifiers,
+      };
+    }
+
+    const correctedOrder = combatants
+      .map(c => c.id === corrected.id ? corrected : c)
+      .sort((a, b) => b.initiative - a.initiative);
+    setCombatants(correctedOrder);
+    if (activeId) {
+      const correctedActiveIndex = correctedOrder.findIndex(c => c.id === activeId);
+      if (correctedActiveIndex >= 0) setActiveIndex(correctedActiveIndex);
+    }
+    setCorrectionDraft(null);
+    toast({ title: "Combatant corrected", description: `${combatant.name}'s encounter stats were updated.` });
+  };
+
   const commitStatEdit = () => {
     if (!editingStat) return;
     const { id, field, value } = editingStat;
@@ -1651,7 +1913,7 @@ export default function InitiativeTracker() {
       c => newConditions.includes(c)
     );
     const isOtherwiseDown = combatant.isDead
-      || combatant.hp <= 0
+      || (!combatant.isGroup && combatant.hp <= 0)
       || !!(combatant.isGroup && combatant.memberHp?.every(hp => hp <= 0));
     
     updateCombatant(id, { 
@@ -1757,7 +2019,7 @@ export default function InitiativeTracker() {
           condition => remainingConditions.includes(condition)
         );
         const isOtherwiseDown = combatant.isDead
-          || combatant.hp <= 0
+          || (!combatant.isGroup && combatant.hp <= 0)
           || !!(combatant.isGroup && combatant.memberHp?.every(hp => hp <= 0));
 
         return {
@@ -1791,13 +2053,9 @@ export default function InitiativeTracker() {
     if (!activeCampaign) return;
     setIsSavingEncounter(true);
     try {
-      const payload = { combatants, round, activeIndex, combatState, selectedVersions };
-      const res = await fetch(`/api/campaigns/${activeCampaign.id}/encounter`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const res = await enqueueEncounterRequest(activeCampaign.id, "PUT", encounterPayload);
       if (!res.ok) throw new Error("Save failed");
+      setAutoSaveStatus("saved");
       toast({ title: "Encounter saved ✓", description: "You can close the app — it'll be here next session." });
       refetchSavedEncounter();
     } catch {
@@ -1817,12 +2075,23 @@ export default function InitiativeTracker() {
     setSelectedVersions(sv ?? []);
     setShowVersionDialog(false);
     setShowRestoreBanner(false);
+    setAutoSaveReady(true);
     toast({ title: "Encounter restored", description: `Round ${r} · ${(c ?? []).length} combatants` });
+  };
+
+  const dismissRestoreEncounter = () => {
+    setShowRestoreBanner(false);
+    setAutoSaveReady(true);
   };
 
   const clearSavedEncounterRemote = async () => {
     if (!activeCampaign) return;
-    await fetch(`/api/campaigns/${activeCampaign.id}/encounter`, { method: "DELETE" });
+    const campaignId = activeCampaign.id;
+    latestEncounterRef.current = null;
+    setAutoSaveReady(false);
+    await enqueueEncounterRequest(campaignId, "DELETE");
+    if (previousCampaignIdRef.current !== campaignId) return;
+    setAutoSaveReady(true);
     refetchSavedEncounter();
   };
 
@@ -1968,6 +2237,9 @@ export default function InitiativeTracker() {
 
   const sortedCombatants = getSortedCombatants();
   const activeCombatant = sortedCombatants[activeIndex];
+  const correctionCombatant = correctionDraft
+    ? combatants.find(c => c.id === correctionDraft.id)
+    : undefined;
 
   return (
     <div className="h-screen bg-background flex flex-col overflow-hidden">
@@ -2004,6 +2276,97 @@ export default function InitiativeTracker() {
           >
             <Play className="mr-2 w-4 h-4" /> Start Combat Setup
           </Button>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!correctionDraft} onOpenChange={open => { if (!open) setCorrectionDraft(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-display flex items-center gap-2">
+              <Pencil className="w-5 h-5 text-primary" />
+              Correct {correctionCombatant?.name ?? "combatant"}
+            </DialogTitle>
+            <DialogDescription>
+              Fix encounter-only values without changing the bestiary source.
+            </DialogDescription>
+          </DialogHeader>
+          {correctionDraft && (
+            <div className="space-y-5 py-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="correct-hp">
+                    {correctionCombatant?.isGroup ? "Focused HP" : "Current HP"}
+                  </Label>
+                  <Input
+                    id="correct-hp"
+                    type="number"
+                    value={correctionDraft.hp}
+                    onChange={e => setCorrectionDraft(d => d ? { ...d, hp: e.target.value } : d)}
+                    data-testid="input-correction-hp"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="correct-max-hp">Base HP</Label>
+                  <Input
+                    id="correct-max-hp"
+                    type="number"
+                    min="1"
+                    value={correctionDraft.maxHp}
+                    onChange={e => setCorrectionDraft(d => d ? { ...d, maxHp: e.target.value } : d)}
+                    data-testid="input-correction-max-hp"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="correct-initiative">Initiative</Label>
+                  <Input
+                    id="correct-initiative"
+                    type="number"
+                    value={correctionDraft.initiative}
+                    onChange={e => setCorrectionDraft(d => d ? { ...d, initiative: e.target.value } : d)}
+                    data-testid="input-correction-initiative"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="correct-ac">AC</Label>
+                  <Input
+                    id="correct-ac"
+                    type="number"
+                    min="0"
+                    value={correctionDraft.ac}
+                    onChange={e => setCorrectionDraft(d => d ? { ...d, ac: e.target.value } : d)}
+                    data-testid="input-correction-ac"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Ability modifiers</Label>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                  {ABILITIES.map(({ key, label }) => (
+                    <div key={key} className="space-y-1">
+                      <Label htmlFor={`correct-${key}`} className="text-[10px] text-muted-foreground">{label}</Label>
+                      <Input
+                        id={`correct-${key}`}
+                        type="number"
+                        value={correctionDraft.modifiers[key]}
+                        onChange={e => setCorrectionDraft(d => d ? {
+                          ...d,
+                          modifiers: { ...d.modifiers, [key]: e.target.value },
+                        } : d)}
+                        className="px-2 text-center"
+                        data-testid={`input-correction-${key}`}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setCorrectionDraft(null)}>Cancel</Button>
+                <Button onClick={saveCorrections} data-testid="button-save-corrections">
+                  Save Corrections
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -2056,10 +2419,23 @@ export default function InitiativeTracker() {
               <Swords className="w-5 h-5" /> Initiative Tracker
             </h2>
             {combatState === "active" && (
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
-                  Round {round} - {activeCombatant?.name}'s turn
-                </p>
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    Round {round} - {activeCombatant?.name}'s turn
+                  </p>
+                  {activeCampaign && (
+                    <p className={cn(
+                      "text-[10px]",
+                      autoSaveStatus === "error" ? "text-destructive" : "text-muted-foreground/70",
+                    )}>
+                      {autoSaveStatus === "saving" && "Saving encounter…"}
+                      {autoSaveStatus === "saved" && "Encounter autosaved"}
+                      {autoSaveStatus === "error" && "Autosave failed — use Save Encounter"}
+                      {autoSaveStatus === "idle" && "Autosave ready"}
+                    </p>
+                  )}
+                </div>
                 {encounterXP > 0 && (
                   <span className="text-xs font-mono font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded px-2 py-0.5">
                     ⚔ {encounterXP.toLocaleString()} XP
@@ -3076,7 +3452,7 @@ export default function InitiativeTracker() {
                   size="sm"
                   variant="ghost"
                   className="h-8 text-muted-foreground"
-                  onClick={() => setShowRestoreBanner(false)}
+                  onClick={dismissRestoreEncounter}
                 >
                   Dismiss
                 </Button>
@@ -3194,7 +3570,7 @@ export default function InitiativeTracker() {
                                           
                                           {/* Core Stats */}
                                           <div className="grid grid-cols-2 gap-2 text-sm">
-                                            <div><span className="font-semibold">AC:</span> {combatant.monsterData.ac}</div>
+                                            <div><span className="font-semibold">AC:</span> {combatant.ac}</div>
                                             <div><span className="font-semibold">HP:</span> {combatant.hp}/{combatant.maxHp} {combatant.monsterData.hit_dice && <span className="text-muted-foreground">({combatant.monsterData.hit_dice})</span>}</div>
                                           </div>
                                           
@@ -3210,36 +3586,15 @@ export default function InitiativeTracker() {
                                           
                                           {/* Ability Scores */}
                                           <div className="grid grid-cols-6 gap-1 text-center text-xs border border-border rounded-md p-2">
-                                            <div>
-                                              <div className="font-bold">STR</div>
-                                              <div>{combatant.monsterData.str || 10}</div>
-                                              <div className="text-muted-foreground">{getAbilityModifier(combatant.monsterData.str || 10)}</div>
-                                            </div>
-                                            <div>
-                                              <div className="font-bold">DEX</div>
-                                              <div>{combatant.monsterData.dex || 10}</div>
-                                              <div className="text-muted-foreground">{getAbilityModifier(combatant.monsterData.dex || 10)}</div>
-                                            </div>
-                                            <div>
-                                              <div className="font-bold">CON</div>
-                                              <div>{combatant.monsterData.con || 10}</div>
-                                              <div className="text-muted-foreground">{getAbilityModifier(combatant.monsterData.con || 10)}</div>
-                                            </div>
-                                            <div>
-                                              <div className="font-bold">INT</div>
-                                              <div>{combatant.monsterData.int || 10}</div>
-                                              <div className="text-muted-foreground">{getAbilityModifier(combatant.monsterData.int || 10)}</div>
-                                            </div>
-                                            <div>
-                                              <div className="font-bold">WIS</div>
-                                              <div>{combatant.monsterData.wis || 10}</div>
-                                              <div className="text-muted-foreground">{getAbilityModifier(combatant.monsterData.wis || 10)}</div>
-                                            </div>
-                                            <div>
-                                              <div className="font-bold">CHA</div>
-                                              <div>{combatant.monsterData.cha || 10}</div>
-                                              <div className="text-muted-foreground">{getAbilityModifier(combatant.monsterData.cha || 10)}</div>
-                                            </div>
+                                            {ABILITIES.map(({ key, label }) => (
+                                              <div key={key}>
+                                                <div className="font-bold">{label}</div>
+                                                <div>{combatant.monsterData?.[key] ?? 10}</div>
+                                                <div className="text-muted-foreground">
+                                                  {formatSignedModifier(getCombatantAbilityModifier(combatant, key))}
+                                                </div>
+                                              </div>
+                                            ))}
                                           </div>
                                           
                                           {/* Resistances/Immunities */}
@@ -3296,6 +3651,14 @@ export default function InitiativeTracker() {
                                           <div className="mt-2 text-sm">
                                             <p>HP: {combatant.hp}/{combatant.maxHp}</p>
                                             <p>AC: {combatant.ac}</p>
+                                          </div>
+                                          <div className="grid grid-cols-6 gap-1 mt-3 text-xs border border-border rounded-md p-2">
+                                            {ABILITIES.map(({ key, label }) => (
+                                              <div key={key}>
+                                                <div className="font-bold">{label}</div>
+                                                <div>{formatSignedModifier(getCombatantAbilityModifier(combatant, key))}</div>
+                                              </div>
+                                            ))}
                                           </div>
                                         </div>
                                       ) : (
@@ -3848,6 +4211,17 @@ export default function InitiativeTracker() {
                             </div>
                           </div>
 
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            className="text-primary border-primary/40 hover:bg-primary/10"
+                            onClick={() => openCorrectionEditor(combatant)}
+                            title="Correct encounter stats"
+                            data-testid={`button-correct-stats-${combatant.id}`}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+
                           {/* Remove */}
                           <Button 
                             size="icon" 
@@ -3861,8 +4235,8 @@ export default function InitiativeTracker() {
                         </div>
 
                         {/* Monster Statblock */}
-                        {combatant.monsterData && (
-                          <MonsterStatblock monster={combatant.monsterData} onRoll={requestRoll} />
+                        {combatant.monsterData && monsterWithOverrides(combatant) && (
+                          <MonsterStatblock monster={monsterWithOverrides(combatant)!} onRoll={requestRoll} />
                         )}
                       </CardContent>
                     </Card>
