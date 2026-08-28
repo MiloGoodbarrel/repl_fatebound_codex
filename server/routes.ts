@@ -464,9 +464,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ message: "Invalid campaign id" });
     try {
-      const body = await readBody(req);
-      const data = JSON.parse(body);
-      await storage.saveEncounter(id, data);
+      await storage.saveEncounter(id, req.body);
       res.json({ message: "Encounter saved" });
     } catch (err) {
       res.status(500).json({ message: "Failed to save encounter" });
