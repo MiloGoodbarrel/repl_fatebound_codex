@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
 import {
-  Sparkles, Swords, Plus, Trash2, ChevronRight,
+  Sparkles, Swords, Plus, Trash2, ChevronRight, Dices,
   Scroll, Shield, BookOpen, ChevronDown, ChevronUp, CircleDot
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -101,7 +101,7 @@ export default function Landing() {
         </div>
 
         {/* Tool Cards — always the primary action */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <motion.div initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}>
             <Link href="/loot">
               <Card className="group cursor-pointer hover-elevate transition-all duration-300 border-2 hover:border-primary/50 bg-card/50 backdrop-blur-sm">
@@ -124,6 +124,34 @@ export default function Landing() {
                   )}
                   <Button variant="outline" className="group-hover:bg-primary group-hover:text-primary-foreground gap-2" data-testid="link-deck-of-loot">
                     Enter the Archives <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </CardContent>
+              </Card>
+            </Link>
+          </motion.div>
+
+          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
+            <Link href="/tables">
+              <Card className="group cursor-pointer hover-elevate transition-all duration-300 border-2 hover:border-primary/50 bg-card/50 backdrop-blur-sm">
+                <CardContent className="p-8 flex flex-col items-center text-center space-y-4">
+                  <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                    <Dices className="w-10 h-10 text-primary" />
+                  </div>
+                  <div className="space-y-1">
+                    <h2 className="text-2xl font-display font-bold">Roll Tables</h2>
+                    <p className="text-muted-foreground font-serif text-sm">
+                      Summon NPCs, places, events, and story sparks.
+                    </p>
+                  </div>
+                  {activeCampaign ? (
+                    <p className="text-xs text-primary/80 font-mono flex items-center gap-1.5 bg-primary/10 px-2 py-1 rounded-full">
+                      <BookOpen className="w-3 h-3" /> {activeCampaign.name} tables active
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground/60 font-mono">Stock tables ready to draw</p>
+                  )}
+                  <Button variant="outline" className="group-hover:bg-primary group-hover:text-primary-foreground gap-2" data-testid="link-roll-tables">
+                    Open the Tables <ChevronRight className="w-4 h-4" />
                   </Button>
                 </CardContent>
               </Card>

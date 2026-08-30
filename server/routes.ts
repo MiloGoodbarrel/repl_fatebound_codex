@@ -3,7 +3,8 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { insertCampaignSchema, insertCampaignCharacterSchema, type InsertItem, type InsertHomebrewItem } from "@shared/schema";
+import { insertCampaignSchema, insertCampaignCharacterSchema, rollTableInputSchema, type InsertItem, type InsertHomebrewItem } from "@shared/schema";
+import { STOCK_ROLL_TABLES } from "@shared/rollTables";
 import { seedLootTable } from "./seedLoot";
 
 function parseCSV(csvText: string): Omit<InsertItem, never>[] {
@@ -479,6 +480,75 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json({ message: "Saved encounter cleared" });
     } catch (err) {
       res.status(500).json({ message: "Failed to clear saved encounter" });
+    }
+  });
+
+  // ── Roll Tables ────────────────────────────────────────────────────────────
+
+  app.get("/api/roll-tables", async (req, res) => {
+    const campaignId = req.query.campaignId == null ? undefined : parseInt(String(req.query.campaignId));
+    if (campaignId !== undefined && isNaN(campaignId)) {
+      return res.status(400).json({ message: "Invalid campaign id" });
+    }
+    try {
+      const custom = campaignId === undefined ? [] : await storage.getRollTables(campaignId);
+      res.json([...STOCK_ROLL_TABLES, ...custom]);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Failed to fetch roll tables" });
+    }
+  });
+
+  app.post("/api/roll-tables", async (req, res) => {
+    try {
+      const data = rollTableInputSchema.parse(req.body);
+      const campaign = await storage.getCampaign(data.campaignId);
+      if (!campaign) return res.status(404).json({ message: "Campaign not found" });
+      const table = await storage.createRollTable(data);
+      res.status(201).json(table);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join(".") });
+      }
+      console.error(err);
+      res.status(500).json({ message: "Failed to create roll table" });
+    }
+  });
+
+  app.put("/api/roll-tables/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid roll table id" });
+    try {
+      const data = rollTableInputSchema.parse(req.body);
+      const campaign = await storage.getCampaign(data.campaignId);
+      if (!campaign) return res.status(404).json({ message: "Campaign not found" });
+      const table = await storage.updateRollTable(id, data);
+      if (!table) return res.status(404).json({ message: "Roll table not found" });
+      res.json(table);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join(".") });
+      }
+      console.error(err);
+      res.status(500).json({ message: "Failed to update roll table" });
+    }
+  });
+
+  app.delete("/api/roll-tables/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    const campaignId = parseInt(String(req.query.campaignId ?? req.body?.campaignId));
+    if (isNaN(id) || isNaN(campaignId)) {
+      return res.status(400).json({ message: "A valid roll table and campaign id are required" });
+    }
+    try {
+      const campaign = await storage.getCampaign(campaignId);
+      if (!campaign) return res.status(404).json({ message: "Campaign not found" });
+      const deleted = await storage.deleteRollTable(id, campaignId);
+      if (!deleted) return res.status(404).json({ message: "Roll table not found" });
+      res.json({ message: "Roll table deleted" });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Failed to delete roll table" });
     }
   });
 

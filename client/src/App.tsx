@@ -7,6 +7,7 @@ import { CampaignProvider } from "@/lib/campaignContext";
 import Home from "@/pages/Home";
 import Landing from "@/pages/Landing";
 import InitiativeTracker from "@/pages/InitiativeTracker";
+import RollTables from "@/pages/RollTables";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -15,6 +16,7 @@ function Router() {
       <Route path="/" component={Landing} />
       <Route path="/loot" component={Home} />
       <Route path="/initiative" component={InitiativeTracker} />
+      <Route path="/tables" component={RollTables} />
       <Route component={NotFound} />
     </Switch>
   );

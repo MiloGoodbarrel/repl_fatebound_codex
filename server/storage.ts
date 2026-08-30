@@ -3,6 +3,7 @@ import {
   items5e, homebrewItems, campaignItems, campaigns, campaignCharacters,
   bestiaryMonsters, bestiaryMonsterTraits, bestiaryMonsterActions,
   campaignHomebrewMonsters, campaignHomebrewActions, campaignSavedEncounters,
+  rollTables, rollTableEntries,
   type InsertItem, type Item,
   type HomebrewItem, type InsertHomebrewItem,
   type Campaign, type InsertCampaign,
@@ -60,6 +61,12 @@ export interface IStorage {
   getSavedEncounter(campaignId: number): Promise<{ data: any; savedAt: Date } | null>;
   saveEncounter(campaignId: number, data: any): Promise<void>;
   clearSavedEncounter(campaignId: number): Promise<void>;
+
+  // Roll tables
+  getRollTables(campaignId: number): Promise<any[]>;
+  createRollTable(data: any): Promise<any>;
+  updateRollTable(id: number, data: any): Promise<any | null>;
+  deleteRollTable(id: number, campaignId: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -517,6 +524,97 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(campaignSavedEncounters)
       .where(eq(campaignSavedEncounters.campaignId, campaignId));
+  }
+
+  // ── Roll tables ────────────────────────────────────────────────────────────
+
+  async getRollTables(campaignId: number): Promise<any[]> {
+    const rows = await db
+      .select()
+      .from(rollTables)
+      .where(eq(rollTables.campaignId, campaignId))
+      .orderBy(asc(rollTables.name));
+    return Promise.all(rows.map(async row => ({
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      category: row.category,
+      mode: row.mode,
+      source: "campaign" as const,
+      campaignId: row.campaignId ?? undefined,
+      entries: await db
+        .select()
+        .from(rollTableEntries)
+        .where(eq(rollTableEntries.tableId, row.id))
+        .orderBy(asc(rollTableEntries.entryOrder)),
+    })));
+  }
+
+  async createRollTable(data: any): Promise<any> {
+    const created = await db.transaction(async tx => {
+      const [row] = await tx
+        .insert(rollTables)
+        .values({
+          campaignId: data.campaignId,
+          name: data.name,
+          description: data.description,
+          category: data.category,
+          mode: data.mode,
+        })
+        .returning();
+      await tx.insert(rollTableEntries).values(data.entries.map((entry: any, index: number) => ({
+        tableId: row.id,
+        entryOrder: index,
+        text: entry.text,
+        minRoll: entry.minRoll ?? null,
+        maxRoll: entry.maxRoll ?? null,
+        weight: entry.weight ?? null,
+      })));
+      return row;
+    });
+    const tables = await this.getRollTables(data.campaignId);
+    return tables.find(table => table.id === created.id);
+  }
+
+  async updateRollTable(id: number, data: any): Promise<any | null> {
+    const updated = await db.transaction(async tx => {
+      const [row] = await tx
+        .update(rollTables)
+        .set({
+          name: data.name,
+          description: data.description,
+          category: data.category,
+          mode: data.mode,
+        })
+        .where(and(eq(rollTables.id, id), eq(rollTables.campaignId, data.campaignId)))
+        .returning();
+      if (!row) return null;
+      await tx.delete(rollTableEntries).where(eq(rollTableEntries.tableId, id));
+      await tx.insert(rollTableEntries).values(data.entries.map((entry: any, index: number) => ({
+        tableId: id,
+        entryOrder: index,
+        text: entry.text,
+        minRoll: entry.minRoll ?? null,
+        maxRoll: entry.maxRoll ?? null,
+        weight: entry.weight ?? null,
+      })));
+      return row;
+    });
+    if (!updated) return null;
+    const tables = await this.getRollTables(data.campaignId);
+    return tables.find(table => table.id === id) ?? null;
+  }
+
+  async deleteRollTable(id: number, campaignId: number): Promise<boolean> {
+    return db.transaction(async tx => {
+      const [owned] = await tx
+        .select({ id: rollTables.id })
+        .from(rollTables)
+        .where(and(eq(rollTables.id, id), eq(rollTables.campaignId, campaignId)));
+      if (!owned) return false;
+      await tx.delete(rollTables).where(eq(rollTables.id, id));
+      return true;
+    });
   }
 }
 

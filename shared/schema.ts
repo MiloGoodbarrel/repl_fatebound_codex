@@ -243,6 +243,75 @@ export const campaignSavedEncounters = pgTable("campaign_saved_encounters", {
 
 export type CampaignSavedEncounter = typeof campaignSavedEncounters.$inferSelect;
 
+// ─── Roll Tables ──────────────────────────────────────────────────────────────
+
+export const rollTables = pgTable("roll_tables", {
+  id: serial("id").primaryKey(),
+  campaignId: integer("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  category: text("category").notNull().default("Custom"),
+  mode: text("mode").notNull().default("range"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const rollTableEntries = pgTable("roll_table_entries", {
+  id: serial("id").primaryKey(),
+  tableId: integer("table_id").notNull().references(() => rollTables.id, { onDelete: "cascade" }),
+  entryOrder: integer("entry_order").notNull().default(0),
+  text: text("text").notNull(),
+  minRoll: integer("min_roll"),
+  maxRoll: integer("max_roll"),
+  weight: integer("weight"),
+});
+
+export const rollTableModeSchema = z.enum(["range", "weighted"]);
+
+export const rollTableEntryInputSchema = z.object({
+  text: z.string().trim().min(1).max(1000),
+  minRoll: z.number().int().min(1).optional(),
+  maxRoll: z.number().int().min(1).optional(),
+  weight: z.number().int().min(1).max(1000).optional(),
+});
+
+export const rollTableInputSchema = z.object({
+  campaignId: z.number().int().positive(),
+  name: z.string().trim().min(1).max(100),
+  description: z.string().trim().max(500).default(""),
+  category: z.string().trim().min(1).max(50).default("Custom"),
+  mode: rollTableModeSchema.default("range"),
+  entries: z.array(rollTableEntryInputSchema).min(1).max(200),
+}).superRefine((table, context) => {
+  table.entries.forEach((entry, index) => {
+    if (table.mode === "weighted" && entry.weight == null) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Weighted entries require a positive weight", path: ["entries", index, "weight"] });
+    }
+    if (table.mode === "range") {
+      if (entry.minRoll == null || entry.maxRoll == null) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Range entries require minimum and maximum rolls", path: ["entries", index] });
+      } else if (entry.maxRoll < entry.minRoll) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "Maximum roll must be at least the minimum roll", path: ["entries", index, "maxRoll"] });
+      }
+    }
+  });
+  if (table.mode === "range" && table.entries.every(entry => entry.minRoll != null && entry.maxRoll != null)) {
+    const sorted = [...table.entries].sort((a, b) => a.minRoll! - b.minRoll!);
+    for (let index = 1; index < sorted.length; index++) {
+      if (sorted[index].minRoll !== sorted[index - 1].maxRoll! + 1) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Ranges must be sequential without gaps or overlaps",
+          path: ["entries"],
+        });
+        break;
+      }
+    }
+  }
+});
+
+export type RollTableRow = typeof rollTables.$inferSelect;
+export type RollTableEntryRow = typeof rollTableEntries.$inferSelect;
+
 // ─── Campaign Homebrew Bestiary ───────────────────────────────────────────────
 
 export const campaignHomebrewMonsters = pgTable("campaign_homebrew_monsters", {
