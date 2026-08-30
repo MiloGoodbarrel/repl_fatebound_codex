@@ -38,6 +38,14 @@ import { cn } from "@/lib/utils";
 import { useCampaign } from "@/lib/campaignContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { CampaignCharacter } from "@shared/schema";
+import {
+  applyGroupDamage as calculateGroupDamage,
+  completeEncounterQuery,
+  completeEncounterReset,
+  createEncounterRestoreState,
+  isCurrentEncounterCampaign,
+  sortCombatantsPreservingActiveTurn,
+} from "@shared/encounterRecovery";
 import { useToast } from "@/hooks/use-toast";
 
 const VERSION_OPTIONS = [
@@ -742,6 +750,8 @@ export default function InitiativeTracker() {
 
   // Campaign party
   const { activeCampaign } = useCampaign();
+  const activeCampaignIdRef = useRef<number | null>(activeCampaign?.id ?? null);
+  activeCampaignIdRef.current = activeCampaign?.id ?? null;
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -760,10 +770,16 @@ export default function InitiativeTracker() {
     isFetching: isFetchingSavedEncounter,
   } = useQuery<{ data: any; savedAt: string } | null>({
     queryKey: ["/api/campaigns", activeCampaign?.id, "encounter"],
-    queryFn: () =>
-      fetch(`/api/campaigns/${activeCampaign!.id}/encounter`)
-        .then(r => (r.ok ? r.json() : null))
-        .catch(() => null),
+    queryFn: async ({ queryKey }) => {
+      const campaignId = Number(queryKey[1]);
+      try {
+        const response = await fetch(`/api/campaigns/${campaignId}/encounter`);
+        const result = response.ok ? await response.json() : null;
+        return completeEncounterQuery(campaignId, activeCampaignIdRef.current, result);
+      } catch {
+        return null;
+      }
+    },
     enabled: !!activeCampaign,
     staleTime: Infinity,
     retry: false,
@@ -806,7 +822,11 @@ export default function InitiativeTracker() {
   // Show restore banner when a saved encounter exists and nothing is loaded yet
   useEffect(() => {
     const campaignId = activeCampaign?.id ?? null;
-    if (campaignId == null || encounterOwnerCampaignId !== campaignId || isFetchingSavedEncounter) {
+    if (
+      campaignId == null
+      || !isCurrentEncounterCampaign(campaignId, encounterOwnerCampaignId)
+      || isFetchingSavedEncounter
+    ) {
       setAutoSaveReady(false);
       return;
     }
@@ -1259,11 +1279,14 @@ export default function InitiativeTracker() {
     if (damage <= 0) return;
     const focIdx = groupFocused[id] ?? 0;
     const wasAlive = combatant.memberHp[focIdx] > 0;
-    const newMemberHp = [...combatant.memberHp];
-    newMemberHp[focIdx] = Math.max(0, newMemberHp[focIdx] - damage);
+    const groupDamage = calculateGroupDamage(combatant.memberHp, focIdx, damage);
+    const newMemberHp = groupDamage.memberHp;
     const memberJustDied = wasAlive && newMemberHp[focIdx] <= 0;
-    const allDead = newMemberHp.every(h => h <= 0);
-    updateCombatant(id, { memberHp: newMemberHp, isDown: allDead, isDead: allDead });
+    updateCombatant(id, {
+      memberHp: newMemberHp,
+      isDown: groupDamage.isDown,
+      isDead: groupDamage.isDead,
+    });
     clearHpInput(id);
     if (memberJustDied) {
       // Use a member-specific name for the death scene
@@ -1479,14 +1502,9 @@ export default function InitiativeTracker() {
       };
     }
 
-    const correctedOrder = combatants
-      .map(c => c.id === corrected.id ? corrected : c)
-      .sort((a, b) => b.initiative - a.initiative);
-    setCombatants(correctedOrder);
-    if (activeId) {
-      const correctedActiveIndex = correctedOrder.findIndex(c => c.id === activeId);
-      if (correctedActiveIndex >= 0) setActiveIndex(correctedActiveIndex);
-    }
+    const correctedResult = sortCombatantsPreservingActiveTurn(combatants, corrected, activeId);
+    setCombatants(correctedResult.combatants);
+    if (correctedResult.activeIndex !== null) setActiveIndex(correctedResult.activeIndex);
     setCorrectionDraft(null);
     toast({ title: "Combatant corrected", description: `${combatant.name}'s encounter stats were updated.` });
   };
@@ -2067,16 +2085,17 @@ export default function InitiativeTracker() {
 
   const restoreEncounter = () => {
     if (!savedEncounterResult?.data) return;
-    const { combatants: c, round: r, activeIndex: ai, combatState: cs, selectedVersions: sv } = savedEncounterResult.data;
-    setCombatants(c ?? []);
-    setRound(r ?? 1);
-    setActiveIndex(ai ?? 0);
-    setCombatState(cs ?? "active");
-    setSelectedVersions(sv ?? []);
-    setShowVersionDialog(false);
-    setShowRestoreBanner(false);
-    setAutoSaveReady(true);
-    toast({ title: "Encounter restored", description: `Round ${r} · ${(c ?? []).length} combatants` });
+    const snapshot = createEncounterRestoreState<Combatant>(savedEncounterResult.data);
+    if (!snapshot) return;
+    setCombatants(snapshot.combatants);
+    setRound(snapshot.round);
+    setActiveIndex(snapshot.activeIndex);
+    setCombatState(snapshot.combatState);
+    setSelectedVersions(snapshot.selectedVersions);
+    setShowVersionDialog(snapshot.showVersionDialog);
+    setShowRestoreBanner(snapshot.showRestoreBanner);
+    setAutoSaveReady(snapshot.autoSaveReady);
+    toast({ title: "Encounter restored", description: `Round ${snapshot.round} · ${snapshot.combatants.length} combatants` });
   };
 
   const dismissRestoreEncounter = () => {
@@ -2090,9 +2109,10 @@ export default function InitiativeTracker() {
     latestEncounterRef.current = null;
     setAutoSaveReady(false);
     await enqueueEncounterRequest(campaignId, "DELETE");
-    if (previousCampaignIdRef.current !== campaignId) return;
-    setAutoSaveReady(true);
-    refetchSavedEncounter();
+    const completion = completeEncounterReset(campaignId, activeCampaignIdRef.current);
+    if (!completion) return;
+    setAutoSaveReady(completion.autoSaveReady);
+    if (completion.shouldRefetch) refetchSavedEncounter();
   };
 
   const resetCombat = () => {
