@@ -1,0 +1,2265 @@
+
+
+===== PAGE 1 =====
+A E T H E R F A L L
+A S H O N T H E W E S T E R N R O A D
+A campaign of dying magic, hidden grace, and the first ash
+
+
+===== PAGE 2 =====
+ASH ON THE WESTERN ROAD
+2
+AETHERFALL
+ASH ON THE WESTERN ROAD
+An opening campaign volume for the world of Daear
+Campaign Design: Luis Ramirez
+Adventure Manuscript and Layout: Private campaign edition
+Rules: Compatible with fifth-edition fantasy roleplaying
+Campaign Year: 3000 AoM, one thousand years after the Fall of the Weaver
+Private Campaign Edition
+This manuscript is an original, unofficial campaign aid. It contains no official logos or product identity and is intended for private tabletop play.
+Creature references may be replaced with equivalent statistics from the core rules used at your table.
+The world is wounded. The road still runs.
+
+
+===== PAGE 3 =====
+ASH ON THE WESTERN ROAD
+3
+CONTENTS
+Introduction
+4
+Running the Adventure  ·  The Year  ·  Broken Magic  ·  The Ash-Mark  ·  Recurring Clues
+Chapter 1: Redhold
+7
+Redhold at a Glance  ·  The House of Holdt  ·  The Attack Timeline  ·  Four Missions  ·  The Ashborn Emergence  ·  Aftermath
+Chapter 2: The Road to Hallowmere
+11
+Four Legs  ·  Road Rumors  ·  The Weight in the Wheat  ·  The Ruined Wayshrine
+Chapter 3: Hallowmere Abbey
+14
+The Abbey at a Glance  ·  The Weight  ·  What the Abbey Knows
+Chapter 4: The Abbot’s Trail
+16
+Beginning the Search  ·  The Returned Mule  ·  Reconstructing the Quest
+Chapter 5: The Road to Calladris
+19
+The Quarantine Bridge  ·  The Gilded Compass  ·  The Green Mile
+Chapter 6: Calladris
+21
+First Impressions  ·  Earning an Audience  ·  The Seven Calladris Quests  ·  The Book in the Mud  ·  The Night Cycle
+Appendix A: DM Secrets and Executor Lore
+25
+The Hidden State of Calladris  ·  Sideron the Peacemaker  ·  The Two Manifestations  ·  The Eight and the Ring  ·  Reveal Pacing
+Appendix B: Bestiary of the Ashborn
+27
+The Ashborn Template  ·  The Blighted Condition  ·  Stat Blocks  ·  The Shamans  ·  Creatures of Calladris
+Appendix C: Player Handouts
+32
+Seven handouts and the Royal Seal Tracker
+Appendix D: DM Quick Reference
+34
+Arc Summary  ·  Clue Ladder  ·  Session Planning  ·  Tone Reminders
+
+
+===== PAGE 4 =====
+ASH ON THE WESTERN ROAD
+4
+INTRODUCTION
+The first signs of the Aetherfall are not armies or falling stars. They
+are smaller: a healing prayer that falters, a flock that refuses to land, a
+cup of water that tastes faintly of ash. This volume begins in the
+road-village of Redhold, where strangers are forced together by
+violence, and carries them through Hallowmere Abbey to the
+fortified capital of Calladris.
+The story should feel like the opening of a long descent. The world is
+still recognizable, but its promises have begun to fail.
+RUNNING THE ADVENTURE
+This adventure is written for four to five 1st-level characters. They
+should reach 2nd level after surviving the attack on Redhold, 3rd
+after resolving the Abbot’s Trail, and 4th after earning meaningful
+standing in Calladris. The volume ends before the hidden ruler of
+Calladris is confronted.
+The central rhythm alternates between urgent danger and uneasy
+stillness. Redhold is immediate survival. The road is dread and
+evidence. Hallowmere is fragile sanctuary. Calladris is order that has
+become suspiciously perfect. Avoid explaining the Aetherfall too
+early. Let the characters collect symptoms before they are given
+names.
+What the Characters Know
+The characters do not begin with the words Aetherfall, Executor of
+Grace, or Sepulcher of Silence. Most people call the spreading
+disaster the Blight, the Sickness, the Ash, or simply the trouble in
+the east. Even learned clergy disagree over whether it is plague,
+curse, failed magic, divine judgment, or war.
+THE YEAR
+The campaign opens in 3000 AoM. The Weaver fell a thousand years
+ago; the blight reached the eastern marches of Siorlas four centuries
+back. Nobody alive remembers a world that worked. What is new is
+not the wound but its arrival here, at the western edge, where
+Valedorn has spent generations assuming the trouble belonged to
+someone else.
+ADVENTURE OVERVIEW
+1. Redhold. The characters begin separately in a small waystation
+village. Mist gathers. Goblins erupt from the road and fields, first
+in panic and then under a shared sigil. The alderman’s son takes
+command of the defense, and by dawn the village has a debt it
+cannot pay.
+2. The Road to Hallowmere. Four travel legs reveal scarcity,
+broken magic, refugees, and creatures fleeing something worse.
+3. Hallowmere Abbey. The monks feel the same spiritual weight
+as the characters, but their abbot has been missing for three nights.
+He left with a royal envoy bound for Calladris.
+4. The Abbot’s Trail. Evidence at the abbey and along the road
+reveals that the abbot reached the capital, sought an audience, and
+vanished. His abandoned mission becomes the party’s charge.
+5. Calladris. The party arrives during the unveiling of a royal
+commemorative statue. Many adventurers seek answers. Sideron,
+right hand of the absent king, directs petitioners into useful
+errands while the city’s deeper horror remains hidden.
+MILESTONE ADVANCEMENT
+Milestone
+Level
+Campaign begins in Redhold
+1st
+Redhold survives the night
+2nd
+The party reconstructs the Abbot’s mission
+and reaches the capital road
+3rd
+The party earns four Royal Seals or completes
+a major Calladris revelation
+4th
+BROKEN MAGIC
+Magic in Aetherfall is not weaker. It is unreliable. Since the Fall of
+the Weaver, every power that reaches into the world must cross a
+wounded medium to arrive. This applies to all of it — arcane study,
+divine prayer, patron pact, primal covenant, innate gift, bardic art. A
+cleric’s god still answers. The answer has to travel the same broken
+road as everything else.
+Nothing about a caster’s faith, training, or bond has failed. The world
+between them and their power has.
+The Spellcasting Check
+When you cast a spell, roll d20 + spellcasting ability modifier +
+proficiency bonus. The DC is 11 + the spell’s level; cantrips use DC
+11.
+On a success the spell is cast normally. On a failure the spell fizzles.
+The action is spent. The magic gutters — sparks at the fingertips, a
+word that will not finish, a holy symbol that stays cold. The slot is
+not expended. Nothing was cast, so nothing was spent.
+Attack Spells: One Roll, Two Numbers
+A spell requiring an attack roll would otherwise be gated twice. It is
+not. Because the Spellcasting Check and the spell attack roll use
+identical modifiers, they are the same roll. Roll once and compare
+the total to both the DC and the target’s AC.
+• Beats both. The spell forms and hits.
+• Beats the DC, misses the AC. It forms and goes wide. An
+ordinary miss.
+• Fails the DC. It fizzles in your hand. Nothing leaves you; no
+attack is made, and nothing can be counterspelled.
+This produces the setting’s signature texture automatically. At low
+levels the AC is the harder number, so cantrips rarely fizzle — they
+simply miss. At high levels the DC dwarfs any armor. Small spells
+miss. Great spells fizzle.
+
+
+===== PAGE 5 =====
+ASH ON THE WESTERN ROAD
+5
+What Does Not Require a Check
+No check: magic items, including items that cast spells — a made
+thing holds its own pattern and does not reach through the wound to
+find it. Also potions, consumables, and class features that are not
+spells (Channel Divinity, Lay on Hands, Bardic Inspiration, Ki,
+Rage, invocations, Divine Smite).
+Check required: all spellcasting from every source, and spell
+scrolls — a scroll is a spell waiting to be cast, not a finished effect.
+A failed scroll is not consumed.
+Magic items are therefore worth far more here than in ordinary play.
+That is intended.
+Regions
+Region
+Effect on Casting
+Stable
+Magic functions normally. No check.
+Unstable
+Spellcasting Check required.
+Blighted
+Spellcasting Check with disadvantage.
+Dead Zone
+No casting by ordinary means; active items fail.
+Disadvantage roughly squares the odds — a 70% cast becomes 49%.
+A stabilized zone reduces local severity by one tier and cannot push
+conditions below Stable.
+Do Not Roll for Every Spell
+The earliest sessions should establish dread, not punish a player for
+choosing a caster. Call for checks only inside marked unstable
+zones, during surges of ash-mist, or when a scene specifically says
+the Weave is under strain. This volume uses checks sparingly so the
+first failures feel significant rather than routine.
+Misfires: The Natural 1
+House rule, all rolls except death saves: a natural 1 succeeds —
+and costs. The roll beats every number it needed. The spell forms.
+The attack lands. And something tears. Resolve the effect fully, then
+apply a cost. It lands after the success, never instead of it.
+d10
+Magical Misfire
+1
+Backlash: necrotic damage equal to twice the spell’s level.
+2
+Overdraw: the slot burns to the next level up.
+3
+Spill: the effect strikes one additional creature, DM’s choice.
+4
+Echo: the spell repeats next turn at the same point. No slot.
+5
+Silence: that spell cannot be cast again until a long rest.
+6
+The Weave answers wrong. Roll on any wild magic table.
+7
+Mark: a visible sign on the caster. Cosmetic, permanent, cumulative.
+8
+Thinning: the region drops one tier for ten minutes.
+9
+Noticed: something learns the caster’s location. Bank it.
+10
+The dead stir within 60 feet. Not always hostile. Always unwelcome.
+For martial misfires, prefer a cumulative −1 to a weapon until a smith
+repairs it, a fouled or dropped weapon, disadvantage on the next
+attack, or a worn item failing. At 5% per roll a caster misfires roughly
+every other session. Keep costs recoverable — bent, not broken.
+THE ASH-MARK
+Necromantic corruption and the blight share one track. Twelve stages
+climb from the fingertips through hand, forearm, elbow, shoulder,
+and chest to an enthrallment threshold. A fighter clawed in the first
+session and a warlock who dabbles in death magic are walking the
+same road. The blight does not care how you arrived.
+Optional — Pushing Through. When a caster fails a Spellcasting
+Check, they may force the spell through anyway. It succeeds, and
+they advance one stage on the Ash-Mark Track. This converts the
+rule from a tax into a temptation. Every failure becomes an offer.
+HORROR WITHOUT
+HELPLESSNESS
+The campaign deals with disease, spiritual corruption, living
+petrification, loss of memory, and hidden civic violence. Describe
+consequences clearly, but preserve meaningful choices. A clue
+should never require a single successful check. Failure changes the
+cost, timing, or danger; it does not end the story.
+RECURRING CLUES
+• The Eye Sigil. A crude eye scored through with a vertical line
+appears on goblin shields, road markers, confiscation orders, and
+eventually in the geometry of Sideron’s civic seals. Nobody in
+Valedorn can read it.
+• Serene Faces. Victims are found without the fear expected of
+violent death. They look relieved, emptied, or quietly accepting.
+• Untouched Calladris. Crops, streets, lamps, and fountains in the
+capital appear healthier than those outside it. The perfection is
+maintained, not natural.
+• Missing Authority. Orders are always issued in the king’s name,
+but the king is never seen. Every delay is reasonable when
+considered alone.
+• Old Graces. Hallowmere preserves broken references to Keepers,
+Graces, and judges beneath the Veil. The terms should not yet be
+explained.
+
+
+===== PAGE 6 =====
+T H E A T T A C K O N R E D H O L D
+When the first ash rises, the road closes behind you
+
+
+===== PAGE 7 =====
+ASH ON THE WESTERN ROAD
+7
+CHAPTER ONE
+REDHOLD
+The village that becomes a battlefield
+Redhold is a small road-village whose value lies in ordinary things: a
+warm room, a repaired wheel, a dry loft, a bowl of stew, and news
+exchanged beside the fire. The campaign begins by letting the
+characters briefly inhabit that ordinary life. Then the mist arrives.
+REDHOLD AT A GLANCE
+Redhold stands where a maintained crown road narrows between
+grain fields and a low wooded ridge. It is not walled. Fences,
+drainage ditches, stone foundations, and close-built yards provide the
+only defensible lines. Its people are accustomed to travelers and can
+usually tell the difference between a merchant, a pilgrim, a deserter,
+and a thief within a few exchanged words.
+Feature
+Detail
+Population
+Roughly 220, including nearby farmsteads.
+Government
+A crown reeve, advised by an alderman and
+the senior householders.
+Defenses
+A dozen part-time watchfolk, hunting bows,
+farm tools, and a bell.
+Mood
+Practical hospitality strained by bad harvest
+rumors.
+Roads
+West toward safer settlements; east toward
+Hallowmere and Calladris.
+KEY LOCATIONS
+1. The Red Hart. The village inn and social heart. Its common
+room can hold forty in discomfort and becomes the final refuge
+during the attack. The cellar has two exits: stairs to the taproom
+and a narrow delivery hatch behind the building.
+2. Reeve’s Hall. A stout timber building with the village bell,
+records, two locked chests of levy arms, and a loft used for
+meetings.
+3. Durn’s Smithy. A low stone forge. The quench trough, coal
+dust, chains, hammers, and half-finished tools make the smithy
+dangerous to attackers and defenders alike.
+4. The South Barns. Grain, hay, and animals packed close
+together. Fire here becomes an immediate threat to the entire
+village.
+5. The Pilgrim Well. A communal well beneath a small stone
+canopy. The water tastes of iron on the morning of the attack.
+6. The Holdt House. A long timber hall east of the well, older than
+most of the village. Three generations live in it. Two of them will
+not see the week out.
+7. Eastern Verge. The crown road crosses a shallow ditch and
+disappears into wheat and mist. The first goblins come from here,
+fleeing rather than advancing.
+THE HOUSE OF HOLDT
+Read This First
+The Holdt family is the emotional spine of the entire campaign, and
+none of that weight should be visible tonight. Osric is a tired old
+man. Garran is a competent neighbor. Liora is a child who waters
+the horses. Play them as ordinary and let the campaign make them
+matter.
+Osric Holdt, alderman. Eighty-one years old, and the only man in
+Redhold who remembers the last time a crown levy actually came
+when it was called. He is stubborn, courteous, and slower than he
+admits. During the attack he refuses to leave the Reeve’s Hall while
+the records are still inside it. He survives the night. He does not
+survive the week — see Aftermath.
+Garran Holdt. Osric’s son, forty-four, twelve years a crown soldier
+and eleven years home. He is broad, unhurried, and good in a crisis in
+the specific way of a man who has already had his worst day. He
+speaks of his daughter constantly and without embarrassment — in
+the middle of a fight, over a meal, to strangers. Garran leaves
+Redhold with the party. See the sidebar in Aftermath for running
+him.
+Liora Holdt. Garran’s daughter, eleven. She is at the pilgrim well
+when the bell rings and she is not brave, clever, or marked in any
+way. She is frightened and she does what she is told. If the party
+saves her they will not think about it again for a decade.
+OTHER PEOPLE OF REDHOLD
+• Reeve Elswyn Marr. Direct, tired, unwilling to waste lives for
+property. She judges people by what they do in the first minutes of
+a crisis.
+• Torren Vale, innkeeper. Broad-shouldered, calm, and excellent
+at giving frightened people one task at a time. He knows every
+cellar and alley in the village.
+• Mara Durn, smith. A former caravan guard who refuses to
+abandon her apprentice, even when the forge catches.
+• Sister Anwen. A road-priest traveling to Hallowmere. Her
+healing prayer fails once during the attack, leaving her shaken but
+functional.
+• Pell Reed. A twelve-year-old stable hand who sees the eye sigil
+before anyone else and repeats a goblin’s terrified words: “The
+eye brings death.”
+• Hesta Vayle. A widow who keeps bees on the ridge and minds
+other people’s children without being asked. Remember her name;
+ten years from now the party will need to know who raised Liora.
+STARTING THE CAMPAIGN
+Place each character at a different location and ask what brought
+them to Redhold. Good starting positions include the Red Hart, the
+smithy, the pilgrim well, a rented loft, a stalled caravan, or the road
+itself. Let each character complete one small social action before the
+attack: order food, negotiate lodging, repair equipment, pray, gamble,
+
+
+===== PAGE 8 =====
+ASH ON THE WESTERN ROAD
+8
+or speak with another traveler.
+At least one character should exchange words with a Holdt — Osric
+complaining about the road tax, Garran buying grain, Liora asking
+whether their horse bites. Nothing more than that.
+The afternoon has the dull silver color of rain that never quite
+begins. Redhold smells of wet timber, horse sweat, forge
+smoke, and bread cooling behind the inn. Travelers come and
+go without ceremony. For a little while, the road seems like a
+promise that the world still joins one place to another.
+Then the eastern bell begins to ring. Not the measured toll for
+fire. Not the quick double strike for riders. A child is pulling
+the rope with both hands, screaming at something in the
+fields.
+THE ATTACK TIMELINE
+Phase
+What Happens
+Opening
+Three goblins burst from the mist. One is wounded,
+one weaponless, one attacks anything blocking its flight.
+3 rounds
+A second group arrives wearing the eye sigil. They
+drive the fleeing goblins ahead of them.
+6 rounds
+Fire begins in the south barns. Villagers scatter.
+The watch bell stops.
+10 rounds
+An ashborn orc and a blight shaman emerge. Their
+power works cleanly inside the mist.
+Climax
+Ashborn creepers form where blood and black residue
+mingle. Survivors retreat to the Red Hart.
+MISSION STRUCTURE
+The attack is not one continuous combat. Run it as a sequence of
+short missions connected by movement through the village.
+Characters may separate, but every mission should offer an urgent
+reason to cross paths with another character. After two missions, the
+party is recognized as the only group moving effectively through the
+chaos.
+MISSION 1: PANIC ON THE
+EASTERN VERGE
+Three small figures break from the wheat and tumble into the
+road. Their skin is grey-green beneath streaks of soot. One
+has thrown away its blade. Another clutches an arrow in its
+side. The third turns, sees the mist behind them, and begins
+hacking at the nearest living thing as if death in the village is
+preferable to whatever follows.
+Use three goblins, but begin one at half hit points and another without
+a weapon. A character who speaks Goblin hears fragments: “Not
+raid,” “eye behind us,” and “it makes the dead stand.” A DC 12
+Wisdom (Insight) check confirms that the goblins are fleeing.
+Capturing or calming one provides the first direct clue that the village
+is not the true target.
+MISSION 2: THE BARN FIRE
+A flaming arrow or burst of unstable magic ignites the south barns.
+The characters have six rounds before the roof collapses. Each round,
+one character can attempt one task; two successes secure the barn,
+four save both people and animals.
+Task
+Check
+Result
+Break the livestock gate DC 12 Athletics
+Animals escape; failure
+causes 1d4 damage.
+Find the missing child
+DC 12 Perception
+Pell is beneath a feed
+cart.
+Smother the hay fire
+DC 13 Dex or tools
+Reduces the collapse
+clock by 1 round.
+Create a firebreak
+DC 12 Str or Int
+Prevents the next
+building igniting.
+Use magic in the smoke Spellcasting Check
+On a success, resolve
+and count two tasks.
+Environmental Weapons
+A sack of flour or fine chaff can be thrown to create a 10-foot cloud
+until the start of the thrower’s next turn. An open flame ignites it,
+dealing 1d6 fire damage (DC 11 Dexterity for half). Use this once as
+a memorable improvisation, not as a repeatable battlefield engine.
+MISSION 3: THE BROKEN BELL
+The Reeve’s Hall has been taken by sigil-bearing goblins. Their
+leader has cut the bell rope and is searching the record chest for road
+maps, census lists, and old royal seals. This is the first evidence that
+the attackers are gathering information rather than merely stealing
+food. One map has been marked with a line from Redhold to
+Hallowmere.
+Osric is here. He is standing between the goblins and the chest with
+a boar spear he has not lifted in twenty years, and he will not move. If
+the party does nothing he is badly hurt but survives. Garran arrives
+one round after the party does, at a dead run, and the fight becomes
+considerably easier.
+MISSION 4: THE RED HART
+HOLDOUT
+The common room is no longer an inn. Tables stand on end
+against the windows. The wounded lie beneath benches.
+Someone has overturned a barrel of ale across the floor, and
+every bootstep carries the smell of yeast and blood. Outside,
+the village bell hangs silent. In the mist beyond the shutters,
+something breathes with the wet patience of a bellows.
+
+
+===== PAGE 9 =====
+ASH ON THE WESTERN ROAD
+9
+The final defense lasts five rounds. Each round, choose one pressure:
+a window breach, fire at the rear wall, panicked civilians, a goblin
+entering through the delivery hatch, or the shaman calling ash from a
+corpse. The characters win by holding until Torren opens the cellar
+route and the reeve organizes a countercharge. They do not need to
+kill every attacker.
+Liora is in this room, under a bench, holding a stranger’s dog. Do not
+draw attention to her.
+THE ASHBORN EMERGENCE
+When a creature dies in a patch of black residue, describe the ash
+drawing inward against the wind. An ashborn creeper pulls itself
+from the stain. This is the first unmistakably unnatural enemy. It does
+not carry a sigil, speak, or retreat. It attacks the nearest warm creature
+and dissolves into greasy soot when destroyed.
+Encounter Caution
+Four ashborn against four 1st-level characters is a genuine party
+wipe. The raid should be mostly ordinary panicking goblins with
+two or three ashborn among them. The party should be able to feel
+the difference between the two without being told there is one.
+AFTERMATH
+At dawn the mist withdraws eastward. The village has survived, but
+at least six buildings are burned and several farmsteads have gone
+silent. The reeve cannot both protect Redhold and send a force east.
+Hallowmere is the nearest place with healers, archives, and a
+tradition of receiving strange reports.
+Osric Holdt dies four days later. Not of a wound — of eighty-one
+years and one night of running. He is buried on the ridge. It is an
+ordinary death in a village that has just had several unordinary ones,
+and it should be reported almost in passing.
+Garran Joins the Party
+Garran asks to come. His reasons are plain and sufficient: he has
+soldiered, he knows the Calladris road, and his father just died
+asking who was going to tell the crown. Hesta Vayle takes Liora.
+Run him as a competent second, never a solution. He carries a
+shield and opinions. He is worse than the party at everything except
+keeping his head. He should never solve a puzzle, land a killing
+blow on a boss, or know a piece of lore the party could have found.
+He talks about Liora constantly. Once or twice a session,
+unprompted, in the wrong moment. What she said about the goblins.
+That she is afraid of the well. That she will be taller than him.
+Players will start to find it funny. Let them. That is the machine
+loading.
+Garran dies at the end of Act I. Nobody sees it happen.
+CLUES IN THE RUINS
+• The eye sigil is painted in lampblack mixed with a metallic grey
+powder that does not wash away normally.
+• The organized attackers carried lists of wells, granaries, and road
+distances. The marks beside Redhold are complete; Hallowmere is
+circled.
+• A dead shaman’s focus contains a bead of black glass that is warm
+despite the cold morning.
+• A survivor saw one armored figure standing motionless in the
+mist while goblins ran around it. No footprints remain where it
+stood.
+• Sister Anwen’s healing failed inside the mist but worked after
+dawn, though weakly.
+Why Redhold?
+DM only. A waystation of no strategic value was attacked by a force
+that came carrying survey lists. The party will never ask why
+tonight, and they should not be able to answer it for two acts.
+The answer is that Redhold sits on ground the sickness has never
+rooted in, and something that can read prophecy wanted that ground
+spoiled before it could be used. Six strangers who happened to be
+standing there stopped it without knowing what they had done.
+REDHOLD REWARDS
+The village can provide ordinary equipment worth up to 20 gp per
+character, two potions of healing from the reeve’s levy chest, and
+letters naming the party as defenders of Redhold. More importantly,
+the characters leave with people who know their names. That
+memory should matter when Calladris later treats them as one more
+band of petitioners.
+
+
+===== PAGE 10 =====
+REDHOLD
+DM reference map
+
+
+===== PAGE 11 =====
+ASH ON THE WESTERN ROAD
+11
+CHAPTER TWO
+THE ROAD TO
+HALLOWMERE
+Four legs into a quieter dread
+The journey from Redhold to Hallowmere normally takes three days.
+In the present crisis it should fill three or four sessions — not because
+every mile is mapped, but because each leg reveals a different failure
+in the world. Travel until something matters; then let the encounter
+become the map.
+RUNNING THE JOURNEY
+Leg
+Landscape
+Primary Pressure
+1. Open Fields
+Farms, ditches,
+abandoned carts
+Evidence and moral
+urgency
+2. Grove Road
+Old trees closing
+over the way
+Misdirection and
+predation
+3. Deep Wood
+Dense forest,
+ruined shrines
+Broken magic and
+pursuit
+4. Low Mere
+Wet ground, bells,
+pale mist
+Exhaustion and
+arrival
+ROAD RUMORS
+d8
+Rumor
+1
+“Calladris has not lost a single harvest. The king has
+stored enough grain for years.”
+2
+“The abbey bell rang at midnight for three nights, though
+no brother admits pulling it.”
+3
+“A knight was found beside the road, turned to stone with
+a smile on his face.”
+4
+“Magic still works in the capital because the king made a
+covenant no priest will name.”
+5
+“Goblins are fleeing west. Whatever drives them leaves no
+living birds behind.”
+6
+“The king is ill, but his right hand keeps order. Better one
+strong advisor than a frightened court.”
+7
+“There are men who buy ash-blackened bodies by weight.”
+8
+“Every road patrol now carries a chisel. Nobody says why.”
+LEG 1: THE OPEN FIELDS
+Redhold falls behind by degrees: first the chimneys, then the
+bell frame, then the dark smudge of burned roofs. Ahead, the
+crown road cuts through fields that should be green. The
+wheat stands high but colorless, every head bowed in the
+same direction though there is no wind.
+The party encounters a wagon overturned beside a drainage ditch. A
+merchant, two drovers, and a wounded crown courier are trapped
+nearby while six goblins search the cargo. The goblins are not
+wearing the eye sigil and flee if bloodied. They stole food because
+the fields east of the grove have turned bitter.
+The courier carries a sealed order for Hallowmere: “Prepare beds for
+royal inspection and receive the king’s envoy.” The order is four
+days old. He saw the envoy arrive at Hallowmere accompanied by an
+older priest — the abbot — then depart east toward Calladris.
+Encounter: The Weight in the Wheat
+At dusk the bowed field begins to whisper. Characters who enter
+must succeed on a DC 12 Wisdom saving throw or hear a familiar
+voice asking them to lie down and rest. A character who fails is
+charmed until the end of its next turn and uses its movement to walk
+deeper into the crop. Two ashborn creepers wait in the center around
+a dead scarecrow. Burning or cutting a path ends the effect.
+LEG 2: THE GROVE ROAD
+The road enters an old grove once maintained by crown foresters.
+Distances become unreliable. A milestone marked Hallowmere – 9
+miles appears twice. The second stone has fresh fingernail scratches
+on its back.
+The Doppelganger Campfire
+The party sees a camp ahead occupied by travelers wearing similar
+cloaks and carrying similar packs. From a distance they appear to be
+the party themselves. Up close they are frightened refugees who have
+unconsciously imitated the characters’ posture, phrases, and
+arrangement. The mimicry ends when someone speaks a true name.
+Nothing attacks; the scene exists to make the road feel porous.
+The Skinwalker in the Mist
+A corpse-thin humanoid follows at the edge of sight. It never runs
+while watched. Use ghoul statistics, but it cannot paralyze; instead, a
+creature hit by its claws cannot take reactions until the start of its next
+turn. It retreats below half hit points, leaving footprints that become
+those of a barefoot child.
+Keeping the Stalker Frightening
+Show the creature three times before initiative: reflected in a puddle,
+standing behind the last traveler in marching order, and crossing the
+road far ahead. Each sighting should be brief enough that the players
+can doubt it, but concrete enough that caution feels justified.
+LEG 3: THE DEEP WOOD
+The road narrows beneath trees old enough to remember
+other kingdoms. Moss covers the milestones. The afternoon
+darkens without becoming evening. Somewhere ahead, a
+prayer bell rings once and then stops in the middle of its own
+note.
+A ruined wayshrine stands beside the road. Its central icon has been
+removed, leaving eight shallow niches and one larger empty
+recess. A DC 13 Intelligence (Religion or History) check identifies
+
+
+===== PAGE 12 =====
+ASH ON THE WESTERN ROAD
+12
+the shrine as older than current Valedornian worship. The surviving
+inscription reads: “By the graces are the weary measured; by mercy
+are they released.”
+The Arrangement Matters
+Eight around one. The party will see this shape again on a book
+cover in Calladris, and a third time carved into something much
+older at the end of the act. Do not comment on it. Let a player be the
+one who says wait, wasn’t there —
+First Spell Failure
+The area within 60 feet of the shrine is unstable. The first spell cast
+here requires a Spellcasting Check. Describe the magic gathering
+correctly and then losing coherence, as though a woven cord had
+snapped. After the first attempt, the instability subsides for an hour.
+The shrine contains an iron coffer beneath the altar holding a pilgrim
+register, an old silver key, and a page torn from a chronicle. The page
+uses the words Keepers beneath the Veil but gives no names. The key
+opens a cabinet in Hallowmere’s archive.
+LEG 4: THE LOW MERE
+The forest lowers into wet meadow and reed-filled channels.
+Hallowmere’s bell can be heard long before the walls appear. The
+party encounters exhausted pilgrims and a cart of fever patients
+waiting at a flooded crossing. Helping them costs two hours but earns
+immediate trust at the abbey.
+Encounter: The Bell Beneath the Water
+A bell rings from beneath the flooded road. A sunken chapel lies ten
+feet below the surface, exposed by a collapsed bank. Characters who
+investigate find a silver handbell lodged in the rafters and three
+drowned dead caught beneath the pews. One corpse carries the same
+royal envoy seal described by the courier — but the body is decades
+old. This is not the current envoy. It is a warning that the road has
+carried similar missions before.
+
+
+===== PAGE 13 =====
+H A L L O W M E R E A B B E Y
+A sanctuary burdened by a missing shepherd
+
+
+===== PAGE 14 =====
+ASH ON THE WESTERN ROAD
+14
+CHAPTER THREE
+HALLOWMERE
+ABBEY
+A quiet house under a gathering weight
+Hallowmere is holy, useful, and quietly tragic. Its people continue the
+routines of hospitality even while healing fails more often and every
+bed fills. The abbey is not under open attack. Its danger is absence:
+the one person expected to understand the signs has gone missing.
+The abbey rises from the low country without grandeur: grey
+walls, steep roofs, a square bell tower, and gardens enclosed
+against the wet wind. Lamplight glows behind narrow
+windows. At the gate, a young monk looks first at your
+weapons, then at the wounded, and finally at the road behind
+you.
+“You came from Redhold,” he says. It is not a question.
+“Then you feel it too.”
+THE ABBEY AT A GLANCE
+Feature
+Detail
+Household
+Twenty-two monks, lay sisters, novices, workers.
+Guests
+Thirty to fifty travelers, patients, refugees.
+Leadership
+Prior Meriel governs while Abbot Caedmon is absent.
+Defenses
+Stone walls, heavy doors, a few wardens, no garrison.
+Sacred Strength
+Healing functions, but requires effort and sometimes fails.
+Current Crisis
+The abbot left for Calladris three nights ago.
+ABBEY LOCATIONS
+1. Gatehouse. Travelers are recorded, weapons peace-bound, the
+visibly sick examined. The gate ledger shows a royal envoy
+arriving four nights ago.
+2. Chapel of the Last Lamp. The sanctuary holds no great relic,
+only a lamp kept burning before a carved tree. The flame shrinks
+whenever ash-mist gathers outside.
+3. Cloister. Covered walks around a herb garden and rain cistern.
+Quiet conversations here carry surprisingly far.
+4. Infirmary. Every bed is occupied. Patients suffer fever, grey
+veins, failed sleep, and wounds that close too slowly.
+5. Archive. A dry stone room of copied sermons, road records,
+local histories, and sealed cabinets. Several old volumes have
+pages cleanly removed.
+6. Abbot’s Lodging. Modest rooms containing travel clothes,
+correspondence, a prayer stool, and a locked writing desk.
+7. Guest House. A crowded dormitory where rumors from every
+road collect faster than the monks can correct them.
+8. Orchard and Mere Path. The abbot often walked here alone.
+The path leads to a small burial ground and the east road.
+IMPORTANT PEOPLE
+• Prior Meriel. Competent, gracious, exhausted. She refuses to call
+the abbot dead without evidence, and fears the abbey will fracture
+if the guests learn how little the clergy understand.
+• Brother Oren. Archivist and skeptic. He believes the missing
+pages were removed by the abbot for good reason. He distrusts
+royal envoys and anyone who asks to see sealed histories.
+• Sister Anwen. If she survived Redhold, she becomes the party’s
+advocate. Her failed prayer has made her more honest, not less
+faithful.
+• Novice Talm. Saw the abbot leave. He remembers a detail others
+dismiss: the royal envoy never blinked during their conversation.
+• Captain Rusk. A retired soldier serving as abbey warden. He
+believes Calladris patrols should already have returned the abbot
+or sent notice.
+THE WEIGHT
+Every member of the abbey feels a heaviness behind the eyes and
+sternum, strongest during prayer. It is not disease and cannot be
+detected as poison. Characters who spend an hour in silent devotion
+may make a DC 12 Wisdom (Religion) check. On a success they
+sense not an attacking presence but a pressure toward stillness: the
+temptation to stop asking, stop fearing, and accept that everything is
+already resolved.
+A False Comfort
+Sideron’s influence reaches Hallowmere only as an echo. It cannot
+petrify anyone here, but it suppresses urgency. NPCs repeatedly
+suggest waiting one more day, trusting the crown, or accepting that
+the abbot chose not to return. The party’s role is to keep concern
+alive without turning every monk into an enemy.
+Garran is immune to this in a useful way. He is not devout and the
+pressure reads to him as ordinary institutional cowardice. He will
+say so, out loud, at the wrong moment. Let him.
+HOSPITALITY BEFORE
+INVESTIGATION
+The abbey first offers food, washing, beds, and care for Redhold’s
+wounded. Let the characters see competence and compassion. An
+infirmary scene can establish the fading magic: a healing spell
+restores fewer hit points in description only, or requires a
+Spellcasting Check if attempted during the evening bell.
+This is also where the blight gets treated. Any character carrying
+the Blighted condition from Redhold can be tended here — a week of
+care removes one stage, and the abbey has no lesser restoration to
+offer. That limitation is the point. The nearest sanctuary in Valedorn
+cannot cure a scratch a goblin gave them four days ago.
+
+
+===== PAGE 15 =====
+ASH ON THE WESTERN ROAD
+15
+The chapel is plain enough that no one could mistake beauty
+for power. A single lamp burns before the carved shape of a
+living tree. When the brothers begin the evening response,
+every voice is steady. Only the flame betrays them. It narrows
+to a blue thread, gutters, and returns. No one stops singing.
+WHAT THE ABBEY KNOWS
+• Redhold is not the first village attacked by fleeing goblins, but it is
+the first this close to Hallowmere.
+• The royal envoy, Ser Joric Vale, arrived with orders for the abbot
+to accompany him to Calladris for a private audience.
+• Abbot Caedmon took three old folios from the sealed cabinet,
+including one concerning the Graces.
+• The abbot believed Calladris was unnaturally untouched by the
+wider blight and wanted to know why.
+• No messenger, escort, or royal acknowledgment has returned in
+three nights.
+WHAT THE ABBEY DOES NOT
+KNOW
+The monks do not know that Sideron is an Executor of Grace, that the
+king is no longer freely ruling, or that the city’s perfection is
+maintained through nightly removal, altered records, and living
+petrification. They have only fragments: old language, contradictory
+chronicles, and the abbot’s intuition that the pattern is theological as
+well as magical.
+
+
+===== PAGE 16 =====
+ASH ON THE WESTERN ROAD
+16
+CHAPTER FOUR
+THE ABBOT’S
+TRAIL
+Search, reconstruction, and a charge left unfinished
+Abbot Caedmon did not vanish in the countryside. He accepted a
+royal summons, reached Calladris, and disappeared within the
+machinery of the capital. The characters’ first task is to prove that
+fact. Their second is to understand what he was trying to do.
+BEGINNING THE SEARCH
+Prior Meriel grants the party access to the abbot’s lodging and
+archive if they present evidence from Redhold or agree to carry word
+to the crown. The search should combine physical clues, interviews,
+and one short encounter. No single failed roll prevents success.
+The Abbot’s Lodging
+The room is orderly. Travel boots are missing. A spare cloak
+remains. The writing desk holds three drafts of a petition, a rubbing
+of an old inscription, and a list of questions rather than conclusions.
+The petition’s final line reads: “If peace has truly been preserved in
+the capital, then its manner of preservation must be known.”
+The Sealed Cabinet
+The silver key from the ruined wayshrine opens it. Eight shelf
+spaces are marked with simple virtues: Humility, Consolation,
+Meekness, Hunger, Mercy, Purity, Peace, and Witness. Only
+fragments remain. The Peace shelf is empty except for stone dust
+caught in the wood grain.
+A DC 12 Intelligence (Investigation) check finds that the dust is
+marble, not plaster. A DC 14 Intelligence (Religion) check identifies
+the arrangement as a pre-modern judgment cycle rather than a current
+devotional practice.
+Witnesses
+• Novice Talm. The envoy introduced himself as Ser Joric Vale but
+wore no travel dust and never removed his gloves. He carried a
+royal seal with an eye-shaped flaw in the wax.
+• The Gate Porter. The abbot, envoy, and two mounted guards
+departed before dawn. The guards returned alone near midnight,
+saying the abbot continued with a faster patrol. Neither guard
+entered the abbey.
+• Orchard Worker. Found a strip of the abbot’s satchel leather
+caught on the east gate, cut cleanly rather than torn.
+ENCOUNTER: THE RETURNED
+MULE
+Near the burial wall, something strikes the outer gate once,
+waits, and strikes again. A riderless mule stands in the rain.
+Its reins are cut. Its flanks are grey with road dust, and tied
+beneath the saddle is a leather case bearing the abbey seal.
+The case contains a blank sheet, a broken stylus, and a stone finger
+wrapped in linen. The finger is lifelike and wears the signet ring of
+one of the royal guards. When exposed to the chapel lamp, the stone
+sweats clear water. Two sigil-bearing goblins followed the mule and
+attack after the case is opened, trying to recover it rather than kill
+witnesses.
+Hidden beneath a false bottom is a copied fragment in the abbot’s
+hand — The Lament of the Western Watchman, Handout 3. The
+important lines are “the crown shall sit where the crown is not” and
+“peace shall be raised in stone while the living are carried beneath.”
+Subtle Executor Lore
+Do not identify Sideron yet. Hallowmere’s records describe offices,
+not names: the Keeper of Peace, the Measurer beneath the Veil, the
+Grace that stills strife. The words should become recognizable only
+after the party has seen the statues and Sideron’s civic language in
+Calladris.
+RECONSTRUCTING THE
+ABBOT’S QUEST
+Once the party has examined three sources, they can reconstruct his
+purpose. He went to Calladris to do four things:
+1. Gain an audience with the king and report the spread of the
+Blight.
+2. Compare Hallowmere’s damaged records with the sealed royal
+archive.
+3. Discover why Calladris remains clean while the countryside
+worsens.
+4. Ask whether the old title Keeper of Peace survives in the royal
+household.
+THE ABBOT’S CHARGE
+Prior Meriel asks the characters to continue the mission. She gives
+them the final petition, the broken folio fragments, and a letter of
+ecclesiastical introduction. She does not command them to confront
+the crown. She asks them to find the abbot, deliver the petition, and
+return with the truth.
+
+
+===== PAGE 17 =====
+ASH ON THE WESTERN ROAD
+17
+Prior Meriel folds the petition once and presses the abbey
+seal into dark wax.
+“Caedmon went because he believed the king still had the
+power to act,” she says. “I need you to discover whether that
+belief was faith, foolishness, or the last honest thing left to
+us.”
+The party reaches 3rd level when they accept the charge. Captain
+Rusk provides a road sketch and warns that Calladris is filling with
+refugees, mercenaries, pilgrims, and adventurers seeking the same
+audience. A letter may open a gate. It will not make them important.
+
+
+===== PAGE 18 =====
+T H E R O A D T O C A L L A D R I S
+Every refugee has heard that the capital remains untouched
+
+
+===== PAGE 19 =====
+ASH ON THE WESTERN ROAD
+19
+CHAPTER FIVE
+THE ROAD TO
+CALLADRIS
+The capital appears untouched
+The three-day road from Hallowmere to Calladris should feel
+increasingly crowded and increasingly controlled. The land worsens
+until the city walls appear — and then, abruptly, everything looks
+healthy. That contrast is the first great lie of Calladris.
+ROAD EVENTS
+d6
+Event
+1
+A patrol burns a cart of blighted grain while the owner
+begs to keep the wheels.
+2
+A family offers silver for a place under the party’s letter
+of introduction.
+3
+Three adventurers display fresh royal seals and boast
+they will dine with the king by week’s end.
+4
+A priest leads a procession carrying an empty reliquary,
+chanting that Calladris is preserved.
+5
+A stone roadside figure is mistaken for a memorial until
+someone recognizes the boots of a missing courier.
+6
+A night patrol passes without torchlight. Their armor is
+clean, their horses silent.
+MAJOR ENCOUNTER: THE
+QUARANTINE BRIDGE
+A timber bridge over a swollen tributary is blocked by royal health
+officers. A wagon of refugees waits on the far side. One passenger
+has ash-blackened fingertips but no fever. The officers intend to turn
+the entire wagon back. The party can negotiate, identify the true
+threat, escort the wagon to a field station, or discover that one officer
+is secretly collecting names for a private buyer.
+The encounter introduces the city’s central moral pressure: order is
+not wholly false. Quarantine, rationing, and controlled entry are
+necessary. The evil lies in how necessity becomes a cover for
+disappearance, profit, and silence.
+THE GILDED COMPASS
+A rival adventuring company reaches the bridge at the same time.
+Competent, ambitious, and not immediately hostile.
+• Ser Alwen Pryce. A charismatic minor knight who assumes
+public authority belongs to whoever speaks first.
+• Nim Rook. A sharp-eyed scout who notices inconsistencies and
+quietly respects the party if they protect refugees.
+• Mother Cira. A battle-priest whose magic has not yet failed, and
+who takes that fact as proof of favor.
+• Hobb Fen. A cheerful locksmith, far more observant than his
+companions realize.
+The Compass can become allies, rivals, victims, or examples of how
+Sideron rewards useful adventurers. They earn their first Royal Seal
+before the party arrives, ensuring the characters see other people
+already ahead of them.
+THE GREEN MILE
+The last mile before Calladris changes the world. Grass
+thickens beside the road. Orchard leaves shine with rain. The
+drainage channels run clear. Beyond them rise walls of pale
+stone, towers, banners, and the crowded roofs of a living
+capital. Behind you, the fields are grey. Ahead, gulls wheel in
+clean sunlight.
+No one on the road cheers.
+A DC 12 Wisdom (Survival) check reveals that the healthy verge
+begins at a line of small iron stakes buried beside the road. Detect
+magic senses faint abjuration and transmutation but requires a
+Spellcasting Check because the boundary resists examination. The
+effect is not healing the land; it is suppressing visible symptoms and
+redirecting corruption elsewhere.
+Garran stops walking here. He has been on this road before, as a
+soldier, and he says so: it did not used to be green. Then he says
+something about how Liora has never seen a city, and starts walking
+again.
+ARRIVAL DURING THE JUBILEE
+The party reaches Calladris on the anniversary of the king’s
+accession. A new commemorative statue is being unveiled in Crown
+Square. The sculptor is unknown, said to be foreign, and is not
+present. The commission bears Sideron’s seal.
+Entry officers recognize Hallowmere’s ecclesiastical letter but still
+require registration. The party receives temporary visitor tokens and
+directions to the Weary Crown, an inn used by petitioners and
+licensed adventurers. Their letter is forwarded to the palace. An
+audience date is not provided.
+
+
+===== PAGE 20 =====
+C A L L A D R I S
+The crown is silent. The city celebrates.
+
+
+===== PAGE 21 =====
+ASH ON THE WESTERN ROAD
+21
+CHAPTER SIX
+CALLADRIS
+The great coastal crown of Men
+Calladris is a port, capital, fortress, and symbol. It is also a city
+whose order has been engineered to prevent anyone from looking too
+closely. The party can enter, work, leave, and return without
+immediately discovering the truth. Every quest below should reward
+attention while preserving the possibility that the horror remains
+hidden for several sessions.
+Calladris rises in terraces above river and sea. The western
+gates open beneath twin towers crowded with banners.
+Canals carry clean water toward the harbor. Soldiers keep
+lanes clear for wagons while clerks direct refugees into long,
+patient lines. Bells mark the hour. Street sweepers move
+behind the procession.
+In Crown Square, a white cloth falls from a new statue of the
+king. The crowd applauds exactly three times.
+The statue depicts the king in ceremonial armor, one hand raised in
+reassurance. It is an excellent likeness according to portraits, though
+no one remembers the king sitting for the unknown sculptor. Sideron
+stands beneath the plinth and speaks of peace, continuity, and the
+crown’s unbroken attention. The king does not attend his own
+commemoration.
+CITY DISTRICTS
+District
+Character
+Crown Hill
+Royal halls, council chambers, courts, guarded
+archives, noble houses.
+Harbor Ward
+Quays, warehouses, sailors, customs, shipyards.
+Guild Wards
+Smiths, masons, artificers, scribes, food markets.
+Old City
+Narrow streets, ancient chapels, buried foundations.
+Western Fields
+Orchards, market gardens, refugee camps,
+quarantine yards.
+Sea Wall
+Fortifications, signal towers, restricted night patrols.
+THE WEARY CROWN
+This large, unfashionable inn serves as a base for petitioners,
+adventurers, provincial officials, and people waiting for decisions
+that never arrive. The proprietor, Jessa Venn, keeps a slate listing
+which guests have been summoned to the palace. Names sometimes
+disappear from the slate without anyone remembering an
+announcement. Jessa knows the cellar wall connects to older
+foundations but has never opened the bricked arch.
+SIDERON, RIGHT HAND OF
+THE CROWN
+Sideron appears as a severe, cultivated royal advisor in middle age.
+He speaks softly, never wastes a word, and praises useful action over
+accusation. He does not threaten the party. He gives them exactly the
+sort of work heroes should want: rescue, investigation, mediation,
+and protection. Every task also removes a problem from the city or
+teaches him how the party behaves.
+• He calls coercion relief from disorder.
+• He never says the king is ill; he says the king is preserving his
+strength.
+• He answers direct questions with a duty the party can perform to
+earn a fuller answer.
+• He regards public fear as a contagious civic wound.
+• He is genuinely pleased when the party prevents violence, even if
+they expose one of his lesser servants.
+The Hidden Truth
+Sideron is the fallen Keeper of Peace, one of the Executors of Grace.
+His Sepulcher of Silence turns living beings into conscious stone.
+He has removed the ruler from public life, controls the royal council
+through fear and dependency, and uses the city’s night systems to
+erase visible evidence of the Blight.
+The main text never requires the party to learn all of this during
+the opening volume. They should leave with a face, a name, and no
+framework.
+THE ROYAL COUNCIL
+• Lady Chancellor Marwen Hale. Believes order must be
+preserved until the king recovers. She notices legal inconsistencies
+but fears a succession crisis.
+• Harbor Marshal Tovin Rell. Practical, loyal to the city,
+increasingly suspicious of night removals from the docks.
+• High Prelate Osric Dane. Publicly teaches that Calladris is
+preserved by faith. Privately his strongest prayers fail inside the
+palace.
+• Guild Speaker Ilya Marr. Wants the roads restored and will fund
+adventurers who solve practical problems without embarrassing
+the crown.
+EARNING AN AUDIENCE
+Seals
+Standing
+0
+Unregistered troublemakers or ordinary petitioners.
+1
+Licensed adventurers; access to public contracts.
+2
+Recognized agents; limited archive and ward access.
+4
+Council hearing and authority to carry royal warrants.
+6
+Promised royal audience; in practice, a test arranged
+by Sideron.
+
+
+===== PAGE 22 =====
+ASH ON THE WESTERN ROAD
+22
+THE SEVEN CALLADRIS
+QUESTS
+The quests can be run in almost any order. The Silent Witnesses and
+The Missing Abbot should occur before the first council hearing.
+Completing four should reveal that the city’s perfect order depends
+on removal and falsification. Completing all seven should make
+Sideron aware that the party is no longer merely useful.
+1. The Silent Witnesses
+Hook. At dawn, a famous knight is found standing in a public
+garden, turned to pale stone. His sword is lowered. His face is serene.
+Locals insist that at last his anger left him.
+DM Truth: The Two Manifestations
+Sideron’s default is pacification, not terror. Those who never
+resisted receive the gentle version, because silence only completes
+what was already underway. The contorted faces belong to those
+who spoke, fought, or warned.
+The expression on the stone is a record of whether the victim
+resisted. Every statue in Calladris is readable evidence. The serene
+ones go into the plazas at dawn; the others go wherever the night
+crews take what cannot be displayed. The city is not hiding
+petrification. It is hiding the ones who fought.
+The Garden Scene. The knight, Ser Cadoc Warrin, stands beside a
+dry fountain. There are no signs of struggle. Stone dust forms a thin
+trail toward a service alley.
+The Night Route. Following the dust reveals a locked municipal
+yard where covered stone figures wait for transport. A night
+custodian and two stonebound peacekeepers guard the site. Not all
+the shapes under the canvas are serene. One is screaming.
+The Sculptor’s Mark. The base of Warrin’s boots bears a tiny eye
+cut through by a vertical line — the same geometry as the Redhold
+sigil, rendered with professional precision.
+Reward. One Royal Seal, the support of Harbor Marshal Rell, and
+the knight’s signet if he cannot be restored. Complication. The
+Gilded Compass is offered the same contract, but instructed to treat
+the figures as stolen civic property rather than people.
+2. The Missing Abbot
+Hook. Hallowmere’s letter is acknowledged, but palace clerks deny
+that Abbot Caedmon ever arrived. A stable ledger, an innkeeper, and
+a street preacher each remember him differently.
+The False Ledger. The west gate register has been scraped and
+rewritten. Heat or charcoal reveals the original entry: Caedmon, Ser
+Joric Vale, two guards, three folio cases.
+Ser Joric Vale is not a royal knight. No such name exists in the
+current rolls — but the name appears in records decades apart, in
+identical handwriting.
+The Chapel of Saint Orra. A beggar saw a body carried here at
+night. Beneath the altar, old stairs lead into a burial passage that
+opens onto a municipal mud yard behind the Old City wall — the
+place where the unshowable are stacked.
+THE BOOK IN THE MUD
+He is on his side in the muck, half under a tarpaulin, one arm
+thrown out as though he were still reaching for something.
+The rain has washed his face clean. His mouth is open. His
+eyes are open. Whatever was done to him, it was not done
+gently, and nobody arranged him afterward.
+A foot from his hand, pressed into the mud and filled with
+brown water, is a book.
+Abbot Caedmon is stone, contorted, and discarded. He was not
+hunted for the book — he was silenced the way everyone in Calladris
+is silenced, for becoming agitated in public, and processed as routine.
+Nobody catalogued what he was carrying, because nobody
+catalogues the ones they hide. The most dangerous object in
+Valedorn survived because the machine was not paying attention.
+The Tome
+On the cover, deeply cut: an eye, ringed by eight other symbols.
+The same eye the party saw on a banner at Redhold. No name
+accompanies any of them.
+• The body text is in an ancient script. It is pre-mortal and sacred
+rather than merely old. Translation magic returns nothing — not a
+failure, but the blankness of a spell finding no language to
+comprehend. It needs a scholar, not a spell.
+• The marginalia are in the abbot’s hand, and readable. They are
+working notes, not a finished translation: guesses,
+cross-references, three questions for every answer.
+• A large section of pages is missing, and was already missing
+when he received it. This is why his notes are speculative. It also
+means the torn section still exists somewhere.
+• A frantic warning is scrawled across two pages and breaks off
+mid-sentence.
+• One margin note works a name out of the script and sets it
+beside a symbol. The name nearly matches the man running this
+city. Not exactly. Nearly.
+• Another note guesses at Dunriael. Nothing concrete — just an
+old man reasoning that the elves keep the longest records.
+What the Ring of Eight Actually Is
+DM only. It is a diagram of the true hierarchy, sitting in plain sight.
+Players will read it as a pantheon, or as one god and eight servants.
+Both readings are wrong in the specific way that matters, and they
+will not know why until Act III.
+On the near-miss name: the tome’s version is the true one. Sideron
+is what three ages of drift did to it in human mouths. The party will
+argue about whether the resemblance is coincidence. That argument
+is correct — it is and it is not. They are carrying a true name and do
+not know it.
+On Dunriael: the abbot was wrong. He was a human abbot in
+Valedorn working from memory and inference; he knew Siorlas was
+old and knew where its capital was. That is exactly the mistake a
+well-read outsider makes. Do not correct it here. Let them walk.
+
+
+===== PAGE 23 =====
+ASH ON THE WESTERN ROAD
+23
+Reward. Two Royal Seals if the party brings evidence of the abbot’s
+fate to Prior Meriel; Hallowmere becomes a lasting ally.
+Complication. Removing a stone body from a municipal yard is theft
+of civic property, and somebody will notice the tarpaulin is short one
+shape.
+3. The King’s Physician
+Hook. Royal physician Dr. Elian Voss quietly asks the party to
+recover a locked medical chest stolen from his carriage. DM Truth.
+The chest holds no medicine. It holds records proving he has not
+examined the king in six months, and samples taken from people in
+the first stages of living petrification. Voss used the theft to find
+agents outside palace surveillance.
+The king’s official pulse and temperature records repeat in an exact
+seven-day cycle. Reward. One Royal Seal and advantage on one
+future check to reverse early petrification.
+4. The Quiet Harvest
+Hook. Guild Speaker Marr asks why wagons from the western royal
+gardens arrive full while independent farms outside the city fail. DM
+Truth. Boundary stakes suppress blight symptoms and divert
+corruption into laborers, soil pits, and sealed cisterns. Workers who
+complain become unnaturally compliant or vanish into the night
+system.
+Fruit is flawless but has almost no scent. Birds will not land inside
+the stakes. Ashborn form if the black cistern is disturbed.
+Complication. Destroying the ward causes visible crop collapse and
+public panic; preserving it leaves the laborers in danger.
+5. The Sealed Archive
+Hook. Brother Oren’s copied references point to a restricted royal
+archive. DM Truth. It has been edited for years — death records,
+audience ledgers, and council minutes replaced with the language of
+retirement, rest, and voluntary seclusion. Inside the sealed stacks,
+spoken words fade after a few feet; communication requires notes or
+touch.
+The Peace Folio. A damaged illumination depicts a celestial judge
+holding a stone heart. The name has been scratched out, but the title
+Keeper of Peace survives. A transport ledger lists monuments by the
+names of missing citizens.
+6. A Matter of Peace
+Hook. A dispute between dock laborers and grain officials threatens
+to become a riot. Sideron asks the party to keep the peace without
+bloodshed. DM Truth. The dispute is real, but provocateurs on both
+sides are palace informants. Arrest lists were prepared before the
+dispute began, and the listed dangerous persons include witnesses
+from other quests.
+Sideron praises any outcome that restores order, including one that
+exposes his own informants. He cares more about the method the
+party chooses than the pawns lost. Complication. A perfectly
+peaceful resolution may make them popular enough that he can no
+longer remove them quietly.
+7. Audience Deferred
+Hook. After four seals, the council schedules a hearing. On the
+morning of the hearing, a palace messenger announces that the king
+cannot attend and asks the party to perform one final service during
+the jubilee procession. DM Truth. It is a controlled test. Sideron
+arranges a threat to the statue and watches whether the party protects
+the symbol, investigates the sculptor, or uses the public moment to
+accuse the crown.
+Masked attackers strike the plinth with alchemical charges, believing
+the monument is a ward focus. They may be correct. Damage reveals
+veins inside the statue that look like living marble, and a hollow
+chamber containing a lock of the king’s hair. For one instant during
+the attack, every petrified victim in the city turns its face toward
+Crown Square.
+Reward. A council writ, 2 Royal Seals, and the transition into the
+next arc. Complication. Sideron does not attack in public. He
+isolates allies, questions evidence, and invites the party to a private
+audience where the true danger can begin.
+CALLADRIS NIGHT CYCLE
+Hour
+Hidden Activity
+Midnight
+District gates close; patrols verify lamps and papers.
+First bell
+Custodians remove blighted animals, bodies, and ash.
+Second bell
+Covered stone wagons travel toward Crown Hill.
+Third bell
+Clerks alter public notices and gate ledgers.
+Before dawn
+Sweepers and water carts restore normal appearance.
+The City Can Remain Unsolved
+The party may complete several quests, accept the official
+explanation, and leave Calladris for another objective. This is not
+failure. The city is designed to be revisited — and it will be, twice
+more, once outbound and once ten years later on the way home.
+Every departure allows Sideron to adjust, reward rivals, alter
+records, and make the next return more unsettling.
+The revelation that the king is absent should feel discovered rather
+than announced.
+
+
+===== PAGE 24 =====
+D M S E C R E T S
+The blight is not merely a plague. It is an administration.
+
+
+===== PAGE 25 =====
+ASH ON THE WESTERN ROAD
+25
+APPENDIX A
+DM SECRETS AND
+EXECUTOR LORE
+What is true beneath the public story
+This appendix is for the Dungeon Master. It explains the pertinent
+Executor, the hidden condition of Calladris, and the fragments of
+older theology that may be revealed without exposing the entire
+campaign mythology.
+THE HIDDEN STATE OF
+CALLADRIS
+Calladris appears clean because its corruption is gathered, redirected,
+concealed, and embodied in people who cannot publicly testify. The
+city is not immune to the Aetherfall. It is sacrificing truth to
+preserve appearance.
+• The ruler is not freely governing. The crowned sovereign has
+been subjected to Sideron’s sentence and hidden beneath Crown
+Hill.
+• Sideron speaks in the ruler’s name. Some decrees are forged;
+others were signed under influence. The council cannot verify the
+source of royal orders.
+• The elite guard is not wholly alive. Certain palace and night
+units are denied rest. By day they stand motionless in sealed posts;
+by night they carry out removals.
+• Ash folk maintain the illusion. Laborers, custodians, and
+controlled dependents clean streets, collect blighted matter, and
+feed the city’s systems. Many are coerced; some believe the work
+is necessary.
+• The statue is a focus. The commemorative monument anchors
+Sideron’s influence in the public heart of the city and acts as a
+sympathetic link to the hidden ruler.
+SIDERON THE
+PEACEMAKER
+First estate: minister of judgment, charged with stilling destructive
+strife and confirming the peace that follows rightful mercy.
+Fallen title: Keeper of Peace, Lord of the Sepulcher of Silence.
+Public guise: royal advisor, right hand of the crown, architect of
+civic continuity.
+Corrupted doctrine: conflict ends when no one retains the power to
+resist, accuse, warn, or grieve publicly.
+The Law. Blessed are the peacemakers. In the first order the grace
+sought reconciliation: the end of vengeance, the protection of the
+innocent, and the difficult restoration of community after wrong.
+The Subjugation. Sideron treats disagreement as the root of
+suffering. To preserve peace he removes the capacity for public
+disruption. Protest becomes illness. Warning becomes panic.
+Resistance becomes contagion. The ideal citizen is not one who
+freely consents, but one who no longer creates friction.
+THE TWO
+MANIFESTATIONS
+This is the most important secret in the volume, and the easiest to
+run wrong. Older records describe victims frozen in protest, fury, or
+terror. Calladris finds them serene. Both are true.
+Pacification is the default. Peace is his grace and he offers it first.
+Those who never resisted receive the gentle version, because silence
+only completes what was already underway in them. The contorted
+faces belong to those who spoke, fought, or warned.
+So the expression on the stone is a record of whether the victim
+resisted, and every statue in the city is readable evidence. This is one
+phenomenon plus a curation policy: the serene go into the plazas at
+dawn, the others go wherever the night crews take what cannot be
+displayed — cellars, the undercity, the lime yards outside the walls.
+The Question Worth Leaving Open
+Did the serene ones consent? If some accepted peace without
+knowing its price, the party cannot cleanly call them victims — and
+the ones who resisted become the only people in Calladris who were
+fully alive.
+Stages of the Sentence
+Stage
+Sign
+Game Effect
+1. Quieting
+Voice softens; pulse
+slows; fear distant.
+Disadvantage on
+initiative and checks
+to rally others.
+2. Greying
+Fingertips, lips, or
+ears become cold.
+Speed −10 ft.;
+cannot take reactions.
+3. Seizing
+One limb hardens;
+joints lock.
+Restrained; repeat
+save at end of turn.
+4. Sepulcher
+The body becomes
+living marble.
+Petrified, conscious,
+dimly perceiving.
+Reversing the sentence. Before Stage 4, greater restoration or a
+suitable relic reverses it. After full petrification, ordinary magic may
+restore flesh but not free the soul-anchor if the victim has been
+moved beneath Crown Hill.
+THE EIGHT AND THE RING
+The following fragments can appear as damaged headings, marginal
+notes, or contradictory names. They are not active villains in this
+volume.
+Executor
+Grace Corrupted
+Visible Forfeit
+Aethelon the
+Humble
+Humility becomes
+erasure of self.
+Bleached gaze, slack
+face, obedient vacancy.
+Iolanthe the
+Consoled
+Mourning becomes
+severance from love.
+Calm estrangement from
+every beloved face.
+Thalarian the
+Meek
+Meekness becomes
+inability to resist.
+Brittle bones, softened
+muscle, yielding collapse.
+
+
+===== PAGE 26 =====
+ASH ON THE WESTERN ROAD
+26
+Executor
+Grace Corrupted
+Visible Forfeit
+Pyrhon the
+Beggar
+Desire becomes
+endless famine.
+Food blackens; the body
+starves without death.
+Orestes the
+Merciful
+Mercy becomes
+helpless witness.
+Black ice, frozen tears,
+conscious immobility.
+Lucentia of
+Purity
+Purity becomes
+inward accusation.
+Blind white eyes and
+manifest shame.
+Sideron the
+Peacemaker
+Peace becomes the
+silence of stone.
+Serene petrification and
+buried consciousness.
+Vesperas the
+Persecuted
+Vindication becomes
+endless persecution.
+Borrowed wounds and
+haunting accusation.
+The ring as it appears on the tome — eight about one
+The centre is not one of the eight. It is the office they answered to,
+and the party will not learn what that means for two acts. Everything
+about the diagram invites the wrong reading, which is why it can sit
+on a table in front of them for sixty sessions.
+SIDERON’S THREE RULES
+1. Keep power deniable. He uses decrees, contracts, queues, and
+civic praise before supernatural force.
+2. Turn conflict into administration. Every accusation becomes a
+hearing, every witness a registration problem, every disappearance
+a corrected record.
+3. Remove proof before people. He prefers altered ledgers,
+relocated statues, and compromised sponsors to public executions.
+CLUES HE CANNOT ERASE
+• Freshly petrified stone sweats clear water when exposed to
+Hallowmere’s chapel lamp.
+• The number of covered night wagons exceeds the city’s public
+record of deaths.
+• The same foreign mason’s mark appears beneath the jubilee statue
+and on older hidden anchors beneath Crown Hill.
+• Several royal ledgers repeat exact seven-day patterns, suggesting
+copied lives rather than observed ones.
+WHAT THE PARTY SHOULD
+NOT LEARN YET
+Do not reveal the complete heavenly history, the identity of the
+centre of the ring, the infernal names of the Executors, or the
+relationship between the Fall of the Weaver and the current
+Aetherfall. The Calladris arc needs only one terrifying truth: an
+ancient office of grace is present in the city and has made peace
+into a weapon.
+Reveal Pacing Across the Campaign
+Act I. Something supernatural is happening in Calladris, someone in
+the court is hiding it, and it has a name. A face, a name, and no
+framework whatsoever.
+Late Act II. The verse — that the name belongs to one of eight
+fallen ministers, and that seven more are doing this elsewhere.
+Early Act III. Full.
+The risk is the thread going cold across the gap. Sideron must keep
+reaching them: petrifications spreading beyond Calladris, the
+abbot’s surviving lore surfacing in pieces, a recurring agent who
+remembers their faces.
+
+
+===== PAGE 27 =====
+T H E A S H B O R N
+What the blight makes of things that were already alive
+
+
+===== PAGE 28 =====
+ASH ON THE WESTERN ROAD
+28
+APPENDIX B
+BESTIARY OF THE
+ASHBORN
+What the blight makes of things that were already alive
+Ashborn are not a species. A creature that breathes enough ash,
+drinks enough fouled water, or lives too long beneath a spreading
+Dead Zone does not simply sicken and die. The ash takes root. It
+fuses to hide and bone, crusts the joints, greys the eyes, and burns out
+whatever the creature used to be — cunning first, then caution, then
+finally the sense of self-preservation that would have sent it running.
+What remains is driven. It moves toward living things and puts ash
+into them.
+Ashborn are not undead. They are alive, they can be healed, and
+they can — very rarely, very early — be saved. Clerics find this
+harder to bear than if they were simply corpses.
+THE ASHBORN TEMPLATE
+Apply to any base creature. This template is the authority; the blocks
+that follow are worked examples.
+• Constitution +4 (max 20), which supplies roughly +2 hit points
+per Hit Die. AC +1 from ash-crusted hide.
+• Gains darkvision 60 ft. if it lacked it, and immunity to
+frightened.
+• Loses ranged attacks and carried equipment, except weapons
+fused into the hands. Ashborn do not draw bows. Creatures that
+habitually wield weapons keep them — the ash grows around the
+haft, and they cannot be disarmed.
+• Gains bite and claw attacks at the creature’s existing attack
+bonus, one die size below its primary weapon.
+• Gains Ash-Mark, which replaces its Multiattack for the round.
+One creature within reach that is below its hit point maximum
+makes a Constitution save or gains the Blighted condition. No
+attack roll.
+• Gains Ashfall: on death it bursts into ash. Creatures within the
+listed radius make a DC 11 Constitution save or are blinded until
+the end of their next turn.
+• Driven (CR 2 and lower only). Loses Nimble Escape, Surprise
+Attack, Martial Advantage, and any stealth or tactical trait. Moves
+toward the nearest perceivable creature and attacks.
+Size
+Ash-Mark Stages
+Ashfall Radius
+Small / Medium
+1
+5 ft.
+Large
+2
+10 ft.
+Huge
+3
+15 ft.
+The Driven Line Is the Design Centre
+Below CR 2 the ash has burned out the mind — these things are
+chaos. Above CR 2 they keep their traits, which means something in
+the warband is still thinking. Put both on the same battlefield and the
+party can see the hierarchy without being told about it.
+THE BLIGHTED CONDITION
+The mark occupies one stage on the Ash-Mark Track — the same
+twelve stages as necromantic corruption.
+• Your hit point maximum is reduced by the number of stages you
+carry.
+• At each dawn, make a DC 12 Constitution saving throw. On a
+failure the mark advances one stage. Three consecutive successes
+push it back one.
+• At 0 stages you are no longer Blighted.
+Removing It
+• Lesser restoration removes one stage — and requires a
+Spellcasting Check, which can fail.
+• A week of tending at a house of healing removes one stage.
+• Sanctified ground halts advancement without reversing it.
+At low levels the party has no access to lesser restoration. A Redhold
+infection can only be treated at Hallowmere, which is why they go
+there — and why the abbey’s failing power matters so much when
+they arrive.
+ASHBORN STAT BLOCKS
+ASHBORN GOBLIN
+Small humanoid (goblinoid), unaligned
+Armor Class 13 (ash-crusted hide)
+Hit Points 11 (2d6 + 4)
+Speed 30 ft.
+STR
+DEX
+CON
+INT
+WIS
+CHA
+12 (+1)
+14 (+2)
+14 (+2)
+8 (−1)
+8 (−1)
+5 (−3)
+Senses darkvision 60 ft., passive Perception 9
+Languages understands Goblin, speaks in fragments
+Challenge 1/2 (100 XP)   Proficiency Bonus +2
+Driven. Cannot be frightened and will not flee. It moves toward the nearest
+creature it can perceive and attacks. It has no Nimble Escape.
+Ashfall. On 0 hit points it collapses into ash. Each creature within 5 feet
+makes a DC 11 Constitution save or is blinded until the end of its next turn.
+Actions
+Multiattack. One bite and one claws attack.
+Bite. Melee Weapon Attack: +4 to hit, reach 5 ft. Hit: 5 (1d6 + 2) piercing.
+Claws. Melee Weapon Attack: +4 to hit, reach 5 ft. Hit: 4 (1d4 + 2)
+slashing.
+Ash-Mark (instead of Multiattack). One creature within 5 feet below its
+hit point maximum makes a DC 12 Constitution save or gains 1 stage of
+Blighted.
+
+
+===== PAGE 29 =====
+ASH ON THE WESTERN ROAD
+29
+ASHBORN ORC
+Medium humanoid (orc), unaligned
+Armor Class 14 (hide fused to the flesh)
+Hit Points 30 (4d8 + 12)
+Speed 30 ft.
+STR
+DEX
+CON
+INT
+WIS
+CHA
+16 (+3)
+12 (+1)
+17 (+3)
+5 (−3)
+9 (−1)
+6 (−2)
+Senses darkvision 60 ft., passive Perception 9
+Languages understands Orc
+Challenge 1 (200 XP)   Proficiency Bonus +2
+Driven. As the Ashborn Goblin. It retains Aggressive — as a bonus action
+it moves up to its speed toward a hostile creature it can see.
+Ashfall. 5 ft., DC 11 Constitution.
+Actions
+Multiattack. One greataxe attack and one bite or claws attack.
+Greataxe. Melee Weapon Attack: +5 to hit, reach 5 ft. Hit: 9 (1d12 + 3)
+slashing. The haft has grown into the hand and cannot be disarmed.
+Bite. +5 to hit, reach 5 ft. Hit: 6 (1d8 + 3) piercing.
+Claws. +5 to hit, reach 5 ft. Hit: 5 (1d6 + 3) slashing.
+Ash-Mark (instead of Multiattack). DC 13 Constitution, 1 stage.
+ASHBORN HOBGOBLIN
+Medium humanoid (goblinoid), unaligned
+Armor Class 17 (ash-fused plate)
+Hit Points 22 (4d8 + 4)
+Speed 30 ft.
+STR
+DEX
+CON
+INT
+WIS
+CHA
+13 (+1)
+12 (+1)
+16 (+3)
+9 (−1)
+10 (+0)
+7 (−2)
+Senses darkvision 60 ft., passive Perception 10
+Languages Common, Goblin
+Challenge 1 (200 XP)   Proficiency Bonus +2
+Martial Advantage (1/Turn). Deals an extra 7 (2d6) damage to a creature it
+hits if that creature is within 5 feet of an ally of the hobgoblin that is not
+incapacitated.
+Discipline Retained. Ashborn hobgoblins give orders, hold formation, and
+drive the Driven forward. Where you find one, the chaos in front of it is not
+chaos at all.
+Ashfall. 5 ft., DC 11 Constitution.
+Actions
+Multiattack. One longsword attack and one bite attack.
+Longsword. +3 to hit, reach 5 ft. Hit: 6 (1d8 + 1) slashing.
+Bite. +3 to hit, reach 5 ft. Hit: 4 (1d6 + 1) piercing.
+Ash-Mark (instead of Multiattack). DC 12 Constitution, 1 stage.
+ASHBORN BUGBEAR
+Medium humanoid (goblinoid), unaligned
+Armor Class 17 (ash-crusted hide, shield)
+Hit Points 45 (6d8 + 18)
+Speed 30 ft.
+STR
+DEX
+CON
+INT
+WIS
+CHA
+15 (+2)
+14 (+2)
+17 (+3)
+8 (−1)
+11 (+0)
+7 (−2)
+Skills Stealth +6
+Senses darkvision 60 ft., passive Perception 10
+Languages Common, Goblin
+Challenge 3 (700 XP)   Proficiency Bonus +2
+Brute. A melee weapon deals one extra die of damage when the bugbear
+hits with it (included below).
+Surprise Attack. If it surprises a creature and hits it during the first round
+of combat, the target takes an extra 7 (2d6) damage.
+Patient. The ash has taken its fear without taking its cunning. An ambush
+predator that infects — the most dangerous thing in a warband short of a
+shaman.
+Ashfall. 5 ft., DC 11 Constitution.
+Actions
+Multiattack. One morningstar, one bite, and one claws attack.
+Morningstar. +4 to hit, reach 5 ft. Hit: 11 (2d8 + 2) piercing.
+Bite. +4 to hit, reach 5 ft. Hit: 9 (2d6 + 2) piercing.
+Claws. +4 to hit, reach 5 ft. Hit: 7 (2d4 + 2) slashing.
+Ash-Mark (instead of Multiattack). DC 13 Constitution, 1 stage.
+ASHBORN OGRE
+Large giant, unaligned
+Armor Class 12 (ash plating)
+Hit Points 76 (9d10 + 27)
+Speed 40 ft.
+STR
+DEX
+CON
+INT
+WIS
+CHA
+19 (+4)
+8 (−1)
+17 (+3)
+4 (−3)
+7 (−2)
+5 (−3)
+Senses darkvision 60 ft., passive Perception 8
+Languages understands Giant
+Challenge 3 (700 XP)   Proficiency Bonus +2
+Ashfall. 10 ft., DC 11 Constitution.
+Actions
+Multiattack. One greatclub attack and one bite attack.
+Greatclub. +6 to hit, reach 5 ft. Hit: 13 (2d8 + 4) bludgeoning.
+Bite. +6 to hit, reach 5 ft. Hit: 11 (2d6 + 4) piercing.
+Claws. +6 to hit, reach 10 ft. Hit: 9 (2d4 + 4) slashing.
+Ash-Mark (instead of Multiattack). One creature within 10 feet below its
+hit point maximum makes a DC 14 Constitution save or gains 2 stages.
+ASHBORN TROLL
+Large giant, unaligned
+Armor Class 16 (ash-hardened hide)
+Hit Points 115 (10d10 + 60)
+Speed 30 ft.
+STR
+DEX
+CON
+INT
+WIS
+CHA
+18 (+4)
+13 (+1)
+22 (+6)
+5 (−3)
+9 (−1)
+6 (−2)
+Skills Perception +2
+Senses darkvision 60 ft., passive Perception 12
+Languages Giant
+Challenge 6 (2,300 XP)   Proficiency Bonus +3
+
+
+===== PAGE 30 =====
+ASH ON THE WESTERN ROAD
+30
+Ash-Fed Regeneration. The troll regains 15 hit points at the start of its
+turn. If it takes acid or fire damage this trait does not function at the start of
+its next turn — and the suppressed regeneration vents. Each creature
+within 10 feet immediately makes a DC 14 Constitution save or gains 1
+stage of Blighted. The troll dies only if it starts its turn with 0 hit points and
+does not regenerate.
+Keen Smell. Advantage on Perception checks relying on smell.
+Ashfall. 10 ft., DC 11 Constitution.
+Actions
+Multiattack. One bite and two claws attacks.
+Bite. +7 to hit, reach 5 ft. Hit: 11 (2d6 + 4) piercing.
+Claws. +7 to hit, reach 10 ft. Hit: 9 (2d4 + 4) slashing.
+Ash-Mark (instead of Multiattack). DC 16 Constitution, 2 stages, reach 10
+ft.
+Running the Troll
+The counterplay is intact — fire and acid still stop it. But every time
+the party does the correct thing, the troll coughs its blight into them.
+Groups learn to burn it from range. The ones who do not learn it the
+hard way.
+ASHBORN DRAGON
+Huge dragon, unaligned
+Armor Class 18 (natural armor, ash-fused scale)
+Hit Points 212 (17d12 + 102)
+Speed 40 ft., fly 80 ft.
+STR
+DEX
+CON
+INT
+WIS
+CHA
+25 (+7)
+10 (+0)
+23 (+6)
+6 (−2)
+11 (+0)
+8 (−1)
+Saving Throws Dex +5, Con +11, Wis +5   Skills Perception +10
+Damage Immunities necrotic, poison
+Condition Immunities frightened, poisoned
+Senses blindsight 60 ft., darkvision 120 ft., passive Perception 20
+Languages understands Draconic and Common but does not speak
+Challenge 16 (15,000 XP)   Proficiency Bonus +5
+Legendary Resistance (3/Day). If it fails a saving throw, it can choose to
+succeed instead.
+Ash Shroud. At the start of each of its turns, each creature within 15 feet
+makes a DC 19 Constitution save or gains 1 stage of Blighted. A creature
+that succeeds is immune to this trait for 24 hours.
+Ashfall. 15 ft., DC 11 Constitution.
+Actions
+Multiattack. One bite and two claws attacks.
+Bite. +12 to hit, reach 10 ft. Hit: 18 (2d10 + 7) piercing plus 9 (2d8)
+necrotic.
+Claws. +12 to hit, reach 5 ft. Hit: 14 (2d6 + 7) slashing.
+Tail. +12 to hit, reach 15 ft. Hit: 16 (2d8 + 7) bludgeoning.
+Ash Breath (Recharge 5–6). A 60-foot cone of choking grey ash. Each
+creature makes a DC 19 Constitution save. Failure: 45 (10d8) necrotic and
+3 stages of Blighted. Success: half damage and 1 stage. The area is heavily
+obscured until the end of the dragon’s next turn.
+Ash-Mark (instead of Multiattack). DC 19 Constitution, 3 stages.
+Legendary Actions
+Detect. The dragon makes a Wisdom (Perception) check.
+Tail Attack. The dragon makes one tail attack.
+Cinder Sweep (Costs 2 Actions). Each creature within 15 feet makes a DC
+20 Dexterity save or takes 14 (2d6 + 7) bludgeoning damage, is knocked
+prone, and gains 1 stage of Blighted. The dragon then flies up to half its
+speed.
+What Was It Before?
+An ashborn dragon may be a living wyrm the blight overtook — or a
+dead one walking under the Denial, which is worse and better
+supported by canon. If the second, the party is looking at proof that
+something is deliberately using the corpses of the great, and that
+opens a line straight to the Executors.
+THE SHAMANS
+Ashborn shamans do not cast spells, and their powers require no
+Spellcasting Check. This is deliberate and it is the most frightening
+thing in the bestiary. The ash is not Weave magic — it is what is
+replacing the Weave. So in a world where the party’s fire bolt gutters
+and the cleric’s prayers arrive broken, the enemy’s power lands every
+single time.
+Do not explain this to the players. Let them notice.
+None of the shaman powers are spells: they cannot be counterspelled,
+they ignore region tiers, and they function normally in a Dead Zone.
+Shaman
+CR
+HP
+Ashen Word
+Rouse
+Goblin
+2
+27
+DC 13, 2d6
+2d6
+Orc
+3
+52
+DC 14, 3d6
+3d6
+Bugbear
+4
+82
+DC 15, 3d6
+4d6
+• Ashen Word. Ranged, 60 ft., one creature. Necrotic damage,
+Constitution save for half. On a failure the target also gains 1 stage
+of Blighted.
+• Cinder Veil (bonus action). A 20-foot sphere of swirling ash
+centred on the shaman becomes heavily obscured until the start of
+its next turn. Ashborn ignore it.
+• Rouse the Ash (bonus action, 30 ft.). One ashborn regains hit
+points and immediately makes one attack as a reaction.
+• Wreathed (bugbear shaman only). Creatures starting their turn
+within 5 feet make a DC 15 Constitution save or gain 1 stage of
+Blighted.
+CREATURES OF CALLADRIS
+STONEBOUND PEACEKEEPER
+Medium humanoid, lawful evil
+Armor Class 17 (half plate)
+Hit Points 45 (6d8 + 18)
+Speed 25 ft.
+STR
+DEX
+CON
+INT
+WIS
+CHA
+16 (+3)
+11 (+0)
+16 (+3)
+10 (+0)
+12 (+1)
+9 (−1)
+Saving Throws Con +5, Wis +3   Skills Athletics +5, Insight +3
+Senses passive Perception 11   Languages Common
+Challenge 2 (450 XP)   Proficiency Bonus +2
+
+
+===== PAGE 31 =====
+ASH ON THE WESTERN ROAD
+31
+Marble Flesh. Resistance to nonmagical bludgeoning, piercing, and
+slashing damage while above half hit points.
+Order without Fear. Immune to the frightened condition.
+Slow Fracture. At 0 hit points it becomes an inert statue rather than falling
+prone. A DC 13 Medicine or Arcana check reveals traces of living tissue
+inside the stone.
+Actions
+Multiattack. The peacekeeper makes two halberd attacks.
+Halberd. +5 to hit, reach 10 ft. Hit: 8 (1d10 + 3) slashing.
+Command Silence (Recharge 5–6). Each enemy within 15 feet makes a
+DC 12 Wisdom save or cannot speak above a whisper and cannot cast
+spells with verbal components until the end of its next turn.
+NIGHT CUSTODIAN
+Medium humanoid, any lawful alignment
+Armor Class 14 (reinforced coat)
+Hit Points 18 (4d8)
+Speed 30 ft.
+STR
+DEX
+CON
+INT
+WIS
+CHA
+12 (+1)
+14 (+2)
+10 (+0)
+11 (+0)
+13 (+1)
+10 (+0)
+Skills Investigation +2, Stealth +4
+Senses passive Perception 11   Languages Common
+Challenge 1/4 (50 XP)   Proficiency Bonus +2
+Civic Access. Advantage on checks to navigate service tunnels, municipal
+yards, and closed streets in Calladris.
+Trained Non-Disclosure. Advantage on saving throws against being
+charmed or compelled to reveal night routes.
+Actions
+Hooked Pole. +3 to hit, reach 10 ft. Hit: 4 (1d6 + 1) bludgeoning, and the
+target makes a DC 11 Strength save or is pulled 5 feet.
+Ash Flask. +4 to hit, range 20/60 ft. Hit: The target is blinded until the end
+of its next turn unless it succeeds on a DC 11 Constitution save.
+USING STANDARD NPCS
+Use commoner statistics for villagers and refugees, guard for
+Redhold watchfolk and city patrols, priest or acolyte for Hallowmere
+clergy, scout for road wardens, and veteran for Garran Holdt.
+Sideron receives no combat stat block in this volume. The party is
+not expected to fight him.
+Sideron in Combat
+Do not improvise a fair low-level fight. If attacked openly, he ends
+the scene through guards, architecture, command, or a single
+overwhelming supernatural sign. The useful question is not whether
+the party can damage him yet, but what evidence, ally, or freedom
+they lose by forcing the confrontation too early.
+
+
+===== PAGE 32 =====
+ASH ON THE WESTERN ROAD
+32
+APPENDIX C
+PLAYER
+HANDOUTS
+Letters, prophecies, and civic papers
+These handouts can be printed, copied into notes, or read aloud. They
+are intentionally incomplete. Each gives the players something
+tangible without explaining the entire mystery.
+Handout 1: Letter from Redhold
+To the brothers and sisters of Hallowmere, and to any officer
+of the Crown who receives these bearers:
+Redhold was attacked under ash and unnatural mist. The
+persons named by this letter defended our people when no levy
+stood ready. Receive their testimony. Believe that the goblins
+came in fear before they came in war. Send word west if the
+road remains open.
+Elswyn Marr, Reeve of Redhold
+Handout 2: The Abbot’s Petition
+To the Crown of Valedorn, through its lawful council and
+beneath the mercy owed to every subject:
+The sickness now touches water, field, beast, prayer, and
+memory. In Hallowmere we have seen healing answer late,
+answer weakly, or return void. We have received travelers
+from villages where the dead leave ash and the living feel
+relief when they should feel fear.
+Calladris is reported whole. If this preservation is true, its
+manner must be known and shared. If it is purchased, the
+price must be named. I therefore ask entry to the sealed
+records and an audience with the Crown.
+Abbot Caedmon of Hallowmere
+Handout 3: The Lament of the Western Watchman
+I stood upon the western wall and watched the road grow
+pale.
+The crown shall sit where the crown is not, and the voice
+beside it shall be called faithful.
+Peace shall be raised in stone while the living are carried
+beneath. The angry shall be made gentle. The warning tongue
+shall be blessed with silence.
+Count not the statues, for the city counteth them as ornaments.
+Count instead the names no mother is permitted to speak.
+When the right hand offereth rest, remember that the dead
+also rest, and ask who hath closed their eyes.
+Handout 4: The Witness Concerning the Mark
+And I beheld a mark upon the road, an eye divided, seeing yet
+refusing witness.
+Before it went the frightened. Behind it came those who had
+forgotten fear. And beneath it the names of the living were
+entered as though they had already died.
+Then a voice said: Be still, for stillness is mercy. And the
+stones answered with the faces of men.
+Handout 5: From the Abbot’s Margins
+Transcribed from the tome found in the mud yard. The hand is
+unsteady and the ink is water-spoiled. These are the only
+legible passages.
+— eight about one, and the one is not counted among them.
+Why is it not counted?
+— the third mark, I think, is a name. SIDR— no. I cannot hold
+the vowels. It is close to a name I have heard spoken in this
+city and I do not believe in that kind of coincidence.
+— the missing quires were taken before it came to me.
+Whoever tore them knew which pages mattered, which means
+they could read it, which means someone still
+— the elves keep the longest memory in the west. If the annals
+survive anywhere they survive at Dunriael. I will write to them
+when the audience is done.
+— Watch out for th
+Handout 6: Royal Registration Token
+
+
+===== PAGE 33 =====
+ASH ON THE WESTERN ROAD
+33
+TEMPORARY WRIT OF ENTRY
+Bearers: Company of road agents under ecclesiastical
+introduction.
+Lodging: The Weary Crown, Petitioners’ Ward.
+Permitted Arms: Peace-bound within Crown Hill;
+unrestricted upon sanctioned contract.
+Audience Status: Received and awaiting merit review.
+Issuing Office: The Right Hand of the Crown.
+Handout 7: Royal Seal Tracker
+Seal
+Service Rendered
+Witness / Sponsor
+1
+2
+3
+4
+5
+6
+
+
+===== PAGE 34 =====
+ASH ON THE WESTERN ROAD
+34
+APPENDIX D
+DM QUICK
+REFERENCE
+At-the-table summaries
+ARC SUMMARY
+Location
+What Players Experience
+What It Foreshadows
+Redhold
+Chaotic attack, goblins
+fleeing, ashborn.
+The Blight drives
+enemies as well as
+creates them.
+Road
+Rumors, failed magic,
+doubled paths, a shrine.
+Reality and history
+are both becoming
+unreliable.
+Hallowmere
+Fragile sanctuary,
+missing abbot, Graces.
+Sacred offices have
+been forgotten or
+corrupted.
+Calladris Rd.
+Quarantine, control,
+a sudden green line.
+The capital’s health
+is engineered.
+Calladris
+Statues, deferred
+audience, errands.
+Peace is maintained
+through disappearance
+and stone.
+CLUE LADDER
+1. The goblins are fleeing something identified by an eye sigil.
+2. Magic fails in specific places while blight servants act without
+hesitation.
+3. Old Hallowmere records describe Graces and a Keeper of Peace.
+4. The wayshrine has eight niches around one empty recess.
+5. The abbot went to Calladris because the city is impossibly
+untouched.
+6. People who demand access to the king disappear or become
+statues.
+7. City records convert disappearances into retirement, seclusion,
+or monuments.
+8. Not every statue is serene. The screaming ones are kept out of
+sight.
+9. Sideron’s language and seal match the old office of peace.
+10. The tome bears the same eye, ringed by eight, and one margin
+note nearly names him.
+SESSION PLANNING
+Session
+Primary Material
+Suggested End Beat
+0
+Introductions; ordinary
+Redhold.
+The eastern bell rings.
+1
+The Redhold attack.
+Ashborn emerges; the
+village survives.
+Session
+Primary Material
+Suggested End Beat
+2
+Aftermath; Road Leg 1.
+Osric’s burial; Garran
+asks to come.
+3
+Road Leg 2.
+Stalker or doubled camp.
+4
+Road Leg 3.
+First Spell Failure and
+the eight-niche shrine.
+5
+Road Leg 4.
+Hallowmere gate and
+the shared weight.
+6
+Hallowmere investigation.
+Returned mule; the
+stone finger.
+7
+Abbot’s mission
+reconstructed.
+The party accepts the
+charge.
+8
+Road to Calladris.
+The Green Mile.
+9
+Jubilee arrival.
+Statue unveiled;
+audience deferred.
+10+
+Calladris quests.
+The book in the mud.
+TONE REMINDERS
+• The world is not post-apocalyptic. Institutions still function,
+which makes their compromises more consequential.
+• Most NPCs are neither fools nor cultists. They are tired people
+making locally reasonable choices under incomplete information.
+• Use serenity as a horror image sparingly. The first statue should
+be memorable; later victims deepen the pattern.
+• Sideron is more frightening when he is helpful. He should solve
+real problems while redefining freedom as disorder.
+• The party is not chosen. They become important because they
+keep acting when everyone else is encouraged to wait.
+• Garran is not a hero and not comic relief. He is a neighbor who
+came along, and he should be missed for ordinary reasons.
+END OF OPENING VOLUME
+The intended endpoint is a council hearing after the party earns four
+seals, with the king still unseen and Sideron inviting the characters
+into a more private relationship with the crown. The party should
+know that Calladris is wrong, but not yet understand every
+mechanism. They now possess allies, warrants, enemies, a book they
+cannot read, and a direction that is confidently and completely
+mistaken.
+The world is wounded. The road still runs.
+
+
+===== PAGE 35 =====
+C H A P T E R S E V E N
+C A L L A D R I S T O G R E Y H A V E N
+The western road narrows, and the capital recedes behind the ash.
+S E C T I O N R E S E R V E D F O R F U T U R E D E V E L O P M E N T
+
+
+===== PAGE 36 =====
+C H A P T E R E I G H T
+A C R O S S S I O R L A S
+Three roads cross a wounded realm; none reveal the same truth.
+S E C T I O N R E S E R V E D F O R F U T U R E D E V E L O P M E N T
+
+
+===== PAGE 37 =====
+C H A P T E R N I N E
+D O R A S N A S I Ó G
+At the last threshold, the world the travelers knew comes to an end.
+S E C T I O N R E S E R V E D F O R F U T U R E D E V E L O P M E N T

@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { DiceRoller, DiceText, useDiceRoller } from "@/components/DiceRoller";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,16 +28,24 @@ import {
 } from "@/components/ui/hover-card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
-  Swords, Plus, Trash2, User, Heart, Shield, 
+  Swords, Plus, Minus, Trash2, User, Heart, Shield, 
   RotateCcw, Home, Search, Play, SkipForward, Square, Skull, AlertCircle,
   Loader2, Zap, Dices, CircleCheck, CircleX, HeartPulse, BookUser, Save,
-  Upload, FileDown, BookOpen, ChevronRight, ChevronDown
+  Upload, FileDown, BookOpen, ChevronRight, ChevronDown, Pencil
 } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 import { useCampaign } from "@/lib/campaignContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { CampaignCharacter } from "@shared/schema";
+import {
+  applyGroupDamage as calculateGroupDamage,
+  completeEncounterQuery,
+  completeEncounterReset,
+  createEncounterRestoreState,
+  isCurrentEncounterCampaign,
+  sortCombatantsPreservingActiveTurn,
+} from "@shared/encounterRecovery";
 import { useToast } from "@/hooks/use-toast";
 
 const VERSION_OPTIONS = [
@@ -84,6 +93,7 @@ const CONDITION_COLORS: Record<string, string> = {
   "Blinded": "#6B7280",      // Gray
   "Charmed": "#EC4899",      // Pink
   "Deafened": "#8B5CF6",     // Purple
+  "Entangled": "#14B8A6",    // Teal
   "Frightened": "#FBBF24",   // Yellow/Gold
   "Grappled": "#F97316",     // Orange
   "Incapacitated": "#1F2937", // Dark Gray
@@ -287,6 +297,25 @@ const STANCE_COLORS: Record<NPCStance, string> = {
 };
 
 type CombatantType = "pc" | "npc" | "monster";
+type AbilityKey = "str" | "dex" | "con" | "int" | "wis" | "cha";
+type AbilityModifierOverrides = Partial<Record<AbilityKey, number>>;
+interface CorrectionDraft {
+  id: string;
+  hp: string;
+  maxHp: string;
+  initiative: string;
+  ac: string;
+  modifiers: Record<AbilityKey, string>;
+}
+
+const ABILITIES: Array<{ key: AbilityKey; label: string }> = [
+  { key: "str", label: "STR" },
+  { key: "dex", label: "DEX" },
+  { key: "con", label: "CON" },
+  { key: "int", label: "INT" },
+  { key: "wis", label: "WIS" },
+  { key: "cha", label: "CHA" },
+];
 
 interface Combatant {
   id: string;
@@ -299,6 +328,9 @@ interface Combatant {
   isMonster: boolean;
   combatantType: CombatantType;
   conditions: string[];
+  // Optional remaining rounds for timed conditions; absent entries are untimed.
+  conditionDurations?: Record<string, number>;
+  abilityModifierOverrides?: AbilityModifierOverrides;
   isDown: boolean;
   monsterData?: Monster;
   stance?: NPCStance;
@@ -313,11 +345,18 @@ interface Combatant {
   isDisabled?: boolean;
   // Mid-combat reinforcement: skip this turn until the next round begins
   joiningNextRound?: boolean;
+  // Group combatant (e.g. goblin horde)
+  isGroup?: boolean;
+  memberHp?: number[];  // current HP for each member; maxHp is shared across all
+  memberConditions?: string[][];  // conditions for each group member
+  memberConditionDurations?: Array<Record<string, number>>;
+  // PC-specific
+  level?: number;       // character level (1-20)
 }
 
 type CombatState = "setup" | "active" | "ended";
 
-function MonsterStatblock({ monster }: { monster: Monster }) {
+function MonsterStatblock({ monster, onRoll }: { monster: Monster; onRoll: (notation: string, label?: string) => void }) {
   const [showAllActions, setShowAllActions] = useState(false);
 
   const abilityScores = [
@@ -402,7 +441,7 @@ function MonsterStatblock({ monster }: { monster: Monster }) {
           {traits.map((trait, i) => (
             <p key={i} className="text-muted-foreground leading-snug">
               <span className="font-semibold text-foreground/90 italic">{trait.name}. </span>
-              {trait.description}
+              <DiceText text={trait.description ?? ""} onRoll={onRoll} />
             </p>
           ))}
         </div>
@@ -415,7 +454,7 @@ function MonsterStatblock({ monster }: { monster: Monster }) {
           {visibleActions.map((action, i) => (
             <p key={i} className="text-muted-foreground leading-snug">
               <span className="font-semibold text-foreground/90 italic">{action.name}. </span>
-              {action.description}
+              <DiceText text={action.description ?? ""} onRoll={(n) => onRoll(n, action.name ?? undefined)} />
               {action.attackBonus != null && (
                 <span className="text-primary/80 ml-1">(+{action.attackBonus} to hit)</span>
               )}
@@ -450,7 +489,192 @@ function MonsterStatblock({ monster }: { monster: Monster }) {
   );
 }
 
+// ── CR → XP lookup (DMG "Monster Statistics by Challenge Rating") ───────────
+const CR_XP: Record<string, number> = {
+  "0": 10, "1/8": 25, "1/4": 50, "1/2": 100,
+  "1": 200, "2": 450, "3": 700, "4": 1100,
+  "5": 1800, "6": 2300, "7": 2900, "8": 3900,
+  "9": 5000, "10": 5900, "11": 7200, "12": 8400,
+  "13": 10000, "14": 11500, "15": 13000, "16": 15000,
+  "17": 18000, "18": 20000, "19": 22000, "20": 25000,
+  "21": 33000, "22": 41000, "23": 50000, "24": 62000,
+  "25": 75000, "26": 90000, "27": 105000, "28": 120000,
+  "29": 135000, "30": 155000,
+};
+function crToXp(cr: string | undefined): number {
+  if (!cr) return 0;
+  return CR_XP[cr.trim()] ?? 0;
+}
+
+// ── Cinematic death descriptions ─────────────────────────────────────────────
+// {name} = creature name  |  ___ = weapon blank (DM fills in aloud)
+const DEATH_DESCRIPTIONS: Record<string, string[]> = {
+  humanoid: [
+    "{name} catches the ___ full in the face. Bone and grey matter spray across the ground as the body crumples, legs still running on reflex even as what's left of their skull empties onto the stone.",
+    "The ___ finds the gap between gorget and helm. {name}'s scream cuts off the instant the blade exits the other side, trailing ropes of viscera. They drop in a heap, twitching once, then nothing.",
+    "The ___ opens {name}'s throat in a single clean arc. They clutch at it, dark blood sheeting between their fingers in rhythmic pulses, mouth working silently as they fold to the earth and go still.",
+    "{name}'s chest caves inward under the ___. They stagger backward coughing red foam, hit the wall, and slide slowly down it — leaving a long dark smear — until they're sitting in a spreading pool of themselves.",
+    "The ___ buries itself to the hilt in {name}'s gut. They double over, making a sound like wet paper tearing, then sink to their knees and pitch forward into the dirt. Their fingers are still moving when the rest of them stops.",
+    "{name} looks down at what the ___ has done to their midsection with a kind of tired confusion, then sits down heavily and does not get back up. The light leaves their eyes before they hit the ground.",
+    "The ___ shears through {name}'s sword arm at the elbow. They have just enough time to watch it fall before the blood loss takes them — first to their knees, then flat, face down in the spreading red.",
+    "{name} blocks too late. The ___ punches through the raised forearm and keeps going, through jaw, through skull. They stand upright for a long, impossible moment before the body understands it's dead and falls.",
+  ],
+  beast: [
+    "The ___ connects with a wet crunch and {name} lets out a sound — half screech, half death rattle — that has no business coming from an animal. Its legs fail one by one, and it crashes down, ribs heaving with fewer and fewer breaths until they stop entirely.",
+    "{name}'s massive body shudders under the ___. It snaps at the air once, twice — pure reflex — then the jaw goes slack, tongue lolling between yellowed teeth, and it collapses with a finality that shakes the ground.",
+    "The ___ splits hide and bone. {name} lets out a sound not unlike a scream, then thrashes wildly — claws raking the dirt — before going limp all at once, legs curling inward like a dying spider.",
+    "Blood sprays from {name}'s flank as the ___ buries home. It stumbles, wild eyes going glassy and wrong, and hits the ground hard enough to bounce — all that muscle and heat, now just weight.",
+    "{name} turns to flee and the ___ finds it between the shoulder blades. It covers another few feet on pure animal desperation before the body gives out and it skids across the ground, finally still.",
+  ],
+  undead: [
+    "The ___ shatters {name} mid-lurch. Bones scatter — a femur cracks against the far wall, a skull bounces twice and rolls to rest, jaw hanging open in an expression of permanent outrage. Whatever animated this thing is gone.",
+    "{name} continues reaching even as the ___ caves its chest inward. Only when the last threads of dark necromantic will finally unravel does the body collapse — a heap of rot and rags that smells of old graves and old sins.",
+    "Ancient flesh tears like wet parchment under the ___. {name} claws at the air as its body comes apart, grave-mold and black ichor pattering against the floor, until nothing remains but a stain, a smell, and silence.",
+    "The ___ takes {name} apart piece by piece until there are no more pieces capable of malice. The scattered fragments twitch for a moment with residual spite, then go still. It doesn't look like death. It looks like erasure.",
+    "The necrotic light in {name}'s eyes gutters — flickers — dies. The ___ has done what the grave failed to do. The body unravels from the wound outward, collapsing into a heap of cold meat and yellowed bone that smells like an old wound finally closed.",
+  ],
+  fiend: [
+    "{name}'s final shriek rattles the air like a struck bell. The ___ drives through its chest and the fiend's form collapses inward — a vortex of shadow and ichor — until with a thunderclap of displaced air, it is simply gone. Only the blood remains to prove it was ever here.",
+    "The ___ tears through {name}'s infernal hide and the demon screams — not in pain, but in fury at the indignity. It claws at the wound as if confused by its own mortality, before the hellfire within it consumes the shell from the inside. A scorch mark. Brimstone. Silence.",
+    "The ___ strikes and {name} writhes, its true form bleeding through the rupture — glimpses of something vast and wrong beneath the flesh, too many angles, too many mouths. Then it folds, black ichor running and smoking, making a sound no human throat could produce.",
+    "{name} tries to speak its last curse and finds the ___ has left it no breath to curse with. Its form destabilizes from the wound outward, the carefully maintained illusion of a body losing coherence, until what falls to the ground is barely recognizable as having once been something.",
+  ],
+  dragon: [
+    "The ___ finds the soft scales behind the jaw. {name} rears back, wings slamming the air in agony, a gout of uncontrolled breath weapon spraying wild — then the neck bends, the great head crashes down, and the silence that follows is profound enough to feel like pressure.",
+    "{name}'s death is not quiet. The ___ drives home and the dragon roars until the roar becomes a gurgle. It thrashes for a terrible moment — claws raking stone, tail sweeping the ground — before the body finally settles, breath coming out in one long, dying plume of smoke.",
+    "The ___ has found the gap in the scaled armor beneath the foreleg. Ancient blood pours free — dark as oil, steaming where it hits the cold air. {name} sways, the great eyes losing focus one by one, and falls like a collapsing tower. The impact cracks the floor.",
+    "{name} sees the end coming and tries to take one of you with it. The ___ reaches the brain stem before it can. The dying snap misses by inches as the body crashes down, wings pinning and enormous, heat radiating off scales that are already cooling.",
+  ],
+  giant: [
+    "The ___ connects with a sound like a tree being felled. {name} stands for one long, confused moment — blood running freely — then topples backward, arms windmilling, the impact of their fall sending a shockwave through the floor.",
+    "{name}'s knees buckle under the ___. The giant tries to catch itself, hands pawing at the air, and then all that mass comes down in a crash of flesh and stone that raises dust from the ceiling. It does not get back up.",
+    "The ___ opens a wound across {name}'s torso that a man could step into. The giant prods at it with one confused finger, the mind not yet communicating what the body already knows, then sits down heavily — and slowly falls sideways, and is still.",
+    "{name} swings its last blow wide as the ___ finds the throat. The giant makes a sound like a waterfall shutting off, staggers two enormous steps, and then comes down. The crash is felt in the chest.",
+  ],
+  aberration: [
+    "{name}'s alien body shudders around the ___. Something leaks from the wound that isn't quite blood — thick, bioluminescent, wrong. The creature's eyes — all of them — lose their terrible focus one by one, and it sags to the floor, still moving in ways no natural creature should.",
+    "The ___ punches through {name}'s carapace with a sound like snapping obsidian. Milky fluid seeps from the rupture. The thing broadcasts one final telepathic shriek — felt rather than heard, pressure behind the eyes — before its body goes mercifully, permanently still.",
+    "{name}'s tendrils go rigid, then limp. The ___ has done what the eye cannot: silenced the low-frequency wrongness the thing exuded. The body collapses, folding at joints that shouldn't exist, leaking something that smells of copper and ozone and forgotten places.",
+    "The ___ tears through {name} and the creature's dying thought hits the nearest minds like a fist — a flash of something vast and cold and hungry. Then nothing. The body deflates where it falls, emptying of whatever was using it.",
+  ],
+  elemental: [
+    "The ___ disrupts {name}'s core and the elemental comes apart in a violence of its own nature — fire spinning uncontrolled, stone fragmenting, water churning into mist. Then the animating essence fails, and the energy disperses with a crack, leaving only a mark on the ground and the smell of something spent.",
+    "{name} rages as the ___ strikes — one last thrash of pure elemental fury — then the form collapses inward and is gone. The silence after is total. Elemental death doesn't leave a body. It leaves an absence.",
+  ],
+  fey: [
+    "{name}'s laughter cuts off mid-note as the ___ strikes. The fey dissolves from the wound outward — flesh becoming light, becoming motes, becoming nothing — until only a scatter of flower petals and the fading scent of something beautiful and deeply wrong remain on the still air.",
+    "The ___ finds {name} and the fey's expression shifts — not to pain, but to genuine, unfeigned surprise. They look at the wound with something like wonder. Then they unravel gracefully, a glamour dying alongside the creature that wore it. The petals that fall are the wrong color for this season.",
+    "{name} tries one last charm as the ___ comes down. For a heartbeat you almost feel it catch. Then it doesn't, and the fey collapses in a cascade of dissolving illusions — each face it ever wore flickering past on the way out.",
+  ],
+  celestial: [
+    "{name} takes the ___ and the holy light within them flickers. A celestial death is never quiet — radiant energy bleeds from the wound, and for a terrible moment the creature blazes, blinding, beautiful, and wrong. Then the flame gutters and goes out. A single white feather settles to the floor. The air smells of ozone.",
+    "The ___ should not be able to kill something like {name}. It does anyway. The celestial's form burns bright in its last moment — every scar, every answered prayer, every act of mercy written in light — and then goes dark. Whatever comes next for something like this, it begins now.",
+  ],
+  construct: [
+    "The ___ jams into {name}'s mechanism and the construct stutters — repeating its last motion over and over, slower with each cycle — until the gears grind to a stop and the animating magic bleeds out of the joints in pale sparks. The eyes go dark. Steam vents. Then nothing.",
+    "{name}'s armored body crumples under the ___. It hits the ground in a crash of displaced metal and shattering crystal, parts skittering across the floor. The animating force fades from the chassis in slow pulses, like a heart winding down, until it is merely expensive rubble.",
+    "The ___ finds the core housing. {name} freezes mid-motion — arm raised, mouth open — as the magic is severed from the mechanism. Then it falls, all at once, all of it, hitting the ground in a heap that will never move again under its own power.",
+  ],
+  ooze: [
+    "The ___ cleaves through {name}'s mass, sending globules of acidic flesh spattering in every direction. The ooze strains to recohere — pseudopods reaching, matter straining back toward matter — before the animating will fails and it goes inert, spreading slowly into a faintly smoking puddle that smells of dissolution and regret.",
+    "{name} can't die the way things die. It disperses. The ___ disrupts the unity that made it lethal and the mass comes apart — individual droplets losing purpose, losing motion — until what's left is just a spreading stain on the floor that will strip the varnish by morning.",
+  ],
+  plant: [
+    "Sap sprays from the wound as the ___ finds {name}'s heartwood. The creature shudders, vines coiling inward, leaves wilting in real time as if a season is passing in seconds. Then the central stalk crashes down, branches splaying wide, and the great vegetative mass goes still and begins to smell of green rot.",
+    "The ___ severs something vital and {name} — which has probably been alive for longer than the oldest person you know — comes down like a felled tree. The impact scatters seeds. Something in that is probably poetic. Right now it mostly smells like mulch.",
+  ],
+  swarm: [
+    "The ___ disrupts the unity of {name} and the swarm shatters — each individual creature suddenly alone and confused and dying. They scatter to the edges of the room in a rustling, clicking tide that diminishes and diminishes until the last one stops moving and what was a terrible collective mind is just a carpet of small, inert bodies.",
+    "{name} breaks apart under the ___. The hive-thought that bound them fails all at once and the swarm disperses into chaos — a last chaotic surge that fades in seconds as the individual minds, never large enough to sustain themselves alone, go out like candles in a wind.",
+  ],
+  monstrosity: [
+    "The ___ buries itself in {name}'s torso. The creature makes a sound unlike anything heard before — part screech, part wet click, part something with no name — and its body seizes hard before going limp. Strange ichor pools beneath it. Whatever it was, it's less now.",
+    "Whatever passes for blood in {name} floods the ground as the ___ strikes home. The creature convulses, each spasm smaller than the last, until finally the only movement is the slow cooling of its flesh and the last few twitches of its extremities, unwilling to admit what the center already knows.",
+    "{name} collapses mid-lunge. The ___ has severed something vital and the creature's momentum carries it forward even as it dies — a last involuntary reach that falls short of everything it was trying to kill.",
+    "The ___ hits and {name} shrieks, the sound shredding the air and leaving a ringing in the ears. Ichor sprays. The monstrosity thrashes wildly — all of it, every limb, every appendage — then stops all at once, as if a switch was thrown. It never does anything halfway, even dying.",
+  ],
+};
+
+const DEATH_DESCRIPTIONS_DEFAULT = [
+  "The ___ strikes the killing blow. {name} falls — hard, without grace, the way all things fall — and is still. In the sudden quiet, the violence of a moment ago feels almost impossible.",
+  "{name} goes down under the ___. Not slowly, not dramatically — just suddenly absent from the fight, folded on the ground, taking up less space than expected.",
+  "The ___ ends it. {name} collapses, and the sounds of battle continue around the space where they stood. The ground is wet where they hit it.",
+  "{name}'s body gives out under the final strike of the ___. They had a last moment — it was brief — and now it's over, and the rest of the fight moves on without them.",
+];
+
+function pickDeathDescription(monsterType: string | undefined, name: string): string {
+  const key = (monsterType ?? "").toLowerCase().split(/[\s(]/)[0];
+  const pool = DEATH_DESCRIPTIONS[key] ?? DEATH_DESCRIPTIONS_DEFAULT;
+  const template = pool[Math.floor(Math.random() * pool.length)];
+  return template.replace(/\{name\}/g, name);
+}
+
+function formatConditionDuration(rounds: number): string {
+  if (rounds >= 10 && rounds % 10 === 0) {
+    const minutes = rounds / 10;
+    return `${minutes} min (${rounds} rounds)`;
+  }
+  return `${rounds} round${rounds === 1 ? "" : "s"}`;
+}
+
+const INCAPACITATING_CONDITIONS = ["Unconscious", "Paralyzed", "Petrified", "Incapacitated", "Stunned"];
+
+function conditionsForMember(combatant: Combatant, memberIndex = 0): string[] {
+  if (!combatant.isGroup) return combatant.conditions;
+  return combatant.memberConditions?.[memberIndex] ?? combatant.conditions;
+}
+
+function conditionDurationsForMember(combatant: Combatant, memberIndex = 0): Record<string, number> {
+  if (!combatant.isGroup) return combatant.conditionDurations ?? {};
+  return combatant.memberConditionDurations?.[memberIndex] ?? combatant.conditionDurations ?? {};
+}
+
+function isIncapacitatedBy(conditions: string[]): boolean {
+  return INCAPACITATING_CONDITIONS.some(condition => conditions.includes(condition));
+}
+
+function groupIsDown(combatant: Combatant, memberHp = combatant.memberHp): boolean {
+  if (!combatant.isGroup || !memberHp) return combatant.isDown;
+  const aliveMembers = memberHp
+    .map((hp, index) => ({ hp, index }))
+    .filter(member => member.hp > 0);
+  return aliveMembers.length === 0
+    || aliveMembers.every(member => isIncapacitatedBy(conditionsForMember(combatant, member.index)));
+}
+
+function getCombatantAbilityModifier(combatant: Combatant, ability: AbilityKey): number {
+  const override = combatant.abilityModifierOverrides?.[ability];
+  if (override != null) return override;
+  const monster = combatant.monsterData;
+  if (!monster) return 0;
+  const modifier = monster[`${ability}Mod` as keyof Monster];
+  if (typeof modifier === "number") return modifier;
+  const score = monster[ability];
+  return typeof score === "number" ? Math.floor((score - 10) / 2) : 0;
+}
+
+function formatSignedModifier(value: number): string {
+  return value >= 0 ? `+${value}` : String(value);
+}
+
+function monsterWithOverrides(combatant: Combatant): Monster | undefined {
+  if (!combatant.monsterData) return undefined;
+  const overrides = combatant.abilityModifierOverrides;
+  return {
+    ...combatant.monsterData,
+    hp: combatant.maxHp,
+    ac: combatant.ac,
+    strMod: overrides?.str ?? combatant.monsterData.strMod,
+    dexMod: overrides?.dex ?? combatant.monsterData.dexMod,
+    conMod: overrides?.con ?? combatant.monsterData.conMod,
+    intMod: overrides?.int ?? combatant.monsterData.intMod,
+    wisMod: overrides?.wis ?? combatant.monsterData.wisMod,
+    chaMod: overrides?.cha ?? combatant.monsterData.chaMod,
+  };
+}
+
 export default function InitiativeTracker() {
+  const { open: diceOpen, setOpen: setDiceOpen, requestRoll } = useDiceRoller();
   const [showVersionDialog, setShowVersionDialog] = useState(true);
   const [selectedVersions, setSelectedVersions] = useState<string[]>([]);
   const [combatants, setCombatants] = useState<Combatant[]>([]);
@@ -458,6 +682,51 @@ export default function InitiativeTracker() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [round, setRound] = useState(1);
   const [mobileTab, setMobileTab] = useState<"controls" | "combat">("controls");
+
+  // Inline stat editing (HP current, HP max, AC)
+  const [editingStat, setEditingStat] = useState<{ id: string; field: "hp" | "maxHp" | "ac" | "level"; value: string } | null>(null);
+  const [correctionDraft, setCorrectionDraft] = useState<CorrectionDraft | null>(null);
+
+  // Encounter save/restore
+  const [showRestoreBanner, setShowRestoreBanner] = useState(false);
+  const [isSavingEncounter, setIsSavingEncounter] = useState(false);
+  const [autoSaveReady, setAutoSaveReady] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [encounterOwnerCampaignId, setEncounterOwnerCampaignId] = useState<number | null>(null);
+  const latestEncounterRef = useRef<{ campaignId: number; payload: object } | null>(null);
+  const persistenceQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const previousCampaignIdRef = useRef<number | null>(null);
+  const saveRevisionRef = useRef(Date.now());
+
+  // ── Cinematic death overlay ───────────────────────────────────────────────
+  const [deathScene, setDeathScene] = useState<{ name: string; text: string } | null>(null);
+  useEffect(() => {
+    if (!deathScene) return;
+    const t = setTimeout(() => setDeathScene(null), 9000);
+    return () => clearTimeout(t);
+  }, [deathScene]);
+
+  const triggerDeathScene = (combatant: Combatant) => {
+    if (combatant.combatantType === "pc") return;
+    if (combatant.stance === "ally") return;
+    const monsterType = combatant.monsterData?.type;
+    const text = pickDeathDescription(monsterType, combatant.name);
+    setDeathScene({ name: combatant.name, text });
+  };
+
+  // ── XP tally: sum XP from defeated enemy monsters/NPCs ──────────────────
+  const encounterXP = useMemo(() => {
+    return combatants
+      .filter(c => c.combatantType !== "pc" && (c.stance === "enemy" || !c.stance))
+      .reduce((sum, c) => {
+        const xpEach = crToXp(c.monsterData?.cr);
+        if (c.isGroup && c.memberHp) {
+          const deadCount = c.memberHp.filter(hp => hp <= 0).length;
+          return sum + xpEach * deadCount;
+        }
+        return sum + ((c.isDown || c.isDead) ? xpEach : 0);
+      }, 0);
+  }, [combatants]);
 
   // Monster search
   const [monsterSearch, setMonsterSearch] = useState("");
@@ -473,6 +742,11 @@ export default function InitiativeTracker() {
   const [encounterGroup, setEncounterGroup] = useState<Monster[]>([]);
   const [encounterGroupInitiatives, setEncounterGroupInitiatives] = useState<number[]>([]);
   const [midCombatInitiative, setMidCombatInitiative] = useState<number>(10);
+  // Group counts for add-monster UI
+  const [monsterGroupCount, setMonsterGroupCount] = useState(1);
+  const [homebrewGroupCount, setHomebrewGroupCount] = useState(1);
+  // Which member is focused for damage/heal per group combatant
+  const [groupFocused, setGroupFocused] = useState<Record<string, number>>({});
   
   // Homebrew bestiary
   const [homebrewSearch, setHomebrewSearch] = useState("");
@@ -490,6 +764,7 @@ export default function InitiativeTracker() {
   const [pcInitiative, setPcInitiative] = useState("");
   const [pcHp, setPcHp] = useState("");
   const [pcAc, setPcAc] = useState("");
+  const [pcLevel, setPcLevel] = useState("");
   
   // NPC entry (DM-created)
   const [npcName, setNpcName] = useState("");
@@ -499,11 +774,161 @@ export default function InitiativeTracker() {
   
   // HP modification inputs per combatant
   const [hpInputs, setHpInputs] = useState<Record<string, string>>({});
+  const [conditionDurationInputs, setConditionDurationInputs] = useState<Record<string, string>>({});
 
   // Campaign party
   const { activeCampaign } = useCampaign();
+  const activeCampaignIdRef = useRef<number | null>(activeCampaign?.id ?? null);
+  activeCampaignIdRef.current = activeCampaign?.id ?? null;
   const { toast } = useToast();
   const qc = useQueryClient();
+
+  // Homebrew bestiary is always scoped to the "Aetherfall" campaign regardless of active campaign
+  const { data: allCampaigns = [] } = useQuery<{ id: number; name: string }[]>({
+    queryKey: ["/api/campaigns"],
+    queryFn: () => fetch("/api/campaigns").then(r => r.json()),
+    staleTime: 300_000,
+  });
+  const homebrewCampaign = allCampaigns.find(c => c.name === "Aetherfall") ?? null;
+
+  // Saved encounter for active campaign
+  const {
+    data: savedEncounterResult,
+    refetch: refetchSavedEncounter,
+    isFetching: isFetchingSavedEncounter,
+  } = useQuery<{ data: any; savedAt: string } | null>({
+    queryKey: ["/api/campaigns", activeCampaign?.id, "encounter"],
+    queryFn: async ({ queryKey }) => {
+      const campaignId = Number(queryKey[1]);
+      try {
+        const response = await fetch(`/api/campaigns/${campaignId}/encounter`);
+        const result = response.ok ? await response.json() : null;
+        return completeEncounterQuery(campaignId, activeCampaignIdRef.current, result);
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!activeCampaign,
+    staleTime: Infinity,
+    retry: false,
+  });
+
+  const enqueueEncounterRequest = (
+    campaignId: number,
+    method: "PUT" | "DELETE",
+    payload?: object,
+  ): Promise<Response> => {
+    const request = persistenceQueueRef.current
+      .catch(() => undefined)
+      .then(() => fetch(`/api/campaigns/${campaignId}/encounter`, {
+        method,
+        headers: payload ? { "Content-Type": "application/json" } : undefined,
+        body: payload ? JSON.stringify(payload) : undefined,
+      }));
+    persistenceQueueRef.current = request.then(() => undefined, () => undefined);
+    return request;
+  };
+
+  useEffect(() => {
+    const campaignId = activeCampaign?.id ?? null;
+    if (previousCampaignIdRef.current !== campaignId) {
+      previousCampaignIdRef.current = campaignId;
+      latestEncounterRef.current = null;
+      setAutoSaveReady(false);
+      setAutoSaveStatus("idle");
+      setEncounterOwnerCampaignId(campaignId);
+      setShowRestoreBanner(false);
+      setCombatants([]);
+      setCombatState("setup");
+      setActiveIndex(0);
+      setRound(1);
+      setShowVersionDialog(true);
+      setSelectedVersions([]);
+    }
+  }, [activeCampaign?.id]);
+
+  // Show restore banner when a saved encounter exists and nothing is loaded yet
+  useEffect(() => {
+    const campaignId = activeCampaign?.id ?? null;
+    if (
+      campaignId == null
+      || !isCurrentEncounterCampaign(campaignId, encounterOwnerCampaignId)
+      || isFetchingSavedEncounter
+    ) {
+      setAutoSaveReady(false);
+      return;
+    }
+    if (savedEncounterResult?.data && combatants.length === 0 && combatState === "setup") {
+      setShowRestoreBanner(true);
+      setAutoSaveReady(false);
+    } else {
+      setAutoSaveReady(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCampaign?.id, encounterOwnerCampaignId, savedEncounterResult, isFetchingSavedEncounter]);
+
+  const encounterPayload = useMemo(() => {
+    saveRevisionRef.current = Math.max(Date.now(), saveRevisionRef.current + 1);
+    return {
+      combatants,
+      round,
+      activeIndex,
+      combatState,
+      selectedVersions,
+      saveRevision: saveRevisionRef.current,
+    };
+  }, [combatants, round, activeIndex, combatState, selectedVersions]);
+
+  if (
+    activeCampaign
+    && previousCampaignIdRef.current === activeCampaign.id
+    && encounterOwnerCampaignId === activeCampaign.id
+    && autoSaveReady
+    && combatants.length > 0
+  ) {
+    latestEncounterRef.current = { campaignId: activeCampaign.id, payload: encounterPayload };
+  } else {
+    latestEncounterRef.current = null;
+  }
+
+  useEffect(() => {
+    if (
+      !activeCampaign
+      || encounterOwnerCampaignId !== activeCampaign.id
+      || !autoSaveReady
+      || combatants.length === 0
+    ) return;
+    setAutoSaveStatus("saving");
+    const timer = window.setTimeout(async () => {
+      try {
+        const res = await enqueueEncounterRequest(activeCampaign.id, "PUT", encounterPayload);
+        if (!res.ok) throw new Error("Autosave failed");
+        setAutoSaveStatus("saved");
+      } catch {
+        setAutoSaveStatus("error");
+      }
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [activeCampaign, encounterOwnerCampaignId, autoSaveReady, combatants.length, encounterPayload]);
+
+  useEffect(() => {
+    const flushLatestEncounter = () => {
+      const latest = latestEncounterRef.current;
+      if (!latest) return;
+      void fetch(`/api/campaigns/${latest.campaignId}/encounter`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(latest.payload),
+        keepalive: true,
+      }).catch(() => undefined);
+    };
+    window.addEventListener("pagehide", flushLatestEncounter);
+    return () => {
+      window.removeEventListener("pagehide", flushLatestEncounter);
+      flushLatestEncounter();
+    };
+  }, []);
+
   const [saveToParty, setSaveToParty] = useState(false);
 
   const { data: campaignParty = [] } = useQuery<CampaignCharacter[]>({
@@ -625,11 +1050,11 @@ export default function InitiativeTracker() {
     return () => clearTimeout(t);
   }, [homebrewSearch]);
 
-  // Homebrew monsters (campaign-scoped)
+  // Homebrew monsters — always scoped to the Aetherfall campaign
   const { data: homebrewMonsters = [], refetch: refetchHomebrew } = useQuery<HomebrewMonster[]>({
-    queryKey: ["/api/campaigns", activeCampaign?.id, "homebrew-bestiary"],
-    queryFn: () => fetch(`/api/campaigns/${activeCampaign!.id}/homebrew-bestiary`).then(r => r.json()),
-    enabled: !!activeCampaign,
+    queryKey: ["/api/campaigns", homebrewCampaign?.id, "homebrew-bestiary"],
+    queryFn: () => fetch(`/api/campaigns/${homebrewCampaign!.id}/homebrew-bestiary`).then(r => r.json()),
+    enabled: !!homebrewCampaign,
     staleTime: 60_000,
   });
 
@@ -660,17 +1085,17 @@ export default function InitiativeTracker() {
   };
 
   const confirmHomebrewImport = async () => {
-    if (!activeCampaign || !homebrewImportRaw) return;
+    if (!homebrewCampaign || !homebrewImportRaw) return;
     setHomebrewImportLoading(true);
     try {
-      const res = await fetch(`/api/campaigns/${activeCampaign.id}/homebrew-bestiary/import`, {
+      const res = await fetch(`/api/campaigns/${homebrewCampaign.id}/homebrew-bestiary/import`, {
         method: "POST",
         headers: { "Content-Type": "text/csv" },
         body: homebrewImportRaw,
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
-      toast({ title: `Imported ${data.count} monsters`, description: `Added to ${activeCampaign.name}'s homebrew bestiary.` });
+       toast({ title: `Added ${data.count} monsters`, description: `Appended to the Aetherfall homebrew bestiary.` });
       setHomebrewImportPreview(null);
       setHomebrewImportRaw("");
       refetchHomebrew();
@@ -682,19 +1107,22 @@ export default function InitiativeTracker() {
   };
 
   const clearHomebrewBestiary = async () => {
-    if (!activeCampaign) return;
-    if (!confirm(`Clear all homebrew monsters from ${activeCampaign.name}? This cannot be undone.`)) return;
-    await fetch(`/api/campaigns/${activeCampaign.id}/homebrew-bestiary`, { method: "DELETE" });
+    if (!homebrewCampaign) return;
+    if (!confirm(`Clear all homebrew monsters from the Aetherfall bestiary? This cannot be undone.`)) return;
+    await fetch(`/api/campaigns/${homebrewCampaign.id}/homebrew-bestiary`, { method: "DELETE" });
     setSelectedHomebrewId(null);
     refetchHomebrew();
     toast({ title: "Homebrew bestiary cleared" });
   };
 
-  const addHomebrewMonster = (m: HomebrewMonster) => {
-    addSingleMonsterToEncounter(
-      homebrewToMonster(m),
-      combatState === "active" ? homebrewMidCombatInit : 0
-    );
+  const addHomebrewMonster = (m: HomebrewMonster, count = 1) => {
+    const monster = homebrewToMonster(m);
+    const init = combatState === "active" ? homebrewMidCombatInit : 0;
+    if (count > 1) {
+      addGroupToEncounter(monster, count, init);
+    } else {
+      addSingleMonsterToEncounter(monster, init);
+    }
     setSelectedHomebrewId(null);
   };
 
@@ -771,6 +1199,44 @@ export default function InitiativeTracker() {
     }
   };
 
+  const addGroupToEncounter = (monster: Monster, count: number, initiative?: number) => {
+    const memberHps = Array.from({ length: count }, () => {
+      const hp = monster.hit_dice
+        ? rollMonsterHp(monster.hit_dice, monster.hp)
+        : rollMonsterHp("", monster.hp);
+      return Math.max(1, hp);
+    });
+    const sharedMaxHp = monster.hp > 0 ? monster.hp : memberHps[0];
+    const initValue = initiative !== undefined
+      ? initiative
+      : (combatState === "active" ? rollInitiative(monster.dexMod) : 0);
+    const newCombatant: Combatant = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: monster.name,
+      initiative: initValue,
+      hp: memberHps[0],
+      maxHp: sharedMaxHp,
+      tempHp: 0,
+      ac: monster.ac,
+      isMonster: true,
+      combatantType: "monster",
+      conditions: [],
+      isDown: false,
+      monsterData: monster,
+      stance: "enemy",
+      deathSaveSuccesses: 0,
+      deathSaveFailures: 0,
+      isStable: false,
+      isDead: false,
+      joiningNextRound: combatState === "active",
+      isGroup: true,
+      memberHp: memberHps,
+      memberConditions: Array.from({ length: count }, () => []),
+      memberConditionDurations: Array.from({ length: count }, () => ({})),
+    };
+    setCombatants(prev => [...prev, newCombatant]);
+  };
+
   const addSingleMonsterToEncounter = (monster: Monster, initiative?: number) => {
     const baseName = monster.name;
     const existingCount = combatants.filter(c =>
@@ -825,12 +1291,103 @@ export default function InitiativeTracker() {
 
   const addMonster = () => {
     if (!selectedMonster) return;
-    addSingleMonsterToEncounter(
-      selectedMonster,
-      combatState === "active" ? midCombatInitiative : 0
-    );
+    const init = combatState === "active" ? midCombatInitiative : 0;
+    if (monsterGroupCount > 1) {
+      addGroupToEncounter(selectedMonster, monsterGroupCount, init);
+    } else {
+      addSingleMonsterToEncounter(selectedMonster, init);
+    }
     setSelectedMonsterId(null);
     setMonsterSearch("");
+    setMonsterGroupCount(1);
+  };
+
+  const applyGroupDamage = (id: string) => {
+    const combatant = combatants.find(c => c.id === id);
+    if (!combatant?.isGroup || !combatant.memberHp) return;
+    const damage = getHpInput(id);
+    if (damage <= 0) return;
+    const focIdx = groupFocused[id] ?? 0;
+    const wasAlive = combatant.memberHp[focIdx] > 0;
+    const groupDamage = calculateGroupDamage(combatant.memberHp, focIdx, damage);
+    const newMemberHp = groupDamage.memberHp;
+    const memberJustDied = wasAlive && newMemberHp[focIdx] <= 0;
+    updateCombatant(id, {
+      memberHp: newMemberHp,
+      isDown: groupDamage.isDown || groupIsDown({ ...combatant, memberHp: newMemberHp }, newMemberHp),
+      isDead: groupDamage.isDead,
+    });
+    clearHpInput(id);
+    if (memberJustDied) {
+      // Use a member-specific name for the death scene
+      const memberName = `${combatant.name} #${focIdx + 1}`;
+      const monsterType = combatant.monsterData?.type;
+      const text = pickDeathDescription(monsterType, memberName);
+      setDeathScene({ name: memberName, text });
+    }
+    // Auto-focus next alive member
+    if (newMemberHp[focIdx] <= 0) {
+      const next = newMemberHp.findIndex((h, i) => i !== focIdx && h > 0);
+      if (next >= 0) setGroupFocused(prev => ({ ...prev, [id]: next }));
+    }
+  };
+
+  const applyGroupHeal = (id: string) => {
+    const combatant = combatants.find(c => c.id === id);
+    if (!combatant?.isGroup || !combatant.memberHp) return;
+    const heal = getHpInput(id);
+    if (heal <= 0) return;
+    const focIdx = groupFocused[id] ?? 0;
+    const newMemberHp = [...combatant.memberHp];
+    newMemberHp[focIdx] = Math.min(combatant.maxHp, newMemberHp[focIdx] + heal);
+    const allDead = newMemberHp.every(h => h <= 0);
+    updateCombatant(id, {
+      memberHp: newMemberHp,
+      isDown: allDead || groupIsDown({ ...combatant, memberHp: newMemberHp }, newMemberHp),
+      isDead: allDead,
+    });
+    clearHpInput(id);
+  };
+
+  const addGroupMember = (id: string) => {
+    const combatant = combatants.find(c => c.id === id);
+    if (!combatant?.isGroup || !combatant.memberHp) return;
+    const hp = combatant.maxHp;
+    updateCombatant(id, {
+      memberHp: [...combatant.memberHp, hp],
+      memberConditions: [...(combatant.memberConditions ?? combatant.memberHp.map(() => [...combatant.conditions])), []],
+      memberConditionDurations: [
+        ...(combatant.memberConditionDurations ?? combatant.memberHp.map(() => ({ ...(combatant.conditionDurations ?? {}) }))),
+        {},
+      ],
+      isDown: false,
+      isDead: false,
+    });
+  };
+
+  const removeGroupMember = (id: string) => {
+    const combatant = combatants.find(c => c.id === id);
+    if (!combatant?.isGroup || !combatant.memberHp || combatant.memberHp.length <= 1) return;
+    const newMemberHp = combatant.memberHp.slice(0, -1);
+    const newMemberConditions = combatant.memberConditions?.slice(0, -1);
+    const newMemberConditionDurations = combatant.memberConditionDurations?.slice(0, -1);
+    const allDead = newMemberHp.every(h => h <= 0);
+    const focused = groupFocused[id] ?? 0;
+    if (focused >= newMemberHp.length) {
+      setGroupFocused(prev => ({ ...prev, [id]: newMemberHp.length - 1 }));
+    }
+    updateCombatant(id, {
+      memberHp: newMemberHp,
+      memberConditions: newMemberConditions,
+      memberConditionDurations: newMemberConditionDurations,
+      isDown: allDead || groupIsDown({
+        ...combatant,
+        memberHp: newMemberHp,
+        memberConditions: newMemberConditions,
+        memberConditionDurations: newMemberConditionDurations,
+      }, newMemberHp),
+      isDead: allDead,
+    });
   };
 
   const addPC = () => {
@@ -858,12 +1415,14 @@ export default function InitiativeTracker() {
       healingSurges: defaultSurges,
       maxHealingSurges: defaultSurges,
       isDisabled: false,
+      level: pcLevel ? Math.min(20, Math.max(1, parseInt(pcLevel))) : undefined,
     };
     setCombatants(prev => [...prev, newCombatant]);
     setPcName("");
     setPcInitiative("");
     setPcHp("");
     setPcAc("");
+    setPcLevel("");
   };
 
   const addNPC = () => {
@@ -915,6 +1474,114 @@ export default function InitiativeTracker() {
     setCombatants(combatants.map(c => 
       c.id === id ? { ...c, ...updates } : c
     ));
+  };
+
+  const openCorrectionEditor = (combatant: Combatant) => {
+    const focusedMember = groupFocused[combatant.id] ?? 0;
+    const currentHp = combatant.isGroup && combatant.memberHp
+      ? (combatant.memberHp[focusedMember] ?? combatant.hp)
+      : combatant.hp;
+    setCorrectionDraft({
+      id: combatant.id,
+      hp: String(currentHp),
+      maxHp: String(combatant.maxHp),
+      initiative: String(combatant.initiative),
+      ac: String(combatant.ac),
+      modifiers: {
+        str: String(getCombatantAbilityModifier(combatant, "str")),
+        dex: String(getCombatantAbilityModifier(combatant, "dex")),
+        con: String(getCombatantAbilityModifier(combatant, "con")),
+        int: String(getCombatantAbilityModifier(combatant, "int")),
+        wis: String(getCombatantAbilityModifier(combatant, "wis")),
+        cha: String(getCombatantAbilityModifier(combatant, "cha")),
+      },
+    });
+  };
+
+  const saveCorrections = () => {
+    if (!correctionDraft) return;
+    const combatant = combatants.find(c => c.id === correctionDraft.id);
+    if (!combatant) return;
+
+    const hp = Number(correctionDraft.hp);
+    const maxHp = Number(correctionDraft.maxHp);
+    const initiative = Number(correctionDraft.initiative);
+    const ac = Number(correctionDraft.ac);
+    const modifiers = Object.fromEntries(
+      ABILITIES.map(({ key }) => [key, Number(correctionDraft.modifiers[key])]),
+    ) as Record<AbilityKey, number>;
+    const allValues = [hp, maxHp, initiative, ac, ...Object.values(modifiers)];
+    if (!allValues.every(Number.isInteger) || maxHp < 1 || ac < 0) {
+      toast({
+        title: "Check corrected stats",
+        description: "Use whole numbers, with base HP at least 1 and AC at least 0.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const activeId = getSortedCombatants()[activeIndex]?.id;
+    const focusedMember = groupFocused[combatant.id] ?? 0;
+    const isIncapacitated = isIncapacitatedBy(conditionsForMember(combatant, focusedMember));
+    let corrected: Combatant;
+
+    if (combatant.isGroup && combatant.memberHp) {
+      const memberHp = combatant.memberHp.map(value => Math.min(value, maxHp));
+      memberHp[focusedMember] = Math.min(hp, maxHp);
+      const allDead = memberHp.every(value => value <= 0);
+      corrected = {
+        ...combatant,
+        initiative,
+        ac,
+        maxHp,
+        hp: allDead ? 0 : Math.max(...memberHp),
+        memberHp,
+        isDown: allDead || groupIsDown({ ...combatant, memberHp }),
+        isDead: allDead,
+        abilityModifierOverrides: modifiers,
+      };
+    } else {
+      const correctedHp = Math.min(hp, maxHp);
+      corrected = {
+        ...combatant,
+        initiative,
+        ac,
+        maxHp,
+        hp: correctedHp,
+        isDown: correctedHp <= 0 || isIncapacitated,
+        isDead: correctedHp > 0 ? false : combatant.isDead,
+        isStable: correctedHp > 0 ? false : combatant.isStable,
+        isDisabled: effectiveRuleset === "3.5e" && correctedHp === 0,
+        abilityModifierOverrides: modifiers,
+      };
+    }
+
+    const correctedResult = sortCombatantsPreservingActiveTurn(combatants, corrected, activeId);
+    setCombatants(correctedResult.combatants);
+    if (correctedResult.activeIndex !== null) setActiveIndex(correctedResult.activeIndex);
+    setCorrectionDraft(null);
+    toast({ title: "Combatant corrected", description: `${combatant.name}'s encounter stats were updated.` });
+  };
+
+  const commitStatEdit = () => {
+    if (!editingStat) return;
+    const { id, field, value } = editingStat;
+    const parsed = parseInt(value, 10);
+    if (!isNaN(parsed)) {
+      const combatant = combatants.find(c => c.id === id);
+      if (!combatant) return;
+      if (field === "hp") {
+        updateCombatant(id, { hp: parsed });
+      } else if (field === "maxHp") {
+        const newMax = Math.max(1, parsed);
+        updateCombatant(id, { maxHp: newMax, hp: Math.min(combatant.hp, newMax) });
+      } else if (field === "ac") {
+        updateCombatant(id, { ac: Math.max(0, parsed) });
+      } else if (field === "level") {
+        updateCombatant(id, { level: Math.min(20, Math.max(1, parsed)) });
+      }
+    }
+    setEditingStat(null);
   };
 
   const updateInitiative = (id: string, value: string) => {
@@ -975,6 +1642,7 @@ export default function InitiativeTracker() {
         // 3.5e: Taking damage while stable breaks stability (start bleeding again)
         isStable: isDead || newHp > 0 ? false : (newHp < 0 ? false : combatant.isStable)
       });
+      if ((isDown || isDead) && !combatant.isDown) triggerDeathScene(combatant);
     } else if (effectiveRuleset === "4e") {
       // 4e: Death at negative half max HP
       const newHp = combatant.hp - damage;
@@ -1002,6 +1670,7 @@ export default function InitiativeTracker() {
           isDead: instantDeath,
           isStable: isDown ? false : combatant.isStable
         });
+        if ((isDown || instantDeath) && !combatant.isDown) triggerDeathScene(combatant);
       }
     } else {
       // 5e/One D&D: HP floors at 0, death saves, massive damage rule
@@ -1055,6 +1724,7 @@ export default function InitiativeTracker() {
         isDead: instantDeath,
         deathSaveFailures: instantDeath ? 3 : combatant.deathSaveFailures
       });
+      if (newHp === 0 && combatant.hp > 0) triggerDeathScene(combatant);
     }
     
     clearHpInput(id);
@@ -1287,18 +1957,59 @@ export default function InitiativeTracker() {
   const toggleCondition = (id: string, condition: string) => {
     const combatant = combatants.find(c => c.id === id);
     if (!combatant) return;
-    const newConditions = combatant.conditions.includes(condition)
-      ? combatant.conditions.filter(c => c !== condition)
-      : [...combatant.conditions, condition];
+    const focusedMember = groupFocused[id] ?? 0;
+    const currentConditions = conditionsForMember(combatant, focusedMember);
+    const isRemoving = currentConditions.includes(condition);
+    const newConditions = isRemoving
+      ? currentConditions.filter(c => c !== condition)
+      : [...currentConditions, condition];
+    const newDurations = { ...conditionDurationsForMember(combatant, focusedMember) };
+
+    if (isRemoving) {
+      delete newDurations[condition];
+    } else {
+      const durationText = conditionDurationInputs[id]?.trim() ?? "";
+      if (durationText !== "") {
+        const durationMinutes = Number(durationText);
+        if (!Number.isFinite(durationMinutes) || durationMinutes < 0) {
+          toast({
+            title: "Invalid duration",
+            description: "Enter a non-negative number of minutes, or leave it blank for an untimed condition.",
+            variant: "destructive",
+          });
+          return;
+        }
+        newDurations[condition] = Math.round(durationMinutes * 10);
+      }
+    }
     
-    const isIncapacitated = ["Unconscious", "Paralyzed", "Petrified", "Incapacitated", "Stunned"].some(
-      c => newConditions.includes(c)
-    );
-    
-    updateCombatant(id, { 
-      conditions: newConditions,
-      isDown: combatant.hp === 0 || isIncapacitated
-    });
+    if (combatant.isGroup && combatant.memberHp) {
+      const memberConditions = combatant.memberConditions
+        ? combatant.memberConditions.map(member => [...member])
+        : combatant.memberHp.map(() => [...combatant.conditions]);
+      const memberConditionDurations = combatant.memberConditionDurations
+        ? combatant.memberConditionDurations.map(member => ({ ...member }))
+        : combatant.memberHp.map(() => ({ ...(combatant.conditionDurations ?? {}) }));
+      memberConditions[focusedMember] = newConditions;
+      memberConditionDurations[focusedMember] = newDurations;
+      const updated = { ...combatant, memberConditions, memberConditionDurations, conditions: [], conditionDurations: undefined };
+      updateCombatant(id, {
+        memberConditions,
+        memberConditionDurations,
+        conditions: [],
+        conditionDurations: undefined,
+        isDown: combatant.isDead || groupIsDown(updated),
+      });
+    } else {
+      updateCombatant(id, {
+        conditions: newConditions,
+        conditionDurations: Object.keys(newDurations).length > 0 ? newDurations : undefined,
+        isDown: combatant.isDead || combatant.hp <= 0 || isIncapacitatedBy(newConditions),
+      });
+    }
+    if (!isRemoving) {
+      setConditionDurationInputs(prev => ({ ...prev, [id]: "" }));
+    }
   };
 
   const cycleStance = (id: string) => {
@@ -1373,9 +2084,81 @@ export default function InitiativeTracker() {
     
     // Check for new round
     if (nextIndex <= activeIndex) {
+      const expiredConditions: string[] = [];
+      const updatedCombatants = sorted.map(combatant => {
+        if (combatant.isGroup && combatant.memberHp) {
+          const memberConditions = combatant.memberConditions
+            ? combatant.memberConditions.map(member => [...member])
+            : combatant.memberHp.map(() => [...combatant.conditions]);
+          const memberConditionDurations = combatant.memberConditionDurations
+            ? combatant.memberConditionDurations.map(member => ({ ...member }))
+            : combatant.memberHp.map(() => ({ ...(combatant.conditionDurations ?? {}) }));
+
+          memberConditions.forEach((conditions, memberIndex) => {
+            memberConditions[memberIndex] = conditions.filter(condition => {
+              const remainingRounds = memberConditionDurations[memberIndex]?.[condition];
+              if (remainingRounds == null) return true;
+              const nextRemainingRounds = remainingRounds - 1;
+              if (nextRemainingRounds <= 0) {
+                delete memberConditionDurations[memberIndex][condition];
+                expiredConditions.push(`${combatant.name} #${memberIndex + 1}: ${condition}`);
+                return false;
+              }
+              memberConditionDurations[memberIndex][condition] = nextRemainingRounds;
+              return true;
+            });
+          });
+
+          const updatedGroup = {
+            ...combatant,
+            conditions: [],
+            conditionDurations: undefined,
+            memberConditions,
+            memberConditionDurations,
+          };
+          return {
+            ...updatedGroup,
+            isDown: combatant.isDead || groupIsDown(updatedGroup),
+            joiningNextRound: false,
+          };
+        }
+
+        const remainingDurations = { ...(combatant.conditionDurations ?? {}) };
+        const remainingConditions = combatant.conditions.filter(condition => {
+          const remainingRounds = remainingDurations[condition];
+          if (remainingRounds == null) return true;
+
+          const nextRemainingRounds = remainingRounds - 1;
+          if (nextRemainingRounds <= 0) {
+            delete remainingDurations[condition];
+            expiredConditions.push(`${combatant.name}: ${condition}`);
+            return false;
+          }
+
+          remainingDurations[condition] = nextRemainingRounds;
+          return true;
+        });
+        const isIncapacitated = isIncapacitatedBy(remainingConditions);
+        const isOtherwiseDown = combatant.isDead
+          || (!combatant.isGroup && combatant.hp <= 0)
+          || !!(combatant.isGroup && combatant.memberHp?.every(hp => hp <= 0));
+
+        return {
+          ...combatant,
+          conditions: remainingConditions,
+          conditionDurations: Object.keys(remainingDurations).length > 0 ? remainingDurations : undefined,
+          isDown: isOtherwiseDown || isIncapacitated,
+          joiningNextRound: false,
+        };
+      });
+      setCombatants(updatedCombatants);
       setRound(r => r + 1);
-      // Clear the "joining next round" flag — reinforcements now act normally
-      setCombatants(prev => prev.map(c => c.joiningNextRound ? { ...c, joiningNextRound: false } : c));
+      if (expiredConditions.length > 0) {
+        toast({
+          title: "Conditions expired",
+          description: expiredConditions.join(" · "),
+        });
+      }
     }
     
     setActiveIndex(nextIndex);
@@ -1385,7 +2168,58 @@ export default function InitiativeTracker() {
     setCombatState("ended");
   };
 
+  // ── Encounter persistence ──────────────────────────────────────────────────
+
+  const saveCurrentEncounter = async () => {
+    if (!activeCampaign) return;
+    setIsSavingEncounter(true);
+    try {
+      const res = await enqueueEncounterRequest(activeCampaign.id, "PUT", encounterPayload);
+      if (!res.ok) throw new Error("Save failed");
+      setAutoSaveStatus("saved");
+      toast({ title: "Encounter saved ✓", description: "You can close the app — it'll be here next session." });
+      refetchSavedEncounter();
+    } catch {
+      toast({ title: "Save failed", description: "Could not save the encounter.", variant: "destructive" });
+    } finally {
+      setIsSavingEncounter(false);
+    }
+  };
+
+  const restoreEncounter = () => {
+    if (!savedEncounterResult?.data) return;
+    const snapshot = createEncounterRestoreState<Combatant>(savedEncounterResult.data);
+    if (!snapshot) return;
+    setCombatants(snapshot.combatants);
+    setRound(snapshot.round);
+    setActiveIndex(snapshot.activeIndex);
+    setCombatState(snapshot.combatState);
+    setSelectedVersions(snapshot.selectedVersions);
+    setShowVersionDialog(snapshot.showVersionDialog);
+    setShowRestoreBanner(snapshot.showRestoreBanner);
+    setAutoSaveReady(snapshot.autoSaveReady);
+    toast({ title: "Encounter restored", description: `Round ${snapshot.round} · ${snapshot.combatants.length} combatants` });
+  };
+
+  const dismissRestoreEncounter = () => {
+    setShowRestoreBanner(false);
+    setAutoSaveReady(true);
+  };
+
+  const clearSavedEncounterRemote = async () => {
+    if (!activeCampaign) return;
+    const campaignId = activeCampaign.id;
+    latestEncounterRef.current = null;
+    setAutoSaveReady(false);
+    await enqueueEncounterRequest(campaignId, "DELETE");
+    const completion = completeEncounterReset(campaignId, activeCampaignIdRef.current);
+    if (!completion) return;
+    setAutoSaveReady(completion.autoSaveReady);
+    if (completion.shouldRefetch) refetchSavedEncounter();
+  };
+
   const resetCombat = () => {
+    clearSavedEncounterRemote();
     setCombatants([]);
     setCombatState("setup");
     setActiveIndex(0);
@@ -1428,6 +2262,9 @@ export default function InitiativeTracker() {
       deathSaveSuccesses: 0,
       deathSaveFailures: effectiveRuleset === "4e" ? combatant.deathSaveFailures : 0, // 4e: failures persist until rest
       conditions: combatant.conditions.filter(c => !c.startsWith("Exhaustion")), // Keep non-exhaustion conditions
+      conditionDurations: Object.fromEntries(
+        Object.entries(combatant.conditionDurations ?? {}).filter(([condition]) => !condition.startsWith("Exhaustion"))
+      ),
       healingSurges: combatant.maxHealingSurges || 0, // Restore healing surges
     });
   };
@@ -1523,6 +2360,9 @@ export default function InitiativeTracker() {
 
   const sortedCombatants = getSortedCombatants();
   const activeCombatant = sortedCombatants[activeIndex];
+  const correctionCombatant = correctionDraft
+    ? combatants.find(c => c.id === correctionDraft.id)
+    : undefined;
 
   return (
     <div className="h-screen bg-background flex flex-col overflow-hidden">
@@ -1559,6 +2399,97 @@ export default function InitiativeTracker() {
           >
             <Play className="mr-2 w-4 h-4" /> Start Combat Setup
           </Button>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!correctionDraft} onOpenChange={open => { if (!open) setCorrectionDraft(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-display flex items-center gap-2">
+              <Pencil className="w-5 h-5 text-primary" />
+              Correct {correctionCombatant?.name ?? "combatant"}
+            </DialogTitle>
+            <DialogDescription>
+              Fix encounter-only values without changing the bestiary source.
+            </DialogDescription>
+          </DialogHeader>
+          {correctionDraft && (
+            <div className="space-y-5 py-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="correct-hp">
+                    {correctionCombatant?.isGroup ? "Focused HP" : "Current HP"}
+                  </Label>
+                  <Input
+                    id="correct-hp"
+                    type="number"
+                    value={correctionDraft.hp}
+                    onChange={e => setCorrectionDraft(d => d ? { ...d, hp: e.target.value } : d)}
+                    data-testid="input-correction-hp"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="correct-max-hp">Base HP</Label>
+                  <Input
+                    id="correct-max-hp"
+                    type="number"
+                    min="1"
+                    value={correctionDraft.maxHp}
+                    onChange={e => setCorrectionDraft(d => d ? { ...d, maxHp: e.target.value } : d)}
+                    data-testid="input-correction-max-hp"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="correct-initiative">Initiative</Label>
+                  <Input
+                    id="correct-initiative"
+                    type="number"
+                    value={correctionDraft.initiative}
+                    onChange={e => setCorrectionDraft(d => d ? { ...d, initiative: e.target.value } : d)}
+                    data-testid="input-correction-initiative"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="correct-ac">AC</Label>
+                  <Input
+                    id="correct-ac"
+                    type="number"
+                    min="0"
+                    value={correctionDraft.ac}
+                    onChange={e => setCorrectionDraft(d => d ? { ...d, ac: e.target.value } : d)}
+                    data-testid="input-correction-ac"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Ability modifiers</Label>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                  {ABILITIES.map(({ key, label }) => (
+                    <div key={key} className="space-y-1">
+                      <Label htmlFor={`correct-${key}`} className="text-[10px] text-muted-foreground">{label}</Label>
+                      <Input
+                        id={`correct-${key}`}
+                        type="number"
+                        value={correctionDraft.modifiers[key]}
+                        onChange={e => setCorrectionDraft(d => d ? {
+                          ...d,
+                          modifiers: { ...d.modifiers, [key]: e.target.value },
+                        } : d)}
+                        className="px-2 text-center"
+                        data-testid={`input-correction-${key}`}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setCorrectionDraft(null)}>Cancel</Button>
+                <Button onClick={saveCorrections} data-testid="button-save-corrections">
+                  Save Corrections
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -1611,9 +2542,29 @@ export default function InitiativeTracker() {
               <Swords className="w-5 h-5" /> Initiative Tracker
             </h2>
             {combatState === "active" && (
-              <p className="text-sm text-muted-foreground">
-                Round {round} - {activeCombatant?.name}'s turn
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    Round {round} - {activeCombatant?.name}'s turn
+                  </p>
+                  {activeCampaign && (
+                    <p className={cn(
+                      "text-[10px]",
+                      autoSaveStatus === "error" ? "text-destructive" : "text-muted-foreground/70",
+                    )}>
+                      {autoSaveStatus === "saving" && "Saving encounter…"}
+                      {autoSaveStatus === "saved" && "Encounter autosaved"}
+                      {autoSaveStatus === "error" && "Autosave failed — use Save Encounter"}
+                      {autoSaveStatus === "idle" && "Autosave ready"}
+                    </p>
+                  )}
+                </div>
+                {encounterXP > 0 && (
+                  <span className="text-xs font-mono font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded px-2 py-0.5">
+                    ⚔ {encounterXP.toLocaleString()} XP
+                  </span>
+                )}
+              </div>
             )}
           </div>
 
@@ -1894,6 +2845,28 @@ export default function InitiativeTracker() {
               </div>
             )}
             
+            {/* Group count stepper */}
+            {selectedMonster && !loadingDetail && (
+              <div className="flex items-center gap-2 px-1">
+                <span className="text-xs text-muted-foreground">Count:</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    className="w-6 h-6 rounded border border-border flex items-center justify-center text-sm hover:bg-muted disabled:opacity-40"
+                    onClick={() => setMonsterGroupCount(c => Math.max(1, c - 1))}
+                    disabled={monsterGroupCount <= 1}
+                  >−</button>
+                  <span className="w-6 text-center font-mono text-sm font-bold">{monsterGroupCount}</span>
+                  <button
+                    className="w-6 h-6 rounded border border-border flex items-center justify-center text-sm hover:bg-muted disabled:opacity-40"
+                    onClick={() => setMonsterGroupCount(c => Math.min(20, c + 1))}
+                    disabled={monsterGroupCount >= 20}
+                  >+</button>
+                </div>
+                {monsterGroupCount > 1 && (
+                  <span className="text-xs text-primary/70">→ group of {monsterGroupCount}</span>
+                )}
+              </div>
+            )}
             <Button 
               onClick={addMonster} 
               disabled={!selectedMonster || loadingDetail || encounterGroup.length > 0}
@@ -1901,7 +2874,9 @@ export default function InitiativeTracker() {
               data-testid="button-add-monster"
             >
               <Plus className="mr-2 w-4 h-4" />
-              {combatState === "active" ? "Add to Active Combat" : "Add to Encounter"}
+              {monsterGroupCount > 1
+                ? `Add Group ×${monsterGroupCount}`
+                : combatState === "active" ? "Add to Active Combat" : "Add to Encounter"}
             </Button>
           </div>
 
@@ -1916,7 +2891,7 @@ export default function InitiativeTracker() {
                 {showHomebrewSection ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                 <BookOpen className="w-4 h-4" />
                 Homebrew Bestiary
-                {activeCampaign && homebrewMonsters.length > 0 && (
+                {homebrewMonsters.length > 0 && (
                   <Badge variant="secondary" className="text-[10px] px-1.5 h-4">{homebrewMonsters.length}</Badge>
                 )}
               </button>
@@ -1929,7 +2904,7 @@ export default function InitiativeTracker() {
                 >
                   <FileDown className="w-3.5 h-3.5" /> Template
                 </a>
-                {activeCampaign && (
+                {homebrewCampaign && (
                   <>
                     <span className="text-border">|</span>
                     <button
@@ -1953,11 +2928,7 @@ export default function InitiativeTracker() {
 
             {showHomebrewSection && (
               <>
-                {!activeCampaign ? (
-                  <p className="text-xs text-muted-foreground italic">
-                    Select a campaign at startup to access your homebrew bestiary.
-                  </p>
-                ) : homebrewMonsters.length === 0 ? (
+                {homebrewMonsters.length === 0 ? (
                   <p className="text-xs text-muted-foreground italic">
                     No homebrew monsters yet. Download the template, fill it in, then import.
                   </p>
@@ -2073,18 +3044,41 @@ export default function InitiativeTracker() {
                       );
                     })()}
 
+                    {/* Homebrew group count stepper */}
+                    <div className="flex items-center gap-2 px-1">
+                      <span className="text-xs text-muted-foreground">Count:</span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          className="w-6 h-6 rounded border border-border flex items-center justify-center text-sm hover:bg-muted disabled:opacity-40"
+                          onClick={() => setHomebrewGroupCount(c => Math.max(1, c - 1))}
+                          disabled={homebrewGroupCount <= 1}
+                        >−</button>
+                        <span className="w-6 text-center font-mono text-sm font-bold">{homebrewGroupCount}</span>
+                        <button
+                          className="w-6 h-6 rounded border border-border flex items-center justify-center text-sm hover:bg-muted disabled:opacity-40"
+                          onClick={() => setHomebrewGroupCount(c => Math.min(20, c + 1))}
+                          disabled={homebrewGroupCount >= 20}
+                        >+</button>
+                      </div>
+                      {homebrewGroupCount > 1 && (
+                        <span className="text-xs text-primary/70">→ group of {homebrewGroupCount}</span>
+                      )}
+                    </div>
                     <div className="flex gap-2">
                       <Button
                         onClick={() => {
                           const hm = homebrewMonsters.find(m => m.id === selectedHomebrewId);
-                          if (hm) addHomebrewMonster(hm);
+                          if (hm) addHomebrewMonster(hm, homebrewGroupCount);
+                          setHomebrewGroupCount(1);
                         }}
                         disabled={selectedHomebrewId == null}
                         className="flex-1"
                         size="sm"
                       >
                         <Plus className="mr-1.5 w-3.5 h-3.5" />
-                        {combatState === "active" ? "Add to Active Combat" : "Add to Encounter"}
+                        {homebrewGroupCount > 1
+                          ? `Add Group ×${homebrewGroupCount}`
+                          : combatState === "active" ? "Add to Active Combat" : "Add to Encounter"}
                       </Button>
                       <Button
                         variant="ghost"
@@ -2184,8 +3178,8 @@ export default function InitiativeTracker() {
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm text-muted-foreground">
                       {homebrewImportPreview.filter(r => !r.error).length} of {homebrewImportPreview.length} rows will be imported.
-                      {activeCampaign && homebrewMonsters.length > 0 && (
-                        <span className="text-amber-500 ml-1">This will replace the existing {homebrewMonsters.length} monsters.</span>
+                       {homebrewCampaign && homebrewMonsters.length > 0 && (
+                        <span className="text-primary ml-1">These will be added to the existing {homebrewMonsters.length} monsters.</span>
                       )}
                     </p>
                     <div className="flex gap-2 shrink-0">
@@ -2270,7 +3264,7 @@ export default function InitiativeTracker() {
               placeholder="Character Name"
               data-testid="input-pc-name"
             />
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               <div>
                 <Label className="text-xs">Initiative</Label>
                 <Input
@@ -2299,6 +3293,18 @@ export default function InitiativeTracker() {
                   onChange={e => setPcAc(e.target.value)}
                   placeholder="10"
                   data-testid="input-pc-ac"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Level</Label>
+                <Input
+                  type="number"
+                  value={pcLevel}
+                  onChange={e => setPcLevel(e.target.value)}
+                  placeholder="1"
+                  min={1}
+                  max={20}
+                  data-testid="input-pc-level"
                 />
               </div>
             </div>
@@ -2428,6 +3434,20 @@ export default function InitiativeTracker() {
                 >
                   <SkipForward className="mr-2" /> Next Turn
                 </Button>
+                {activeCampaign && (
+                  <Button
+                    onClick={saveCurrentEncounter}
+                    disabled={isSavingEncounter}
+                    variant="outline"
+                    className="w-full border-primary/50 text-primary hover:bg-primary/10"
+                    data-testid="button-save-encounter"
+                  >
+                    {isSavingEncounter
+                      ? <Loader2 className="mr-2 w-4 h-4 animate-spin" />
+                      : <Save className="mr-2 w-4 h-4" />}
+                    Save Encounter
+                  </Button>
+                )}
                 <Button 
                   onClick={endCombat}
                   variant="destructive"
@@ -2440,8 +3460,37 @@ export default function InitiativeTracker() {
             )}
             
             {combatState === "ended" && (
-              <div className="text-center space-y-4">
-                <p className="text-lg font-display text-muted-foreground">Combat Ended</p>
+              <div className="space-y-4">
+                <p className="text-lg font-display text-muted-foreground text-center">Combat Ended</p>
+
+                {/* XP Summary */}
+                {encounterXP > 0 ? (
+                  <div className="rounded-lg border border-amber-400/40 bg-amber-400/5 p-4 space-y-3">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-amber-400/80 text-center">
+                      Encounter XP
+                    </p>
+                    <p className="text-3xl font-mono font-bold text-amber-400 text-center">
+                      {encounterXP.toLocaleString()}
+                    </p>
+                    {(() => {
+                      const pcCount = combatants.filter(c => c.combatantType === "pc").length;
+                      return pcCount > 0 ? (
+                        <p className="text-xs text-muted-foreground text-center">
+                          ÷ {pcCount} PC{pcCount !== 1 ? "s" : ""} ={" "}
+                          <span className="font-semibold text-foreground">
+                            {Math.floor(encounterXP / pcCount).toLocaleString()} XP each
+                          </span>
+                        </p>
+                      ) : null;
+                    })()}
+                    <p className="text-[10px] text-muted-foreground/60 text-center italic">
+                      Award as you see fit
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center italic">No enemy XP recorded</p>
+                )}
+
                 <Button onClick={resetCombat} variant="outline" className="w-full">
                   <RotateCcw className="mr-2 w-4 h-4" /> New Combat
                 </Button>
@@ -2503,6 +3552,37 @@ export default function InitiativeTracker() {
             )}
           </div>
 
+          {/* Restore Banner */}
+          {showRestoreBanner && savedEncounterResult?.data && (
+            <div className="mb-4 p-4 rounded-lg border border-primary/60 bg-primary/5 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <Save className="w-5 h-5 text-primary shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-primary">Saved encounter found</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    Round {savedEncounterResult.data.round} · {(savedEncounterResult.data.combatants ?? []).length} combatants
+                    {savedEncounterResult.savedAt && (
+                      <> · Saved {new Date(savedEncounterResult.savedAt).toLocaleDateString()}</>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button size="sm" onClick={restoreEncounter} className="h-8">
+                  <Play className="w-3 h-3 mr-1" /> Continue
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 text-muted-foreground"
+                  onClick={dismissRestoreEncounter}
+                >
+                  Dismiss
+                </Button>
+              </div>
+            </div>
+          )}
+
           {combatants.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground">
               <Swords className="w-16 h-16 mx-auto mb-4 opacity-30" />
@@ -2547,7 +3627,7 @@ export default function InitiativeTracker() {
 
                           {/* Condition Color Indicators */}
                           <div className="flex gap-0.5 flex-shrink-0">
-                            {combatant.conditions.map(condition => (
+                            {conditionsForMember(combatant, groupFocused[combatant.id] ?? 0).map(condition => (
                               <div 
                                 key={condition}
                                 className="w-1.5 h-10 rounded-sm"
@@ -2613,7 +3693,7 @@ export default function InitiativeTracker() {
                                           
                                           {/* Core Stats */}
                                           <div className="grid grid-cols-2 gap-2 text-sm">
-                                            <div><span className="font-semibold">AC:</span> {combatant.monsterData.ac}</div>
+                                            <div><span className="font-semibold">AC:</span> {combatant.ac}</div>
                                             <div><span className="font-semibold">HP:</span> {combatant.hp}/{combatant.maxHp} {combatant.monsterData.hit_dice && <span className="text-muted-foreground">({combatant.monsterData.hit_dice})</span>}</div>
                                           </div>
                                           
@@ -2629,36 +3709,15 @@ export default function InitiativeTracker() {
                                           
                                           {/* Ability Scores */}
                                           <div className="grid grid-cols-6 gap-1 text-center text-xs border border-border rounded-md p-2">
-                                            <div>
-                                              <div className="font-bold">STR</div>
-                                              <div>{combatant.monsterData.str || 10}</div>
-                                              <div className="text-muted-foreground">{getAbilityModifier(combatant.monsterData.str || 10)}</div>
-                                            </div>
-                                            <div>
-                                              <div className="font-bold">DEX</div>
-                                              <div>{combatant.monsterData.dex || 10}</div>
-                                              <div className="text-muted-foreground">{getAbilityModifier(combatant.monsterData.dex || 10)}</div>
-                                            </div>
-                                            <div>
-                                              <div className="font-bold">CON</div>
-                                              <div>{combatant.monsterData.con || 10}</div>
-                                              <div className="text-muted-foreground">{getAbilityModifier(combatant.monsterData.con || 10)}</div>
-                                            </div>
-                                            <div>
-                                              <div className="font-bold">INT</div>
-                                              <div>{combatant.monsterData.int || 10}</div>
-                                              <div className="text-muted-foreground">{getAbilityModifier(combatant.monsterData.int || 10)}</div>
-                                            </div>
-                                            <div>
-                                              <div className="font-bold">WIS</div>
-                                              <div>{combatant.monsterData.wis || 10}</div>
-                                              <div className="text-muted-foreground">{getAbilityModifier(combatant.monsterData.wis || 10)}</div>
-                                            </div>
-                                            <div>
-                                              <div className="font-bold">CHA</div>
-                                              <div>{combatant.monsterData.cha || 10}</div>
-                                              <div className="text-muted-foreground">{getAbilityModifier(combatant.monsterData.cha || 10)}</div>
-                                            </div>
+                                            {ABILITIES.map(({ key, label }) => (
+                                              <div key={key}>
+                                                <div className="font-bold">{label}</div>
+                                                <div>{combatant.monsterData?.[key] ?? 10}</div>
+                                                <div className="text-muted-foreground">
+                                                  {formatSignedModifier(getCombatantAbilityModifier(combatant, key))}
+                                                </div>
+                                              </div>
+                                            ))}
                                           </div>
                                           
                                           {/* Resistances/Immunities */}
@@ -2716,6 +3775,14 @@ export default function InitiativeTracker() {
                                             <p>HP: {combatant.hp}/{combatant.maxHp}</p>
                                             <p>AC: {combatant.ac}</p>
                                           </div>
+                                          <div className="grid grid-cols-6 gap-1 mt-3 text-xs border border-border rounded-md p-2">
+                                            {ABILITIES.map(({ key, label }) => (
+                                              <div key={key}>
+                                                <div className="font-bold">{label}</div>
+                                                <div>{formatSignedModifier(getCombatantAbilityModifier(combatant, key))}</div>
+                                              </div>
+                                            ))}
+                                          </div>
                                         </div>
                                       ) : (
                                         <div className="text-center text-muted-foreground py-4">
@@ -2733,49 +3800,231 @@ export default function InitiativeTracker() {
                                 </HoverCardContent>
                               </HoverCard>
                             </div>
-                            <div className="text-xs text-muted-foreground ml-8">
-                              {combatant.combatantType === "monster" 
-                                ? `Monster - ${(combatant.stance || "enemy").charAt(0).toUpperCase() + (combatant.stance || "enemy").slice(1)}` 
-                                : combatant.combatantType === "npc"
-                                ? `NPC - ${(combatant.stance || "enemy").charAt(0).toUpperCase() + (combatant.stance || "enemy").slice(1)}`
-                                : "Player Character"}
+                            <div className="text-xs text-muted-foreground ml-8 flex items-center gap-1.5 flex-wrap">
+                              {/* Group count */}
+                              {combatant.isGroup && combatant.memberHp && (
+                                <>
+                                  <span className="font-semibold text-primary/80">×{combatant.memberHp.length}</span>
+                                  <span>·</span>
+                                  <span>{combatant.memberHp.filter(h => h > 0).length} alive</span>
+                                  <span>·</span>
+                                </>
+                              )}
+
+                              {/* PC: level + proficiency badge */}
+                              {combatant.combatantType === "pc" && (
+                                <>
+                                  {combatant.level ? (
+                                    <>
+                                      <button
+                                        className="font-semibold text-blue-400 hover:text-blue-300 transition-colors"
+                                        title="Click to edit level"
+                                        onClick={() => setEditingStat({ id: combatant.id, field: "level", value: String(combatant.level) })}
+                                      >
+                                        {editingStat?.id === combatant.id && editingStat.field === "level" ? (
+                                          <input
+                                            type="number"
+                                            autoFocus
+                                            className="w-8 text-center bg-muted border border-primary rounded px-0.5 outline-none font-mono"
+                                            value={editingStat.value}
+                                            onChange={e => setEditingStat(s => s ? { ...s, value: e.target.value } : s)}
+                                            onBlur={commitStatEdit}
+                                            onKeyDown={e => { if (e.key === "Enter") commitStatEdit(); if (e.key === "Escape") setEditingStat(null); }}
+                                            onClick={e => e.stopPropagation()}
+                                          />
+                                        ) : (
+                                          `Lv.${combatant.level}`
+                                        )}
+                                      </button>
+                                      <span>·</span>
+                                      <span className="text-emerald-400">
+                                        Prof +{Math.ceil(combatant.level / 4) + 1}
+                                      </span>
+                                      <span>·</span>
+                                    </>
+                                  ) : (
+                                    <button
+                                      className="italic text-muted-foreground/60 hover:text-blue-400 transition-colors"
+                                      onClick={() => setEditingStat({ id: combatant.id, field: "level", value: "1" })}
+                                    >
+                                      Set level
+                                    </button>
+                                  )}
+                                  <span>Player Character</span>
+                                </>
+                              )}
+
+                              {/* Monster / NPC: type label + clickable stance badge */}
+                              {(combatant.combatantType === "monster" || combatant.combatantType === "npc") && (
+                                <>
+                                  <span>{combatant.combatantType === "monster" ? "Monster" : "NPC"}</span>
+                                  <span>·</span>
+                                  <button
+                                    onClick={() => cycleStance(combatant.id)}
+                                    className={cn(
+                                      "px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide border transition-colors",
+                                      (combatant.stance === "ally")
+                                        ? "border-green-500/60 text-green-400 hover:bg-green-500/10"
+                                        : (combatant.stance === "neutral")
+                                        ? "border-gray-400/60 text-gray-300 hover:bg-gray-500/10"
+                                        : "border-red-500/60 text-red-400 hover:bg-red-500/10"
+                                    )}
+                                    title="Click to cycle stance"
+                                  >
+                                    {(combatant.stance === "ally") ? "⚔ Ally" : (combatant.stance === "neutral") ? "◆ Neutral" : "☠ Enemy"}
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </div>
 
                           {/* Conditions Column */}
-                          <div className="flex flex-col gap-1 min-w-[140px]">
-                            <Select onValueChange={(val) => toggleCondition(combatant.id, val)}>
-                              <SelectTrigger className="h-8 text-xs" data-testid={`select-condition-${combatant.id}`}>
-                                <SelectValue placeholder="Add Condition" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {CONDITIONS.filter(c => !combatant.conditions.includes(c)).map(condition => (
-                                  <SelectItem key={condition} value={condition}>
-                                    {condition}
+                          <div className="flex flex-col gap-1 min-w-[160px]">
+                            {combatant.isGroup && (
+                              <span className="text-[10px] font-semibold text-primary">
+                                G{(groupFocused[combatant.id] ?? 0) + 1} conditions
+                              </span>
+                            )}
+                            <div className="flex items-center gap-1">
+                              <Select onValueChange={(val) => val !== "__none__" && toggleCondition(combatant.id, val)}>
+                                <SelectTrigger className="h-8 text-xs flex-1" data-testid={`select-condition-${combatant.id}`}>
+                                  <SelectValue placeholder="Add Condition" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="__none__">
+                                    <span aria-label="No condition">&nbsp;</span>
                                   </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                                  {CONDITIONS.filter(c => !conditionsForMember(combatant, groupFocused[combatant.id] ?? 0).includes(c)).map(condition => (
+                                    <SelectItem key={condition} value={condition}>
+                                      {condition}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={conditionDurationInputs[combatant.id] ?? ""}
+                                onChange={e => setConditionDurationInputs(prev => ({
+                                  ...prev,
+                                  [combatant.id]: e.target.value,
+                                }))}
+                                className="h-8 w-14 px-1 text-center text-xs"
+                                placeholder="min"
+                                aria-label={`Duration in minutes for ${combatant.name}${combatant.isGroup ? ` member ${(groupFocused[combatant.id] ?? 0) + 1}` : ""} condition`}
+                                data-testid={`input-condition-duration-${combatant.id}`}
+                              />
+                            </div>
                             <div className="flex flex-wrap gap-1">
-                              {combatant.conditions.map(condition => (
-                                <Badge 
-                                  key={condition} 
-                                  className="text-xs cursor-pointer text-white border-0"
-                                  style={{ backgroundColor: CONDITION_COLORS[condition] }}
-                                  onClick={() => toggleCondition(combatant.id, condition)}
-                                  data-testid={`badge-condition-${combatant.id}-${condition}`}
-                                >
-                                  {condition} <span className="ml-1 opacity-70">x</span>
-                                </Badge>
-                              ))}
+                              {conditionsForMember(combatant, groupFocused[combatant.id] ?? 0).map(condition => {
+                                const remainingRounds = conditionDurationsForMember(
+                                  combatant,
+                                  groupFocused[combatant.id] ?? 0,
+                                )[condition];
+                                const durationLabel = remainingRounds != null
+                                  ? ` · ${formatConditionDuration(remainingRounds)}`
+                                  : "";
+                                return (
+                                  <Badge
+                                    key={condition}
+                                    className="text-xs cursor-pointer text-white border-0"
+                                    style={{ backgroundColor: CONDITION_COLORS[condition] }}
+                                    onClick={() => toggleCondition(combatant.id, condition)}
+                                    title={`${condition}${durationLabel} — click to remove`}
+                                    data-testid={`badge-condition-${combatant.id}-${condition}`}
+                                  >
+                                    {condition}{remainingRounds != null && (
+                                      <span className="ml-1 opacity-90">· {formatConditionDuration(remainingRounds)}</span>
+                                    )} <span className="ml-1 opacity-70">x</span>
+                                  </Badge>
+                                );
+                              })}
                             </div>
                           </div>
 
-                          {/* HP Display */}
+                          {/* HP Display — group shows member tokens; single shows inline-editable HP */}
+                          {combatant.isGroup && combatant.memberHp ? (
+                            <div className="flex flex-col gap-1.5 min-w-[200px] max-w-[260px]">
+                              <div className="flex flex-wrap gap-1">
+                                {combatant.memberHp.map((mhp, i) => {
+                                  const alive = mhp > 0;
+                                  const focused = (groupFocused[combatant.id] ?? 0) === i;
+                                  const memberConditions = conditionsForMember(combatant, i);
+                                  return (
+                                    <button
+                                      key={i}
+                                      onClick={() => alive && setGroupFocused(prev => ({ ...prev, [combatant.id]: i }))}
+                                      className={cn(
+                                        "text-[11px] px-1.5 py-0.5 rounded border font-mono transition-colors leading-tight",
+                                        !alive && "opacity-40 line-through cursor-default",
+                                        focused && alive && "border-primary bg-primary/20 text-primary font-bold",
+                                        !focused && alive && "border-border bg-background/60 hover:border-primary/50 cursor-pointer",
+                                      )}
+                                      title={alive
+                                        ? `G${i+1}: ${mhp}/${combatant.maxHp} HP${memberConditions.length ? ` — ${memberConditions.join(", ")}` : ""} — click to focus`
+                                        : `G${i+1}: Dead`}
+                                    >
+                                      {alive ? (
+                                        <>
+                                          G{i + 1} {mhp}
+                                          {memberConditions.length > 0 && (
+                                            <span className="ml-1 text-primary">•{memberConditions.length}</span>
+                                          )}
+                                        </>
+                                      ) : "☠"}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                                <Heart className="w-3 h-3" />
+                                Focus: G{(groupFocused[combatant.id] ?? 0) + 1}
+                                ({combatant.memberHp[groupFocused[combatant.id] ?? 0] ?? 0}/{combatant.maxHp})
+                              </div>
+                            </div>
+                          ) : (
                           <div className="text-center min-w-[80px]">
                             <div className="flex items-center justify-center gap-1">
-                              <span className="font-mono font-bold text-lg">{combatant.hp}</span>
-                              <span className="text-muted-foreground text-sm">/{combatant.maxHp}</span>
+                              {editingStat?.id === combatant.id && editingStat.field === "hp" ? (
+                                <input
+                                  type="number"
+                                  autoFocus
+                                  className="w-14 text-center font-mono font-bold text-lg bg-muted border border-primary rounded px-1 outline-none"
+                                  value={editingStat.value}
+                                  onChange={e => setEditingStat(s => s ? { ...s, value: e.target.value } : s)}
+                                  onBlur={commitStatEdit}
+                                  onKeyDown={e => { if (e.key === "Enter") commitStatEdit(); if (e.key === "Escape") setEditingStat(null); }}
+                                />
+                              ) : (
+                                <span
+                                  className={cn("font-mono font-bold text-lg transition-colors", combatState !== "active" && "cursor-pointer hover:text-primary hover:underline underline-offset-2")}
+                                  title={combatState !== "active" ? "Click to edit current HP" : undefined}
+                                  onClick={() => combatState !== "active" && setEditingStat({ id: combatant.id, field: "hp", value: String(combatant.hp) })}
+                                >
+                                  {combatant.hp}
+                                </span>
+                              )}
+                              <span className="text-muted-foreground text-sm">/</span>
+                              {editingStat?.id === combatant.id && editingStat.field === "maxHp" ? (
+                                <input
+                                  type="number"
+                                  autoFocus
+                                  className="w-14 text-center font-mono text-sm bg-muted border border-primary rounded px-1 outline-none"
+                                  value={editingStat.value}
+                                  onChange={e => setEditingStat(s => s ? { ...s, value: e.target.value } : s)}
+                                  onBlur={commitStatEdit}
+                                  onKeyDown={e => { if (e.key === "Enter") commitStatEdit(); if (e.key === "Escape") setEditingStat(null); }}
+                                />
+                              ) : (
+                                <span
+                                  className={cn("text-muted-foreground text-sm transition-colors", combatState !== "active" && "cursor-pointer hover:text-primary hover:underline underline-offset-2")}
+                                  title={combatState !== "active" ? "Click to edit max HP" : undefined}
+                                  onClick={() => combatState !== "active" && setEditingStat({ id: combatant.id, field: "maxHp", value: String(combatant.maxHp) })}
+                                >
+                                  {combatant.maxHp}
+                                </span>
+                              )}
                               {combatant.tempHp > 0 && (
                                 <span className="font-mono text-cyan-500 text-sm">(+{combatant.tempHp})</span>
                               )}
@@ -2784,6 +4033,7 @@ export default function InitiativeTracker() {
                               <Heart className="w-3 h-3" /> HP
                             </div>
                           </div>
+                          )}
 
                           {/* 3.5e Dying State (negative HP) */}
                           {effectiveRuleset === "3.5e" && combatant.combatantType === "pc" && combatant.hp < 0 && !combatant.isDead && (
@@ -2999,7 +4249,7 @@ export default function InitiativeTracker() {
                               size="sm"
                               variant="destructive"
                               className="h-8 px-2"
-                              onClick={() => applyDamage(combatant.id, false)}
+                              onClick={() => combatant.isGroup ? applyGroupDamage(combatant.id) : applyDamage(combatant.id, false)}
                               data-testid={`button-damage-${combatant.id}`}
                             >
                               <Skull className="w-3 h-3 mr-1" />
@@ -3022,22 +4272,48 @@ export default function InitiativeTracker() {
                               size="sm"
                               variant="default"
                               className="h-8 px-2 bg-green-600 hover:bg-green-700"
-                              onClick={() => applyHeal(combatant.id)}
+                              onClick={() => combatant.isGroup ? applyGroupHeal(combatant.id) : applyHeal(combatant.id)}
                               data-testid={`button-heal-${combatant.id}`}
                             >
                               <Heart className="w-3 h-3 mr-1" />
                               Heal
                             </Button>
-                            <Button 
-                              size="sm"
-                              variant="outline"
-                              className="h-8 px-2 border-cyan-500 text-cyan-500"
-                              onClick={() => applyTempHp(combatant.id)}
-                              data-testid={`button-temp-hp-${combatant.id}`}
-                            >
-                              <Zap className="w-3 h-3 mr-1" />
-                              Temp
-                            </Button>
+                            {/* Group member management */}
+                            {combatant.isGroup && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 px-2 border-primary/50 text-primary"
+                                  onClick={() => addGroupMember(combatant.id)}
+                                  title="Add a member to this group"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 px-2 border-muted-foreground/30 text-muted-foreground"
+                                  onClick={() => removeGroupMember(combatant.id)}
+                                  disabled={(combatant.memberHp?.length ?? 1) <= 1}
+                                  title="Remove last member from this group"
+                                >
+                                  <Minus className="w-3 h-3" />
+                                </Button>
+                              </>
+                            )}
+                            {!combatant.isGroup && (
+                              <Button 
+                                size="sm"
+                                variant="outline"
+                                className="h-8 px-2 border-cyan-500 text-cyan-500"
+                                onClick={() => applyTempHp(combatant.id)}
+                                data-testid={`button-temp-hp-${combatant.id}`}
+                              >
+                                <Zap className="w-3 h-3 mr-1" />
+                                Temp
+                              </Button>
+                            )}
                             {/* Full Heal button for PCs */}
                             {combatant.combatantType === "pc" && (
                               <Button 
@@ -3053,13 +4329,42 @@ export default function InitiativeTracker() {
                             )}
                           </div>
 
-                          {/* AC */}
-                          <div className="text-center w-12">
-                            <span className="font-mono font-bold text-lg">{combatant.ac}</span>
+                          {/* AC — click to edit inline */}
+                          <div className="text-center w-14">
+                            {editingStat?.id === combatant.id && editingStat.field === "ac" ? (
+                              <input
+                                type="number"
+                                autoFocus
+                                className="w-12 text-center font-mono font-bold text-lg bg-muted border border-primary rounded px-1 outline-none"
+                                value={editingStat.value}
+                                onChange={e => setEditingStat(s => s ? { ...s, value: e.target.value } : s)}
+                                onBlur={commitStatEdit}
+                                onKeyDown={e => { if (e.key === "Enter") commitStatEdit(); if (e.key === "Escape") setEditingStat(null); }}
+                              />
+                            ) : (
+                              <span
+                                className={cn("font-mono font-bold text-lg transition-colors", combatState !== "active" && "cursor-pointer hover:text-primary hover:underline underline-offset-2")}
+                                title={combatState !== "active" ? "Click to edit AC" : undefined}
+                                onClick={() => combatState !== "active" && setEditingStat({ id: combatant.id, field: "ac", value: String(combatant.ac) })}
+                              >
+                                {combatant.ac}
+                              </span>
+                            )}
                             <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
                               <Shield className="w-3 h-3" /> AC
                             </div>
                           </div>
+
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            className="text-primary border-primary/40 hover:bg-primary/10"
+                            onClick={() => openCorrectionEditor(combatant)}
+                            title="Correct encounter stats"
+                            data-testid={`button-correct-stats-${combatant.id}`}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
 
                           {/* Remove */}
                           <Button 
@@ -3074,8 +4379,8 @@ export default function InitiativeTracker() {
                         </div>
 
                         {/* Monster Statblock */}
-                        {combatant.monsterData && (
-                          <MonsterStatblock monster={combatant.monsterData} />
+                        {combatant.monsterData && monsterWithOverrides(combatant) && (
+                          <MonsterStatblock monster={monsterWithOverrides(combatant)!} onRoll={requestRoll} />
                         )}
                       </CardContent>
                     </Card>
@@ -3087,6 +4392,45 @@ export default function InitiativeTracker() {
         </div>
       </main>
       </div>
+
+      {/* 3D Dice Roller overlay */}
+      {diceOpen && <DiceRoller onClose={() => setDiceOpen(false)} />}
+
+      {/* ── Cinematic Death Scene overlay ─────────────────────────────────── */}
+      {deathScene && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-6 cursor-pointer"
+          style={{ background: "radial-gradient(ellipse at center, rgba(10,0,0,0.92) 0%, rgba(0,0,0,0.97) 100%)" }}
+          onClick={() => setDeathScene(null)}
+        >
+          {/* Blood drip accent */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-red-900 to-transparent opacity-60" />
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-red-900 to-transparent opacity-60" />
+
+          <div className="max-w-2xl w-full text-center space-y-6">
+            {/* Creature name */}
+            <p className="text-red-700/80 text-xs font-mono uppercase tracking-[0.3em] font-semibold">
+              ☠ {deathScene.name} falls ☠
+            </p>
+
+            {/* Death description — ___ rendered as underline blanks */}
+            <p className="font-serif text-xl leading-relaxed text-stone-200/90">
+              {deathScene.text.split("___").map((segment, i, arr) => (
+                <span key={i}>
+                  {segment}
+                  {i < arr.length - 1 && (
+                    <span className="inline-block border-b-2 border-stone-400 px-8 mx-1 text-stone-500 italic text-sm align-baseline">
+                      weapon
+                    </span>
+                  )}
+                </span>
+              ))}
+            </p>
+
+            <p className="text-stone-600 text-xs italic">tap to dismiss</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
