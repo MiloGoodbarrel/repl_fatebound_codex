@@ -162,6 +162,9 @@ interface Monster {
   traits?: BestiaryTrait[];
   detailedActions?: BestiaryDetailedAction[];
   source?: string;
+  description?: string;
+  sourcePage?: number;
+  imageUrl?: string;
   alignment?: string;
   creatureTags?: string;
 }
@@ -3680,6 +3683,21 @@ export default function InitiativeTracker() {
                                     <div className="p-4 space-y-3">
                                       {combatant.isMonster && combatant.monsterData ? (
                                         <>
+                                           {/* Source manual preview */}
+                                           {combatant.monsterData.imageUrl && (
+                                             <div className="overflow-hidden rounded-md border border-border bg-muted/20">
+                                               <img
+                                                 src={combatant.monsterData.imageUrl}
+                                                 alt={`${combatant.monsterData.name} from ${combatant.monsterData.source || "the source manual"}`}
+                                                 className="h-32 w-full object-cover object-top"
+                                                 loading="lazy"
+                                                 onError={(event) => {
+                                                   event.currentTarget.parentElement?.remove();
+                                                 }}
+                                               />
+                                             </div>
+                                           )}
+
                                           {/* Header */}
                                           <div className="border-b border-border pb-2">
                                             <h4 className="text-lg font-bold text-primary">{combatant.monsterData.name}</h4>
@@ -3690,6 +3708,23 @@ export default function InitiativeTracker() {
                                               <Badge variant="outline" className="text-xs mt-1">{combatant.monsterData.source}</Badge>
                                             )}
                                           </div>
+
+                                           {/* Source manual description */}
+                                           {combatant.monsterData.description && (
+                                             <div className="rounded-md border border-border/70 bg-muted/20 p-3 space-y-1.5">
+                                               <div className="flex items-center justify-between gap-2">
+                                                 <h5 className="font-semibold text-sm">From the source manual</h5>
+                                                 {combatant.monsterData.sourcePage && (
+                                                   <span className="text-[10px] text-muted-foreground">
+                                                     p. {combatant.monsterData.sourcePage}
+                                                   </span>
+                                                 )}
+                                               </div>
+                                               <p className="text-xs leading-relaxed text-muted-foreground">
+                                                 {combatant.monsterData.description}
+                                               </p>
+                                             </div>
+                                           )}
                                           
                                           {/* Core Stats */}
                                           <div className="grid grid-cols-2 gap-2 text-sm">

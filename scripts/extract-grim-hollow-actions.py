@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import re
 import sys
 from collections import defaultdict
@@ -16,6 +17,8 @@ ROOT = Path(__file__).resolve().parents[1]
 PDF_PATH = ROOT / "attached_assets" / "Grim Hollow the Monster Grimoire.pdf"
 MONSTERS_PATH = ROOT / "server" / "data" / "bestiary" / "monsters.csv"
 OUTPUT_PATH = ROOT / "server" / "data" / "bestiary" / "grim_hollow_actions.csv"
+LORE_OUTPUT_PATH = ROOT / "server" / "data" / "bestiary" / "grim_hollow_lore.json"
+IMAGE_DIR = ROOT / "client" / "public" / "bestiary" / "grim-hollow"
 SOURCE_PREFIX = "dnd_5e2014_ghmg_"
 PDF_PAGE_OFFSET = 4
 
@@ -65,6 +68,13 @@ def clean_text(parts: list[str]) -> str:
     text = re.split(r"\b\d+\s+Grim Hollow Monster Grimoire\b", text, maxsplit=1)[0]
     text = re.split(r"\s+[“\"]", text, maxsplit=1)[0]
     return text.strip()
+
+
+def clean_lore(parts: list[str]) -> str:
+    text = " ".join(part.strip() for part in parts if part.strip())
+    text = re.sub(r"(\w)-\s+([a-z])", r"\1\2", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return re.split(r"\b\d+\s+Grim Hollow Monster Grimoire\b", text, maxsplit=1)[0].strip()
 
 
 def line_record(page_number: int, line: dict) -> dict:
@@ -265,6 +275,29 @@ def extract_actions(monster: dict[str, str], block: list[dict]) -> list[dict[str
     return actions
 
 
+def extract_lore(monster: dict[str, str], start: int, lines: list[dict]) -> str:
+    wanted = normalized(monster["name"])
+    title_start = next(
+        (
+            index for index in range(start - 180, start)
+            if index >= 0 and normalized(lines[index]["text"]) == wanted
+        ),
+        None,
+    )
+    if title_start is None:
+        return ""
+
+    parts: list[str] = []
+    for line in lines[title_start + 1:start]:
+        heading = normalized(line["text"])
+        if heading in {"salvage", "lore"}:
+            break
+        if re.match(r"^\d+\s+grim hollow monster grimoire\b", heading):
+            continue
+        parts.append(line["text"])
+    return clean_lore(parts)
+
+
 def main() -> int:
     if not PDF_PATH.exists():
         print(f"Missing source PDF: {PDF_PATH}", file=sys.stderr)
@@ -292,6 +325,7 @@ def main() -> int:
         if (start := starts.get(monster["monster_id"])) is not None
     )
     all_actions: list[dict[str, str]] = []
+    lore_by_id: dict[str, dict[str, str | int]] = {}
     missing_actions: list[str] = []
     counts_by_category: defaultdict[str, int] = defaultdict(int)
     for position, (start, monster) in enumerate(ordered):
@@ -309,6 +343,11 @@ def main() -> int:
             if narrative_start is not None:
                 end = narrative_start
         actions = extract_actions(monster, lines[start:end])
+        lore_by_id[monster["monster_id"]] = {
+            "description": extract_lore(monster, start, lines),
+            "sourcePage": int(monster["source_page"]),
+            "imageUrl": f"/bestiary/grim-hollow/page-{int(monster['source_page']) + PDF_PAGE_OFFSET}.jpg",
+        }
         if not actions and monster["name"] not in NO_ACTION_CREATURES:
             missing_actions.append(monster["name"])
         for action in actions:
@@ -319,6 +358,8 @@ def main() -> int:
         writer = csv.DictWriter(handle, fieldnames=FIELDNAMES)
         writer.writeheader()
         writer.writerows(all_actions)
+    with LORE_OUTPUT_PATH.open("w", encoding="utf-8") as handle:
+        json.dump(lore_by_id, handle, ensure_ascii=False, indent=2)
 
     print(
         f"monsters={len(monsters)} matched={len(starts)} actions={len(all_actions)} "

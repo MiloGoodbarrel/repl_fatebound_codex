@@ -1,11 +1,19 @@
 import type { Express } from "express";
 import type { Server } from "http";
+import fs from "node:fs";
+import path from "node:path";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { insertCampaignSchema, insertCampaignCharacterSchema, rollTableInputSchema, type InsertItem, type InsertHomebrewItem } from "@shared/schema";
 import { STOCK_ROLL_TABLES } from "@shared/rollTables";
 import { seedLootTable } from "./seedLoot";
+
+const grimHollowLorePath = path.resolve(process.cwd(), "server/data/bestiary/grim_hollow_lore.json");
+const grimHollowLore: Record<string, { description?: string; sourcePage?: number; imageUrl?: string }> =
+  fs.existsSync(grimHollowLorePath)
+    ? JSON.parse(fs.readFileSync(grimHollowLorePath, "utf8"))
+    : {};
 
 function parseCSV(csvText: string): Omit<InsertItem, never>[] {
   const lines = csvText.trim().split('\n');
@@ -293,6 +301,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // ── Monster Bestiary ──────────────────────────────────────────────────────
 
   function mapMonsterRow(m: any) {
+    const sourceContent = grimHollowLore[m.monsterId];
     return {
       index: m.monsterId,
       name: m.name,
@@ -311,6 +320,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       alignment: m.alignment,
       creatureTags: m.creatureTags,
       source: m.sourceBook || m.sourceKey || "",
+      description: sourceContent?.description || undefined,
+      sourcePage: sourceContent?.sourcePage || m.sourcePage || undefined,
+      imageUrl: sourceContent?.imageUrl || undefined,
     };
   }
 
