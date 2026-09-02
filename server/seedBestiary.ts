@@ -10,6 +10,7 @@ const FILES = {
   monsters: "monsters.csv",
   monster_traits: "monster_traits.csv",
   monster_actions: "monster_actions.csv",
+  grim_hollow_actions: "grim_hollow_actions.csv",
   action_effects: "action_effects.csv",
   spellcasting_profiles: "spellcasting_profiles.csv",
   monster_spells: "monster_spells.csv",
@@ -327,14 +328,16 @@ export async function seedBestiary() {
 
   // Parse all CSVs
   console.log("📂 Parsing CSVs...");
-  const [monsters, traits, actions, effects, profiles, spells] = await Promise.all([
+  const [monsters, traits, baseActions, grimHollowActions, effects, profiles, spells] = await Promise.all([
     parseCSV(path.join(DATA_DIR, FILES.monsters)),
     parseCSV(path.join(DATA_DIR, FILES.monster_traits)),
     parseCSV(path.join(DATA_DIR, FILES.monster_actions)),
+    parseCSV(path.join(DATA_DIR, FILES.grim_hollow_actions)),
     parseCSV(path.join(DATA_DIR, FILES.action_effects)),
     parseCSV(path.join(DATA_DIR, FILES.spellcasting_profiles)),
     parseCSV(path.join(DATA_DIR, FILES.monster_spells)),
   ]);
+  const actions = [...baseActions, ...grimHollowActions];
 
   console.log(`  monsters: ${monsters.length} rows`);
   console.log(`  traits: ${traits.length} rows`);
@@ -388,6 +391,10 @@ export async function seedBestiary() {
   console.log(`  ✓ ${validTraits.length} traits`);
 
   console.log("💾 Importing monster actions...");
+  await db.execute(sql`
+    DELETE FROM bestiary_monster_actions
+    WHERE monster_id LIKE 'dnd_5e2014_ghmg_%'
+  `);
   await importActions(validActions);
   console.log(`  ✓ ${validActions.length} actions`);
 
