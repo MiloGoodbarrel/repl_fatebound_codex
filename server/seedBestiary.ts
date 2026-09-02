@@ -15,6 +15,14 @@ const FILES = {
   monster_spells: "monster_spells.csv",
 };
 
+const CHALLENGE_RATING_CORRECTIONS: Record<string, string> = {
+  dnd_5e2014_ghmg_eater_of_orbs: "5",
+  dnd_5e2014_ghmg_resurrection_horror: "13",
+  dnd_5e2014_ghmg_vitebriate: "2",
+  dnd_5e2014_ghmg_worms_in_the_walls_swarm: "3",
+  dnd_5e2014_ghmg_vampire_downcast_adult: "13",
+};
+
 function toNull(v: string): string | null {
   return v.trim() === "" ? null : v.trim();
 }
@@ -37,7 +45,13 @@ async function parseCSV(filePath: string): Promise<Record<string, string>[]> {
   return new Promise((resolve, reject) => {
     const records: Record<string, string>[] = [];
     fs.createReadStream(filePath)
-      .pipe(parse({ columns: true, skip_empty_lines: true, relax_quotes: true, trim: true }))
+      .pipe(parse({
+        columns: true,
+        skip_empty_lines: true,
+        relax_quotes: true,
+        trim: true,
+        record_delimiter: ["\r\n", "\n", "\r"],
+      }))
       .on("data", (row: Record<string, string>) => records.push(row))
       .on("error", reject)
       .on("end", () => resolve(records));
@@ -47,6 +61,7 @@ async function parseCSV(filePath: string): Promise<Record<string, string>[]> {
 async function importMonsters(rows: Record<string, string>[]) {
   let inserted = 0, updated = 0;
   for (const r of rows) {
+    const correctedChallengeRating = CHALLENGE_RATING_CORRECTIONS[r.monster_id] ?? null;
     await db.execute(sql`
       INSERT INTO bestiary_monsters (
         monster_id, system_key, edition_key, source_key, source_book, source_page,
@@ -55,6 +70,7 @@ async function importMonsters(rows: Record<string, string>[]) {
         hp_formula_override,
         str_score, str_mod, dex_score, dex_mod, con_score, con_mod,
         int_score, int_mod, wis_score, wis_mod, cha_score, cha_mod
+        , challenge_rating
       ) VALUES (
         ${r.monster_id}, ${toNull(r.system_key)}, ${toNull(r.edition_key)},
         ${toNull(r.source_key)}, ${toNull(r.source_book)}, ${toInt(r.source_page)},
@@ -68,7 +84,8 @@ async function importMonsters(rows: Record<string, string>[]) {
         ${toInt(r.con_score)}, ${toInt(r.con_mod)},
         ${toInt(r.int_score)}, ${toInt(r.int_mod)},
         ${toInt(r.wis_score)}, ${toInt(r.wis_mod)},
-        ${toInt(r.cha_score)}, ${toInt(r.cha_mod)}
+        ${toInt(r.cha_score)}, ${toInt(r.cha_mod)},
+        ${correctedChallengeRating}
       )
       ON CONFLICT (monster_id) DO UPDATE SET
         system_key = EXCLUDED.system_key,
@@ -93,7 +110,8 @@ async function importMonsters(rows: Record<string, string>[]) {
         con_score = EXCLUDED.con_score, con_mod = EXCLUDED.con_mod,
         int_score = EXCLUDED.int_score, int_mod = EXCLUDED.int_mod,
         wis_score = EXCLUDED.wis_score, wis_mod = EXCLUDED.wis_mod,
-        cha_score = EXCLUDED.cha_score, cha_mod = EXCLUDED.cha_mod
+        cha_score = EXCLUDED.cha_score, cha_mod = EXCLUDED.cha_mod,
+        challenge_rating = COALESCE(EXCLUDED.challenge_rating, bestiary_monsters.challenge_rating)
     `);
     inserted++;
   }
