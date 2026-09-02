@@ -459,22 +459,23 @@ export class DatabaseStorage implements IStorage {
     campaignId: number,
     parsed: { monster: any; actions: any[] }[]
   ): Promise<number> {
-    await this.clearCampaignHomebrew(campaignId);
-    let count = 0;
-    for (const { monster, actions } of parsed) {
-      const [inserted] = await db
-        .insert(campaignHomebrewMonsters)
-        .values({ ...monster, campaignId })
-        .returning();
-      for (const action of actions) {
-        await db.insert(campaignHomebrewActions).values({
-          ...action,
-          monsterRefId: inserted.id,
-        });
+    return db.transaction(async tx => {
+      let count = 0;
+      for (const { monster, actions } of parsed) {
+        const [inserted] = await tx
+          .insert(campaignHomebrewMonsters)
+          .values({ ...monster, campaignId })
+          .returning();
+        for (const action of actions) {
+          await tx.insert(campaignHomebrewActions).values({
+            ...action,
+            monsterRefId: inserted.id,
+          });
+        }
+        count++;
       }
-      count++;
-    }
-    return count;
+      return count;
+    });
   }
 
   async clearCampaignHomebrew(campaignId: number): Promise<void> {

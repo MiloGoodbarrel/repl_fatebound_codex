@@ -1067,7 +1067,7 @@ export default function InitiativeTracker() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
-      toast({ title: `Imported ${data.count} monsters`, description: `Added to Aetherfall homebrew bestiary.` });
+       toast({ title: `Added ${data.count} monsters`, description: `Appended to the Aetherfall homebrew bestiary.` });
       setHomebrewImportPreview(null);
       setHomebrewImportRaw("");
       refetchHomebrew();
@@ -3075,8 +3075,8 @@ export default function InitiativeTracker() {
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm text-muted-foreground">
                       {homebrewImportPreview.filter(r => !r.error).length} of {homebrewImportPreview.length} rows will be imported.
-                      {homebrewCampaign && homebrewMonsters.length > 0 && (
-                        <span className="text-amber-500 ml-1">This will replace the existing {homebrewMonsters.length} monsters.</span>
+                       {homebrewCampaign && homebrewMonsters.length > 0 && (
+                        <span className="text-primary ml-1">These will be added to the existing {homebrewMonsters.length} monsters.</span>
                       )}
                     </p>
                     <div className="flex gap-2 shrink-0">

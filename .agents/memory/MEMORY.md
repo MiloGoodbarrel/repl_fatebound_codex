@@ -3,3 +3,4 @@
 - [Encounter save/restore](encounter-save.md) — PUT/GET/DELETE /api/campaigns/:id/encounter; save button in active toolbar; restore banner on load.
 - [Condition timer cadence](condition-timer-cadence.md) — timed conditions use encounter rounds and tick once when initiative wraps to the top.
 - [Roll Tables content model](roll-tables-content-model.md) — stock tables stay original/system-neutral; custom tables are campaign-scoped with strict ranges or weights.
+- [Aetherfall homebrew scope](aetherfall-homebrew-scope.md) — Aetherfall monsters belong only to that campaign; new homebrew imports append instead of replacing existing records.

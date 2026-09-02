@@ -1,0 +1,13 @@
+name,type,size,cr,ac,hp,hit_dice,dex,alignment
+Ashborn Bugbear,Humanoid (goblinoid),Medium,3,17,45,6d8,14,unaligned
+Ashborn Bugbear Shaman,Humanoid (goblinoid),Medium,4,17,82,10d8,14,unaligned
+Ashborn Dragon,Dragon,Huge,16,18,212,17d12,10,unaligned
+Ashborn Goblin,Humanoid (goblinoid),Small,1/2,13,11,2d6,14,unaligned
+Ashborn Goblin Shaman,Humanoid (goblinoid),Small,2,13,27,4d6,14,unaligned
+Ashborn Hobgoblin,Humanoid (goblinoid),Medium,1,17,22,4d8,12,unaligned
+Ashborn Ogre,Giant,Large,3,12,76,9d10,8,unaligned
+Ashborn Orc,Humanoid (orc),Medium,1,14,30,4d8,12,unaligned
+Ashborn Orc Shaman,Humanoid (orc),Medium,3,14,52,7d8,12,unaligned
+Ashborn Troll,Giant,Large,6,16,115,10d10,13,unaligned
+Night Custodian,Humanoid,Medium,1/4,14,18,4d8,14,any lawful alignment
+Stonebound Peacekeeper,Humanoid,Medium,2,17,45,6d8,11,lawful evil
