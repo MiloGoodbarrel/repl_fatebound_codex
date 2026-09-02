@@ -93,6 +93,7 @@ const CONDITION_COLORS: Record<string, string> = {
   "Blinded": "#6B7280",      // Gray
   "Charmed": "#EC4899",      // Pink
   "Deafened": "#8B5CF6",     // Purple
+  "Entangled": "#14B8A6",    // Teal
   "Frightened": "#FBBF24",   // Yellow/Gold
   "Grappled": "#F97316",     // Orange
   "Incapacitated": "#1F2937", // Dark Gray
@@ -347,6 +348,8 @@ interface Combatant {
   // Group combatant (e.g. goblin horde)
   isGroup?: boolean;
   memberHp?: number[];  // current HP for each member; maxHp is shared across all
+  memberConditions?: string[][];  // conditions for each group member
+  memberConditionDurations?: Array<Record<string, number>>;
   // PC-specific
   level?: number;       // character level (1-20)
 }
@@ -612,6 +615,31 @@ function formatConditionDuration(rounds: number): string {
     return `${minutes} min (${rounds} rounds)`;
   }
   return `${rounds} round${rounds === 1 ? "" : "s"}`;
+}
+
+const INCAPACITATING_CONDITIONS = ["Unconscious", "Paralyzed", "Petrified", "Incapacitated", "Stunned"];
+
+function conditionsForMember(combatant: Combatant, memberIndex = 0): string[] {
+  if (!combatant.isGroup) return combatant.conditions;
+  return combatant.memberConditions?.[memberIndex] ?? combatant.conditions;
+}
+
+function conditionDurationsForMember(combatant: Combatant, memberIndex = 0): Record<string, number> {
+  if (!combatant.isGroup) return combatant.conditionDurations ?? {};
+  return combatant.memberConditionDurations?.[memberIndex] ?? combatant.conditionDurations ?? {};
+}
+
+function isIncapacitatedBy(conditions: string[]): boolean {
+  return INCAPACITATING_CONDITIONS.some(condition => conditions.includes(condition));
+}
+
+function groupIsDown(combatant: Combatant, memberHp = combatant.memberHp): boolean {
+  if (!combatant.isGroup || !memberHp) return combatant.isDown;
+  const aliveMembers = memberHp
+    .map((hp, index) => ({ hp, index }))
+    .filter(member => member.hp > 0);
+  return aliveMembers.length === 0
+    || aliveMembers.every(member => isIncapacitatedBy(conditionsForMember(combatant, member.index)));
 }
 
 function getCombatantAbilityModifier(combatant: Combatant, ability: AbilityKey): number {
@@ -1203,6 +1231,8 @@ export default function InitiativeTracker() {
       joiningNextRound: combatState === "active",
       isGroup: true,
       memberHp: memberHps,
+      memberConditions: Array.from({ length: count }, () => []),
+      memberConditionDurations: Array.from({ length: count }, () => ({})),
     };
     setCombatants(prev => [...prev, newCombatant]);
   };
@@ -1284,7 +1314,7 @@ export default function InitiativeTracker() {
     const memberJustDied = wasAlive && newMemberHp[focIdx] <= 0;
     updateCombatant(id, {
       memberHp: newMemberHp,
-      isDown: groupDamage.isDown,
+      isDown: groupDamage.isDown || groupIsDown({ ...combatant, memberHp: newMemberHp }, newMemberHp),
       isDead: groupDamage.isDead,
     });
     clearHpInput(id);
@@ -1311,7 +1341,11 @@ export default function InitiativeTracker() {
     const newMemberHp = [...combatant.memberHp];
     newMemberHp[focIdx] = Math.min(combatant.maxHp, newMemberHp[focIdx] + heal);
     const allDead = newMemberHp.every(h => h <= 0);
-    updateCombatant(id, { memberHp: newMemberHp, isDown: allDead, isDead: allDead });
+    updateCombatant(id, {
+      memberHp: newMemberHp,
+      isDown: allDead || groupIsDown({ ...combatant, memberHp: newMemberHp }, newMemberHp),
+      isDead: allDead,
+    });
     clearHpInput(id);
   };
 
@@ -1319,19 +1353,41 @@ export default function InitiativeTracker() {
     const combatant = combatants.find(c => c.id === id);
     if (!combatant?.isGroup || !combatant.memberHp) return;
     const hp = combatant.maxHp;
-    updateCombatant(id, { memberHp: [...combatant.memberHp, hp], isDown: false, isDead: false });
+    updateCombatant(id, {
+      memberHp: [...combatant.memberHp, hp],
+      memberConditions: [...(combatant.memberConditions ?? combatant.memberHp.map(() => [...combatant.conditions])), []],
+      memberConditionDurations: [
+        ...(combatant.memberConditionDurations ?? combatant.memberHp.map(() => ({ ...(combatant.conditionDurations ?? {}) }))),
+        {},
+      ],
+      isDown: false,
+      isDead: false,
+    });
   };
 
   const removeGroupMember = (id: string) => {
     const combatant = combatants.find(c => c.id === id);
     if (!combatant?.isGroup || !combatant.memberHp || combatant.memberHp.length <= 1) return;
     const newMemberHp = combatant.memberHp.slice(0, -1);
+    const newMemberConditions = combatant.memberConditions?.slice(0, -1);
+    const newMemberConditionDurations = combatant.memberConditionDurations?.slice(0, -1);
     const allDead = newMemberHp.every(h => h <= 0);
     const focused = groupFocused[id] ?? 0;
     if (focused >= newMemberHp.length) {
       setGroupFocused(prev => ({ ...prev, [id]: newMemberHp.length - 1 }));
     }
-    updateCombatant(id, { memberHp: newMemberHp, isDown: allDead, isDead: allDead });
+    updateCombatant(id, {
+      memberHp: newMemberHp,
+      memberConditions: newMemberConditions,
+      memberConditionDurations: newMemberConditionDurations,
+      isDown: allDead || groupIsDown({
+        ...combatant,
+        memberHp: newMemberHp,
+        memberConditions: newMemberConditions,
+        memberConditionDurations: newMemberConditionDurations,
+      }, newMemberHp),
+      isDead: allDead,
+    });
   };
 
   const addPC = () => {
@@ -1466,9 +1522,7 @@ export default function InitiativeTracker() {
 
     const activeId = getSortedCombatants()[activeIndex]?.id;
     const focusedMember = groupFocused[combatant.id] ?? 0;
-    const isIncapacitated = ["Unconscious", "Paralyzed", "Petrified", "Incapacitated", "Stunned"].some(
-      condition => combatant.conditions.includes(condition),
-    );
+    const isIncapacitated = isIncapacitatedBy(conditionsForMember(combatant, focusedMember));
     let corrected: Combatant;
 
     if (combatant.isGroup && combatant.memberHp) {
@@ -1482,7 +1536,7 @@ export default function InitiativeTracker() {
         maxHp,
         hp: allDead ? 0 : Math.max(...memberHp),
         memberHp,
-        isDown: allDead || isIncapacitated,
+        isDown: allDead || groupIsDown({ ...combatant, memberHp }),
         isDead: allDead,
         abilityModifierOverrides: modifiers,
       };
@@ -1903,11 +1957,13 @@ export default function InitiativeTracker() {
   const toggleCondition = (id: string, condition: string) => {
     const combatant = combatants.find(c => c.id === id);
     if (!combatant) return;
-    const isRemoving = combatant.conditions.includes(condition);
+    const focusedMember = groupFocused[id] ?? 0;
+    const currentConditions = conditionsForMember(combatant, focusedMember);
+    const isRemoving = currentConditions.includes(condition);
     const newConditions = isRemoving
-      ? combatant.conditions.filter(c => c !== condition)
-      : [...combatant.conditions, condition];
-    const newDurations = { ...(combatant.conditionDurations ?? {}) };
+      ? currentConditions.filter(c => c !== condition)
+      : [...currentConditions, condition];
+    const newDurations = { ...conditionDurationsForMember(combatant, focusedMember) };
 
     if (isRemoving) {
       delete newDurations[condition];
@@ -1927,18 +1983,30 @@ export default function InitiativeTracker() {
       }
     }
     
-    const isIncapacitated = ["Unconscious", "Paralyzed", "Petrified", "Incapacitated", "Stunned"].some(
-      c => newConditions.includes(c)
-    );
-    const isOtherwiseDown = combatant.isDead
-      || (!combatant.isGroup && combatant.hp <= 0)
-      || !!(combatant.isGroup && combatant.memberHp?.every(hp => hp <= 0));
-    
-    updateCombatant(id, { 
-      conditions: newConditions,
-      conditionDurations: Object.keys(newDurations).length > 0 ? newDurations : undefined,
-      isDown: isOtherwiseDown || isIncapacitated
-    });
+    if (combatant.isGroup && combatant.memberHp) {
+      const memberConditions = combatant.memberConditions
+        ? combatant.memberConditions.map(member => [...member])
+        : combatant.memberHp.map(() => [...combatant.conditions]);
+      const memberConditionDurations = combatant.memberConditionDurations
+        ? combatant.memberConditionDurations.map(member => ({ ...member }))
+        : combatant.memberHp.map(() => ({ ...(combatant.conditionDurations ?? {}) }));
+      memberConditions[focusedMember] = newConditions;
+      memberConditionDurations[focusedMember] = newDurations;
+      const updated = { ...combatant, memberConditions, memberConditionDurations, conditions: [], conditionDurations: undefined };
+      updateCombatant(id, {
+        memberConditions,
+        memberConditionDurations,
+        conditions: [],
+        conditionDurations: undefined,
+        isDown: combatant.isDead || groupIsDown(updated),
+      });
+    } else {
+      updateCombatant(id, {
+        conditions: newConditions,
+        conditionDurations: Object.keys(newDurations).length > 0 ? newDurations : undefined,
+        isDown: combatant.isDead || combatant.hp <= 0 || isIncapacitatedBy(newConditions),
+      });
+    }
     if (!isRemoving) {
       setConditionDurationInputs(prev => ({ ...prev, [id]: "" }));
     }
@@ -2018,6 +2086,43 @@ export default function InitiativeTracker() {
     if (nextIndex <= activeIndex) {
       const expiredConditions: string[] = [];
       const updatedCombatants = sorted.map(combatant => {
+        if (combatant.isGroup && combatant.memberHp) {
+          const memberConditions = combatant.memberConditions
+            ? combatant.memberConditions.map(member => [...member])
+            : combatant.memberHp.map(() => [...combatant.conditions]);
+          const memberConditionDurations = combatant.memberConditionDurations
+            ? combatant.memberConditionDurations.map(member => ({ ...member }))
+            : combatant.memberHp.map(() => ({ ...(combatant.conditionDurations ?? {}) }));
+
+          memberConditions.forEach((conditions, memberIndex) => {
+            memberConditions[memberIndex] = conditions.filter(condition => {
+              const remainingRounds = memberConditionDurations[memberIndex]?.[condition];
+              if (remainingRounds == null) return true;
+              const nextRemainingRounds = remainingRounds - 1;
+              if (nextRemainingRounds <= 0) {
+                delete memberConditionDurations[memberIndex][condition];
+                expiredConditions.push(`${combatant.name} #${memberIndex + 1}: ${condition}`);
+                return false;
+              }
+              memberConditionDurations[memberIndex][condition] = nextRemainingRounds;
+              return true;
+            });
+          });
+
+          const updatedGroup = {
+            ...combatant,
+            conditions: [],
+            conditionDurations: undefined,
+            memberConditions,
+            memberConditionDurations,
+          };
+          return {
+            ...updatedGroup,
+            isDown: combatant.isDead || groupIsDown(updatedGroup),
+            joiningNextRound: false,
+          };
+        }
+
         const remainingDurations = { ...(combatant.conditionDurations ?? {}) };
         const remainingConditions = combatant.conditions.filter(condition => {
           const remainingRounds = remainingDurations[condition];
@@ -2033,9 +2138,7 @@ export default function InitiativeTracker() {
           remainingDurations[condition] = nextRemainingRounds;
           return true;
         });
-        const isIncapacitated = ["Unconscious", "Paralyzed", "Petrified", "Incapacitated", "Stunned"].some(
-          condition => remainingConditions.includes(condition)
-        );
+        const isIncapacitated = isIncapacitatedBy(remainingConditions);
         const isOtherwiseDown = combatant.isDead
           || (!combatant.isGroup && combatant.hp <= 0)
           || !!(combatant.isGroup && combatant.memberHp?.every(hp => hp <= 0));
@@ -3524,7 +3627,7 @@ export default function InitiativeTracker() {
 
                           {/* Condition Color Indicators */}
                           <div className="flex gap-0.5 flex-shrink-0">
-                            {combatant.conditions.map(condition => (
+                            {conditionsForMember(combatant, groupFocused[combatant.id] ?? 0).map(condition => (
                               <div 
                                 key={condition}
                                 className="w-1.5 h-10 rounded-sm"
@@ -3777,13 +3880,21 @@ export default function InitiativeTracker() {
 
                           {/* Conditions Column */}
                           <div className="flex flex-col gap-1 min-w-[160px]">
+                            {combatant.isGroup && (
+                              <span className="text-[10px] font-semibold text-primary">
+                                G{(groupFocused[combatant.id] ?? 0) + 1} conditions
+                              </span>
+                            )}
                             <div className="flex items-center gap-1">
-                              <Select onValueChange={(val) => toggleCondition(combatant.id, val)}>
+                              <Select onValueChange={(val) => val !== "__none__" && toggleCondition(combatant.id, val)}>
                                 <SelectTrigger className="h-8 text-xs flex-1" data-testid={`select-condition-${combatant.id}`}>
                                   <SelectValue placeholder="Add Condition" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {CONDITIONS.filter(c => !combatant.conditions.includes(c)).map(condition => (
+                                  <SelectItem value="__none__">
+                                    <span aria-label="No condition">&nbsp;</span>
+                                  </SelectItem>
+                                  {CONDITIONS.filter(c => !conditionsForMember(combatant, groupFocused[combatant.id] ?? 0).includes(c)).map(condition => (
                                     <SelectItem key={condition} value={condition}>
                                       {condition}
                                     </SelectItem>
@@ -3801,13 +3912,16 @@ export default function InitiativeTracker() {
                                 }))}
                                 className="h-8 w-14 px-1 text-center text-xs"
                                 placeholder="min"
-                                aria-label={`Duration in minutes for ${combatant.name} condition`}
+                                aria-label={`Duration in minutes for ${combatant.name}${combatant.isGroup ? ` member ${(groupFocused[combatant.id] ?? 0) + 1}` : ""} condition`}
                                 data-testid={`input-condition-duration-${combatant.id}`}
                               />
                             </div>
                             <div className="flex flex-wrap gap-1">
-                              {combatant.conditions.map(condition => {
-                                const remainingRounds = combatant.conditionDurations?.[condition];
+                              {conditionsForMember(combatant, groupFocused[combatant.id] ?? 0).map(condition => {
+                                const remainingRounds = conditionDurationsForMember(
+                                  combatant,
+                                  groupFocused[combatant.id] ?? 0,
+                                )[condition];
                                 const durationLabel = remainingRounds != null
                                   ? ` · ${formatConditionDuration(remainingRounds)}`
                                   : "";
@@ -3836,6 +3950,7 @@ export default function InitiativeTracker() {
                                 {combatant.memberHp.map((mhp, i) => {
                                   const alive = mhp > 0;
                                   const focused = (groupFocused[combatant.id] ?? 0) === i;
+                                  const memberConditions = conditionsForMember(combatant, i);
                                   return (
                                     <button
                                       key={i}
@@ -3846,9 +3961,18 @@ export default function InitiativeTracker() {
                                         focused && alive && "border-primary bg-primary/20 text-primary font-bold",
                                         !focused && alive && "border-border bg-background/60 hover:border-primary/50 cursor-pointer",
                                       )}
-                                      title={alive ? `G${i+1}: ${mhp}/${combatant.maxHp} HP — click to focus` : `G${i+1}: Dead`}
+                                      title={alive
+                                        ? `G${i+1}: ${mhp}/${combatant.maxHp} HP${memberConditions.length ? ` — ${memberConditions.join(", ")}` : ""} — click to focus`
+                                        : `G${i+1}: Dead`}
                                     >
-                                      {alive ? `G${i+1} ${mhp}` : "☠"}
+                                      {alive ? (
+                                        <>
+                                          G{i + 1} {mhp}
+                                          {memberConditions.length > 0 && (
+                                            <span className="ml-1 text-primary">•{memberConditions.length}</span>
+                                          )}
+                                        </>
+                                      ) : "☠"}
                                     </button>
                                   );
                                 })}

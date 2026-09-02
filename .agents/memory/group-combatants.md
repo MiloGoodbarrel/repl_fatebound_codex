@@ -4,13 +4,17 @@ description: How group/horde combatants work in the Initiative Tracker — data 
 ---
 
 ## Rule
-A group combatant (`isGroup: true`) represents a horde (e.g. 5 goblins) as one initiative entry. Per-member HP is tracked individually via `memberHp: number[]`. `maxHp` is the shared per-member max (monster stat-block average). `focusedMember` is UI-only state, kept in `groupFocused: Record<string, number>` (component state, not on the Combatant).
+A group combatant represents a horde as one initiative entry, but HP, stacked conditions, and timed-condition durations belong to individual members. The focused member receives damage, healing, and condition changes.
 
-**Why:** One initiative slot per creature type is the common DM shorthand; individual HP still matters so you know when each one dies.
+**Why:** One initiative slot per creature type is the common DM shorthand, but one restrained or paralyzed creature must not apply that state to the entire group.
+
+**How to apply:** Any member-targeted combat state must follow the focused unit. A group skips its initiative only when every living member is incapacitated or dead.
 
 ## Data model additions to Combatant
 - `isGroup?: boolean`
 - `memberHp?: number[]` — current HP per member; length = member count
+- `memberConditions?: string[][]` — stacked conditions for each member
+- `memberConditionDurations?: Array<Record<string, number>>` — remaining rounds per member and condition
 
 ## Key functions (InitiativeTracker.tsx)
 - `addGroupToEncounter(monster, count, initiative?)` — creates the group combatant with individually rolled `memberHp` values

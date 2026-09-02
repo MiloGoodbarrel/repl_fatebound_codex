@@ -78,7 +78,6 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
 
   const { data: officialSources = [] } = useQuery<string[]>({
     queryKey: ["/api/items/5e/sources"],
-    enabled: !activeCampaign,
     staleTime: 0,
     refetchOnMount: "always",
   });
@@ -93,8 +92,6 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
       setSourcesReady(true);
     }
   }, [officialSources, sourcesReady]);
-
-  const drawSource: DrawOptions["source"] = activeCampaign ? "campaign" : "5e";
 
   const filteredOfficialSources = officialSources.filter(s =>
     s.toLowerCase().includes(sourceSearch.toLowerCase())
@@ -136,11 +133,11 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
 
   const handleDraw = () => {
     // Pass selected sources to the API; undefined means no filter (all)
-    const sourcesArray = [...selectedSources];
+    const sourcesArray = Array.from(selectedSources);
     onDraw({
-      source: drawSource,
+      source: "5e",
       campaignId: activeCampaign?.id,
-      editions: drawSource === "5e" ? editions : undefined,
+      editions,
       categories,
       rarities,
       sources: sourcesReady ? sourcesArray : undefined,
@@ -152,7 +149,8 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
   const canDraw = !isDrawing
     && categories.length > 0
     && rarities.length > 0
-    && (!activeCampaign ? editions.length > 0 && !noneSelected : true);
+    && editions.length > 0
+    && !noneSelected;
 
   // ── CSV Upload ────────────────────────────────────────────────────────────
 
@@ -213,7 +211,7 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
           {activeCampaign ? (
             <p className="text-sm text-muted-foreground flex items-center gap-1.5">
               <Scroll className="w-3.5 h-3.5 text-primary/70" />
-              Drawing from <span className="text-primary font-medium">{activeCampaign.name}</span>
+              Compendium + <span className="text-primary font-medium">{activeCampaign.name}</span> additions
             </p>
           ) : (
             <p className="text-sm text-muted-foreground">Drawing from the compendium.</p>
@@ -221,8 +219,7 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
         </div>
 
         {/* Edition Filter */}
-        {!activeCampaign && (
-          <div className="space-y-3">
+        <div className="space-y-3">
             <div className="flex justify-between items-center">
               <Label className="font-display text-lg">Edition</Label>
               <Button variant="ghost" size="sm" onClick={toggleAllEditions} className="h-6 text-xs text-muted-foreground hover:text-primary">
@@ -245,8 +242,7 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
                 </div>
               ))}
             </div>
-          </div>
-        )}
+        </div>
 
         {/* Search — constrains the draw pool */}
         <div className="space-y-2">
@@ -340,8 +336,7 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
         </div>
 
         {/* Sourcebooks — only for compendium draws */}
-        {!activeCampaign && (
-          <div className="space-y-3">
+        <div className="space-y-3">
             <div className="flex justify-between items-center">
               <Label className="font-display text-lg flex items-center gap-2">
                 <BookOpen className="w-4 h-4" /> Sourcebooks
@@ -433,8 +428,7 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
             {noneSelected && (
               <p className="text-xs text-destructive text-center">Select at least one source to draw.</p>
             )}
-          </div>
-        )}
+        </div>
 
         {/* CSV Import */}
         <div className="space-y-2 bg-background/30 p-4 rounded-lg border border-dashed border-border/50">

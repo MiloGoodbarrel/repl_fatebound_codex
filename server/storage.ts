@@ -369,23 +369,8 @@ export class DatabaseStorage implements IStorage {
     const { source, campaignId, editions, categories, rarities, sources, count, search } = options;
     const searchTerm = search?.trim();
 
-    // ── Campaign draw ──────────────────────────────────────────────────────
-    if (source === "campaign" && campaignId != null) {
-      const conditions: any[] = [
-        eq(campaignItems.campaignId, campaignId),
-        inArray(campaignItems.category, categories),
-        inArray(campaignItems.rarity, rarities),
-      ];
-      if (searchTerm) conditions.push(ilike(campaignItems.name, `%${searchTerm}%`));
-      return await db
-        .select()
-        .from(campaignItems)
-        .where(and(...conditions))
-        .orderBy(sql`RANDOM()`)
-        .limit(count);
-    }
-
-    // ── Compendium draw ────────────────────────────────────────────────────
+    // The compendium is always the base draw pool. A selected campaign only
+    // contributes its matching custom items; it never replaces the base deck.
     const includeHomebrew = !sources || sources.includes("Homebrew");
     const officialSources = sources
       ? sources.filter(s => s !== "Homebrew")
@@ -410,6 +395,9 @@ export class DatabaseStorage implements IStorage {
     const homebrewRarityFilter = raritiesLower.length > 0
       ? sql`lower(${homebrewItems.rarity}) IN (${sql.join(raritiesLower.map(r => sql`${r}`), sql`, `)})`
       : undefined;
+    const campaignRarityFilter = raritiesLower.length > 0
+      ? sql`lower(${campaignItems.rarity}) IN (${sql.join(raritiesLower.map(r => sql`${r}`), sql`, `)})`
+      : undefined;
 
     const officialItems: Item[] = needOfficial
       ? await db
@@ -430,8 +418,23 @@ export class DatabaseStorage implements IStorage {
           .limit(count)
       : [];
 
+    const campaignNameFilter = searchTerm ? ilike(campaignItems.name, `%${searchTerm}%`) : undefined;
+    const campaignAdditions: CampaignItem[] = campaignId != null
+      ? await db
+          .select()
+          .from(campaignItems)
+          .where(and(
+            eq(campaignItems.campaignId, campaignId),
+            campaignNameFilter,
+            inArray(campaignItems.category, categories),
+            campaignRarityFilter,
+          ))
+          .orderBy(sql`RANDOM()`)
+          .limit(count)
+      : [];
+
     // Combine, shuffle, and trim to count
-    const combined = [...officialItems, ...brewed].sort(() => Math.random() - 0.5);
+    const combined = [...officialItems, ...brewed, ...campaignAdditions].sort(() => Math.random() - 0.5);
     return combined.slice(0, count);
   }
 
