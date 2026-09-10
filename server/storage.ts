@@ -2,7 +2,7 @@ import { db } from "./db";
 import {
   items5e, homebrewItems, campaignItems, campaigns, campaignCharacters,
   bestiaryMonsters, bestiaryMonsterTraits, bestiaryMonsterActions,
-  campaignHomebrewMonsters, campaignHomebrewActions, campaignSavedEncounters,
+  campaignHomebrewMonsters, campaignHomebrewActions, campaignSavedEncounters, campaignPreparedEncounters,
   rollTables, rollTableEntries,
   type InsertItem, type Item,
   type HomebrewItem, type InsertHomebrewItem,
@@ -11,7 +11,7 @@ import {
   type CampaignCharacter, type InsertCampaignCharacter,
   type DrawOptions,
 } from "@shared/schema";
-import { eq, inArray, sql, and, ilike, asc } from "drizzle-orm";
+import { eq, inArray, sql, and, ilike, asc, desc } from "drizzle-orm";
 import { getEncounterSaveRevision } from "@shared/encounterRecovery";
 import { encounterRevisionConflictPredicate } from "./encounterPersistence";
 
@@ -61,6 +61,10 @@ export interface IStorage {
   getSavedEncounter(campaignId: number): Promise<{ data: any; savedAt: Date } | null>;
   saveEncounter(campaignId: number, data: any): Promise<void>;
   clearSavedEncounter(campaignId: number): Promise<void>;
+  getPreparedEncounters(campaignId: number): Promise<any[]>;
+  createPreparedEncounter(campaignId: number, name: string, data: any): Promise<any>;
+  updatePreparedEncounter(id: number, campaignId: number, values: { name?: string; data?: any }): Promise<any | null>;
+  deletePreparedEncounter(id: number, campaignId: number): Promise<boolean>;
 
   // Roll tables
   getRollTables(campaignId: number): Promise<any[]>;
@@ -528,6 +532,50 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(campaignSavedEncounters)
       .where(eq(campaignSavedEncounters.campaignId, campaignId));
+  }
+
+  async getPreparedEncounters(campaignId: number): Promise<any[]> {
+    const rows = await db.select().from(campaignPreparedEncounters)
+      .where(eq(campaignPreparedEncounters.campaignId, campaignId))
+      .orderBy(desc(campaignPreparedEncounters.updatedAt));
+    return rows.flatMap(row => {
+      try {
+        const data = JSON.parse(row.encounterData);
+        return [{ ...row, data, encounterData: undefined }];
+      } catch {
+        return [];
+      }
+    });
+  }
+
+  async createPreparedEncounter(campaignId: number, name: string, data: any): Promise<any> {
+    const [row] = await db.insert(campaignPreparedEncounters)
+      .values({ campaignId, name, encounterData: JSON.stringify(data) })
+      .returning();
+    return { ...row, data, encounterData: undefined };
+  }
+
+  async updatePreparedEncounter(
+    id: number,
+    campaignId: number,
+    values: { name?: string; data?: any },
+  ): Promise<any | null> {
+    const update: any = { updatedAt: new Date() };
+    if (values.name !== undefined) update.name = values.name;
+    if (values.data !== undefined) update.encounterData = JSON.stringify(values.data);
+    const [row] = await db.update(campaignPreparedEncounters)
+      .set(update)
+      .where(and(eq(campaignPreparedEncounters.id, id), eq(campaignPreparedEncounters.campaignId, campaignId)))
+      .returning();
+    if (!row) return null;
+    return { ...row, data: JSON.parse(row.encounterData), encounterData: undefined };
+  }
+
+  async deletePreparedEncounter(id: number, campaignId: number): Promise<boolean> {
+    const rows = await db.delete(campaignPreparedEncounters)
+      .where(and(eq(campaignPreparedEncounters.id, id), eq(campaignPreparedEncounters.campaignId, campaignId)))
+      .returning({ id: campaignPreparedEncounters.id });
+    return rows.length > 0;
   }
 
   // ── Roll tables ────────────────────────────────────────────────────────────

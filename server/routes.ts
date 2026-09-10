@@ -495,6 +495,91 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  const preparedCombatant = z.object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    initiative: z.number().finite(),
+    hp: z.number().finite(),
+    maxHp: z.number().finite(),
+    combatantType: z.enum(["monster", "npc", "pc"]),
+  }).passthrough();
+
+  const preparedEncounterData = z.object({
+    combatants: z.array(preparedCombatant).min(1).max(200),
+    round: z.number().int().positive().default(1),
+    activeIndex: z.number().int().nonnegative().default(0),
+    combatState: z.enum(["setup", "active", "ended"]).default("setup"),
+    selectedVersions: z.array(z.string()).default([]),
+  }).passthrough();
+
+  const preparedEncounterBody = z.object({
+    name: z.string().trim().min(1).max(100),
+    data: preparedEncounterData,
+  });
+
+  app.get("/api/campaigns/:id/prepared-encounters", async (req, res) => {
+    const campaignId = Number(req.params.id);
+    if (!Number.isInteger(campaignId)) return res.status(400).json({ message: "Invalid campaign id" });
+    res.json(await storage.getPreparedEncounters(campaignId));
+  });
+
+  app.post("/api/campaigns/:id/prepared-encounters", async (req, res) => {
+    const campaignId = Number(req.params.id);
+    if (!Number.isInteger(campaignId)) return res.status(400).json({ message: "Invalid campaign id" });
+    try {
+      const body = preparedEncounterBody.parse(req.body);
+      const existing = await storage.getPreparedEncounters(campaignId);
+      if (existing.some(encounter => encounter.name.toLowerCase() === body.name.toLowerCase())) {
+        return res.status(409).json({ message: "An encounter with that name already exists" });
+      }
+      res.status(201).json(await storage.createPreparedEncounter(campaignId, body.name, body.data));
+    } catch (error) {
+      if ((error as { code?: string })?.code === "23505") {
+        return res.status(409).json({ message: "An encounter with that name already exists" });
+      }
+      res.status(400).json({ message: error instanceof Error ? error.message : "Invalid prepared encounter" });
+    }
+  });
+
+  app.put("/api/campaigns/:id/prepared-encounters/:encounterId", async (req, res) => {
+    const campaignId = Number(req.params.id);
+    const encounterId = Number(req.params.encounterId);
+    if (!Number.isInteger(campaignId) || !Number.isInteger(encounterId)) {
+      return res.status(400).json({ message: "Invalid encounter id" });
+    }
+    try {
+      const body = z.object({
+        name: z.string().trim().min(1).max(100).optional(),
+        data: preparedEncounterData.optional(),
+      }).refine(value => value.name !== undefined || value.data !== undefined, "No changes supplied").parse(req.body);
+      if (body.name) {
+        const existing = await storage.getPreparedEncounters(campaignId);
+        if (existing.some(encounter => encounter.id !== encounterId && encounter.name.toLowerCase() === body.name!.toLowerCase())) {
+          return res.status(409).json({ message: "An encounter with that name already exists" });
+        }
+      }
+      const updated = await storage.updatePreparedEncounter(encounterId, campaignId, body);
+      if (!updated) return res.status(404).json({ message: "Prepared encounter not found" });
+      res.json(updated);
+    } catch (error) {
+      if ((error as { code?: string })?.code === "23505") {
+        return res.status(409).json({ message: "An encounter with that name already exists" });
+      }
+      res.status(400).json({ message: error instanceof Error ? error.message : "Invalid prepared encounter" });
+    }
+  });
+
+  app.delete("/api/campaigns/:id/prepared-encounters/:encounterId", async (req, res) => {
+    const campaignId = Number(req.params.id);
+    const encounterId = Number(req.params.encounterId);
+    if (!Number.isInteger(campaignId) || !Number.isInteger(encounterId)) {
+      return res.status(400).json({ message: "Invalid encounter id" });
+    }
+    const deleted = await storage.deletePreparedEncounter(encounterId, campaignId);
+    if (!deleted) return res.status(404).json({ message: "Prepared encounter not found" });
+    res.json({ message: "Prepared encounter deleted" });
+  });
+
   // ── Roll Tables ────────────────────────────────────────────────────────────
 
   app.get("/api/roll-tables", async (req, res) => {

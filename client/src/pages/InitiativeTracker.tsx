@@ -42,6 +42,7 @@ import {
   applyGroupDamage as calculateGroupDamage,
   completeEncounterQuery,
   completeEncounterReset,
+  createPreparedEncounterSnapshot,
   createEncounterRestoreState,
   isCurrentEncounterCampaign,
   sortCombatantsPreservingActiveTurn,
@@ -205,6 +206,20 @@ interface HomebrewPreviewRow {
   error?: string;
 }
 
+interface PreparedEncounter {
+  id: number;
+  campaignId: number;
+  name: string;
+  data: {
+    combatants: Combatant[];
+    round: number;
+    activeIndex: number;
+    combatState: CombatState;
+    selectedVersions: string[];
+  };
+  updatedAt: string;
+}
+
 function homebrewToMonster(m: HomebrewMonster): Monster {
   const dexMod = m.dexScore != null ? Math.floor((m.dexScore - 10) / 2) : undefined;
   return {
@@ -324,6 +339,7 @@ interface Combatant {
   id: string;
   name: string;
   initiative: number;
+  initiativeRolled?: boolean;
   hp: number;
   maxHp: number;
   tempHp: number;
@@ -696,6 +712,8 @@ export default function InitiativeTracker() {
   const [autoSaveReady, setAutoSaveReady] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [encounterOwnerCampaignId, setEncounterOwnerCampaignId] = useState<number | null>(null);
+  const [preparedEncounterName, setPreparedEncounterName] = useState("");
+  const [preparedEncounterBusy, setPreparedEncounterBusy] = useState<number | "save" | null>(null);
   const latestEncounterRef = useRef<{ campaignId: number; payload: object } | null>(null);
   const persistenceQueueRef = useRef<Promise<void>>(Promise.resolve());
   const previousCampaignIdRef = useRef<number | null>(null);
@@ -814,6 +832,16 @@ export default function InitiativeTracker() {
     enabled: !!activeCampaign,
     staleTime: Infinity,
     retry: false,
+  });
+
+  const { data: preparedEncounters = [] } = useQuery<PreparedEncounter[]>({
+    queryKey: ["/api/campaigns", activeCampaign?.id, "prepared-encounters"],
+    queryFn: async ({ queryKey }) => {
+      const response = await fetch(`/api/campaigns/${Number(queryKey[1])}/prepared-encounters`);
+      if (!response.ok) throw new Error("Failed to load prepared encounters");
+      return response.json();
+    },
+    enabled: !!activeCampaign,
   });
 
   const enqueueEncounterRequest = (
@@ -1217,6 +1245,7 @@ export default function InitiativeTracker() {
       id: Math.random().toString(36).substr(2, 9),
       name: monster.name,
       initiative: initValue,
+      initiativeRolled: initiative !== undefined || combatState === "active",
       hp: memberHps[0],
       maxHp: sharedMaxHp,
       tempHp: 0,
@@ -1259,6 +1288,7 @@ export default function InitiativeTracker() {
       id: Math.random().toString(36).substr(2, 9),
       name: displayName,
       initiative: initValue,
+      initiativeRolled: initiative !== undefined || combatState === "active",
       hp: Math.max(1, rolledHp),
       maxHp: Math.max(1, rolledHp),
       tempHp: 0,
@@ -1403,6 +1433,7 @@ export default function InitiativeTracker() {
       id: Math.random().toString(36).substr(2, 9),
       name: pcName,
       initiative: pcInitiative ? parseInt(pcInitiative) : 0,
+      initiativeRolled: !!pcInitiative,
       hp: maxHp,
       maxHp: maxHp,
       tempHp: 0,
@@ -1449,6 +1480,7 @@ export default function InitiativeTracker() {
       id: Math.random().toString(36).substr(2, 9),
       name: displayName,
       initiative: 0,
+      initiativeRolled: false,
       hp: npcHp ? parseInt(npcHp) : 10,
       maxHp: npcHp ? parseInt(npcHp) : 10,
       tempHp: 0,
@@ -1588,7 +1620,7 @@ export default function InitiativeTracker() {
   };
 
   const updateInitiative = (id: string, value: string) => {
-    updateCombatant(id, { initiative: parseInt(value) || 0 });
+    updateCombatant(id, { initiative: parseInt(value) || 0, initiativeRolled: value.trim() !== "" });
   };
 
   const getHpInput = (id: string): number => {
@@ -2057,6 +2089,17 @@ export default function InitiativeTracker() {
 
   const startCombat = () => {
     if (combatants.length === 0) return;
+    const unrolled = combatants.filter(combatant =>
+      combatant.combatantType !== "pc" && combatant.initiativeRolled !== true
+    );
+    if (unrolled.length > 0) {
+      toast({
+        title: "Roll monster initiative first",
+        description: `${unrolled.length} combatant${unrolled.length === 1 ? " is" : "s are"} still unrolled.`,
+        variant: "destructive",
+      });
+      return;
+    }
     const sorted = getSortedCombatants();
     setCombatants(sorted);
     setCombatState("active");
@@ -2072,6 +2115,21 @@ export default function InitiativeTracker() {
     
     setActiveIndex(startIndex);
     setRound(1);
+  };
+
+  const rollAllMonsterInitiative = () => {
+    setCombatants(current => current.map(combatant => {
+      if (combatant.combatantType === "pc") return combatant;
+      return {
+        ...combatant,
+        initiative: rollInitiative(
+          combatant.monsterData?.dexMod
+          ?? getCombatantAbilityModifier(combatant, "dex"),
+        ),
+        initiativeRolled: true,
+      };
+    }));
+    toast({ title: "Monster initiative rolled", description: "Review the results, add player initiatives, then start combat." });
   };
 
   const nextTurn = () => {
@@ -2207,6 +2265,138 @@ export default function InitiativeTracker() {
   const dismissRestoreEncounter = () => {
     setShowRestoreBanner(false);
     setAutoSaveReady(true);
+  };
+
+  const preparedEncounterRequest = async (
+    method: "POST" | "PUT" | "DELETE",
+    encounterId?: number,
+    body?: object,
+  ) => {
+    if (!activeCampaign) throw new Error("Select a campaign first");
+    const suffix = encounterId == null ? "" : `/${encounterId}`;
+    const response = await fetch(`/api/campaigns/${activeCampaign.id}/prepared-encounters${suffix}`, {
+      method,
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.message || "Prepared encounter request failed");
+    await qc.invalidateQueries({ queryKey: ["/api/campaigns", activeCampaign.id, "prepared-encounters"] });
+    return result;
+  };
+
+  const savePreparedEncounter = async () => {
+    if (!activeCampaign || !preparedEncounterName.trim()) return;
+    const monsters = combatants.filter(combatant => combatant.combatantType !== "pc");
+    const prepared = createPreparedEncounterSnapshot<Combatant>({
+      combatants: monsters,
+      round: 1,
+      activeIndex: 0,
+      combatState: "setup",
+      selectedVersions,
+    });
+    if (!prepared || prepared.combatants.length === 0) return;
+    setPreparedEncounterBusy("save");
+    try {
+      await preparedEncounterRequest("POST", undefined, { name: preparedEncounterName.trim(), data: prepared });
+      toast({ title: "Encounter prepared", description: `${preparedEncounterName.trim()} was saved to ${activeCampaign.name}.` });
+      setPreparedEncounterName("");
+    } catch (error) {
+      toast({ title: "Could not save encounter", description: error instanceof Error ? error.message : "Save failed", variant: "destructive" });
+    } finally {
+      setPreparedEncounterBusy(null);
+    }
+  };
+
+  const loadPreparedEncounter = (encounter: PreparedEncounter) => {
+    if (combatState !== "setup") {
+      toast({ title: "Finish the current combat first", description: "Prepared encounters can only replace a setup roster.", variant: "destructive" });
+      return;
+    }
+    if (
+      showRestoreBanner
+      && savedEncounterResult?.data
+      && !window.confirm(`Loading "${encounter.name}" will replace the recoverable saved combat for this campaign. Continue?`)
+    ) {
+      return;
+    }
+    if (combatants.length > 0 && !window.confirm(`Replace the current setup roster with "${encounter.name}"?`)) {
+      return;
+    }
+    const prepared = createPreparedEncounterSnapshot<Combatant>(encounter.data);
+    if (!prepared) return;
+    setCombatants(prepared.combatants);
+    setRound(1);
+    setActiveIndex(0);
+    setCombatState("setup");
+    setSelectedVersions(prepared.selectedVersions);
+    setShowVersionDialog(false);
+    setShowRestoreBanner(false);
+    setAutoSaveReady(true);
+    setMobileTab("combat");
+    toast({ title: `${encounter.name} loaded`, description: "Initiative is unrolled. Review the roster, roll initiative, then start combat." });
+  };
+
+  const renamePreparedEncounter = async (encounter: PreparedEncounter) => {
+    const name = window.prompt("Rename prepared encounter", encounter.name)?.trim();
+    if (!name || name === encounter.name) return;
+    setPreparedEncounterBusy(encounter.id);
+    try {
+      await preparedEncounterRequest("PUT", encounter.id, { name });
+    } catch (error) {
+      toast({ title: "Could not rename encounter", description: error instanceof Error ? error.message : "Rename failed", variant: "destructive" });
+    } finally {
+      setPreparedEncounterBusy(null);
+    }
+  };
+
+  const duplicatePreparedEncounter = async (encounter: PreparedEncounter) => {
+    const name = window.prompt("Name the duplicate encounter", `${encounter.name} Copy`)?.trim();
+    if (!name) return;
+    setPreparedEncounterBusy(encounter.id);
+    try {
+      await preparedEncounterRequest("POST", undefined, { name, data: encounter.data });
+      toast({ title: "Encounter duplicated", description: `${name} is ready to edit or load.` });
+    } catch (error) {
+      toast({ title: "Could not duplicate encounter", description: error instanceof Error ? error.message : "Duplicate failed", variant: "destructive" });
+    } finally {
+      setPreparedEncounterBusy(null);
+    }
+  };
+
+  const updatePreparedEncounterRoster = async (encounter: PreparedEncounter) => {
+    const monsters = combatants.filter(combatant => combatant.combatantType !== "pc");
+    const prepared = createPreparedEncounterSnapshot<Combatant>({
+      combatants: monsters,
+      round: 1,
+      activeIndex: 0,
+      combatState: "setup",
+      selectedVersions,
+    });
+    if (!prepared || prepared.combatants.length === 0) return;
+    if (!window.confirm(`Replace "${encounter.name}" with the current monster roster?`)) return;
+    setPreparedEncounterBusy(encounter.id);
+    try {
+      await preparedEncounterRequest("PUT", encounter.id, { data: prepared });
+      toast({ title: "Prepared encounter updated", description: `${encounter.name} now uses the current roster.` });
+    } catch (error) {
+      toast({ title: "Could not update encounter", description: error instanceof Error ? error.message : "Update failed", variant: "destructive" });
+    } finally {
+      setPreparedEncounterBusy(null);
+    }
+  };
+
+  const deletePreparedEncounter = async (encounter: PreparedEncounter) => {
+    if (!window.confirm(`Delete "${encounter.name}"? This cannot be undone.`)) return;
+    setPreparedEncounterBusy(encounter.id);
+    try {
+      await preparedEncounterRequest("DELETE", encounter.id);
+      toast({ title: "Prepared encounter deleted" });
+    } catch (error) {
+      toast({ title: "Could not delete encounter", description: error instanceof Error ? error.message : "Delete failed", variant: "destructive" });
+    } finally {
+      setPreparedEncounterBusy(null);
+    }
   };
 
   const clearSavedEncounterRemote = async () => {
@@ -3418,14 +3608,28 @@ export default function InitiativeTracker() {
           {/* Combat Controls */}
           <div className="space-y-2">
             {combatState === "setup" && (
-              <Button 
-                onClick={startCombat} 
-                disabled={combatants.length === 0}
-                className="w-full h-12 text-lg font-display"
-                data-testid="button-start-combat"
-              >
-                <Play className="mr-2" /> Start Combat
-              </Button>
+              <>
+                <Button
+                  onClick={rollAllMonsterInitiative}
+                  disabled={!combatants.some(combatant => combatant.combatantType !== "pc")}
+                  variant="outline"
+                  className="w-full"
+                  data-testid="button-roll-monster-initiative"
+                >
+                  <Dices className="mr-2 w-4 h-4" /> Roll Monster Initiative
+                </Button>
+                <Button
+                  onClick={startCombat}
+                  disabled={
+                    combatants.length === 0
+                    || combatants.some(combatant => combatant.combatantType !== "pc" && combatant.initiativeRolled !== true)
+                  }
+                  className="w-full h-12 text-lg font-display"
+                  data-testid="button-start-combat"
+                >
+                  <Play className="mr-2" /> Start Combat
+                </Button>
+              </>
             )}
             
             {combatState === "active" && (
@@ -3522,6 +3726,93 @@ export default function InitiativeTracker() {
               </Button>
             </div>
           </div>
+
+          {/* Prepared Encounters */}
+          {activeCampaign && (
+            <div className="bg-background/30 p-4 rounded-lg border border-border/50 space-y-3">
+              <div>
+                <Label className="font-display text-sm flex items-center gap-2">
+                  <BookOpen className="w-4 h-4" /> Prepared Encounters
+                </Label>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Save monster rosters to {activeCampaign.name}, then load them with initiative unrolled.
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <Input
+                  value={preparedEncounterName}
+                  onChange={event => setPreparedEncounterName(event.target.value)}
+                  placeholder="Encounter name"
+                  maxLength={100}
+                  disabled={combatState !== "setup"}
+                  data-testid="input-prepared-encounter-name"
+                />
+                <Button
+                  size="sm"
+                  onClick={savePreparedEncounter}
+                  disabled={
+                    combatState !== "setup"
+                    || !preparedEncounterName.trim()
+                    || !combatants.some(combatant => combatant.combatantType !== "pc")
+                    || preparedEncounterBusy !== null
+                  }
+                  data-testid="button-save-prepared-encounter"
+                >
+                  {preparedEncounterBusy === "save"
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <Save className="w-4 h-4" />}
+                </Button>
+              </div>
+
+              {combatState !== "setup" && (
+                <p className="text-[10px] text-muted-foreground">
+                  End or reset combat before preparing a roster.
+                </p>
+              )}
+
+              <div className="space-y-2">
+                {preparedEncounters.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">No prepared encounters yet.</p>
+                ) : preparedEncounters.map(encounter => (
+                  <div key={encounter.id} className="rounded-md border border-border/70 p-2 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold truncate">{encounter.name}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {encounter.data.combatants.length} combatant{encounter.data.combatants.length === 1 ? "" : "s"}
+                        </p>
+                      </div>
+                      {preparedEncounterBusy === encounter.id && <Loader2 className="w-3 h-3 animate-spin" />}
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        className="h-7 flex-1 text-xs"
+                        onClick={() => loadPreparedEncounter(encounter)}
+                        disabled={preparedEncounterBusy !== null || combatState !== "setup"}
+                        data-testid={`button-load-prepared-${encounter.id}`}
+                      >
+                        <Play className="w-3 h-3 mr-1" /> Load
+                      </Button>
+                      <Button size="icon" variant="outline" className="w-7 h-7" title="Replace with current roster" onClick={() => updatePreparedEncounterRoster(encounter)} disabled={combatState !== "setup" || preparedEncounterBusy !== null || !combatants.some(c => c.combatantType !== "pc")}>
+                        <Save className="w-3 h-3" />
+                      </Button>
+                      <Button size="icon" variant="outline" className="w-7 h-7" title="Rename" onClick={() => renamePreparedEncounter(encounter)} disabled={preparedEncounterBusy !== null}>
+                        <Pencil className="w-3 h-3" />
+                      </Button>
+                      <Button size="icon" variant="outline" className="w-7 h-7" title="Duplicate" onClick={() => duplicatePreparedEncounter(encounter)} disabled={preparedEncounterBusy !== null}>
+                        <BookOpen className="w-3 h-3" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="w-7 h-7 text-destructive" title="Delete" onClick={() => deletePreparedEncounter(encounter)} disabled={preparedEncounterBusy !== null}>
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Conditions Key */}
           <div className="bg-background/30 p-4 rounded-lg border border-border/50">

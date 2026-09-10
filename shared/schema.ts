@@ -1,4 +1,5 @@
-import { pgTable, text, serial, integer, boolean, numeric, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, numeric, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -242,6 +243,22 @@ export const campaignSavedEncounters = pgTable("campaign_saved_encounters", {
 });
 
 export type CampaignSavedEncounter = typeof campaignSavedEncounters.$inferSelect;
+
+// ─── Campaign Prepared Encounters ─────────────────────────────────────────────
+
+export const campaignPreparedEncounters = pgTable("campaign_prepared_encounters", {
+  id: serial("id").primaryKey(),
+  campaignId: integer("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  encounterData: text("encounter_data").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, table => [
+  uniqueIndex("campaign_prepared_encounters_campaign_name_unique")
+    .on(table.campaignId, sql`lower(${table.name})`),
+]);
+
+export type CampaignPreparedEncounter = typeof campaignPreparedEncounters.$inferSelect;
 
 // ─── Roll Tables ──────────────────────────────────────────────────────────────
 

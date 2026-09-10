@@ -5,6 +5,7 @@ import {
   applyGroupDamage,
   completeEncounterQuery,
   completeEncounterReset,
+  createPreparedEncounterSnapshot,
   createEncounterRestoreState,
   shouldApplyEncounterRevision,
   sortCombatantsPreservingActiveTurn,
@@ -124,4 +125,40 @@ test("group remains active when one member reaches 0 HP", () => {
   assert.deepEqual(result.memberHp, [8, 0, 7]);
   assert.equal(result.isDown, false);
   assert.equal(result.isDead, false);
+});
+
+test("loading a prepared encounter creates a fresh setup copy with unrolled initiative", () => {
+  const source = {
+    combatants: [{
+      id: "wolf-pack",
+      initiative: 18,
+      hp: 4,
+      maxHp: 11,
+      conditions: ["Poisoned"],
+      isDown: true,
+      isDead: false,
+      isStable: false,
+      deathSaveSuccesses: 1,
+      deathSaveFailures: 2,
+      memberHp: [0, 7, 11],
+      memberConditions: [["Unconscious"], ["Poisoned"], []],
+      memberConditionDurations: [{}, { Poisoned: 2 }, {}],
+    }],
+    round: 5,
+    activeIndex: 2,
+    combatState: "active",
+    selectedVersions: ["5e"],
+  };
+
+  const prepared = createPreparedEncounterSnapshot(source);
+  assert.ok(prepared);
+  assert.equal(prepared.combatState, "setup");
+  assert.equal(prepared.round, 1);
+  assert.equal(prepared.activeIndex, 0);
+  assert.equal(prepared.combatants[0].initiative, 0);
+  assert.equal(prepared.combatants[0].hp, 11);
+  assert.deepEqual(prepared.combatants[0].memberHp, [11, 11, 11]);
+  assert.deepEqual(prepared.combatants[0].memberConditions, [[], [], []]);
+  assert.deepEqual(source.combatants[0].memberHp, [0, 7, 11]);
+  assert.deepEqual(source.combatants[0].conditions, ["Poisoned"]);
 });

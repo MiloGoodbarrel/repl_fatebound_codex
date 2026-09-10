@@ -71,6 +71,67 @@ export function createEncounterRestoreState<TCombatant = unknown>(
   };
 }
 
+type PreparedCombatant = {
+  initiative: number;
+  hp?: number;
+  maxHp?: number;
+  tempHp?: number;
+  initiativeRolled?: boolean;
+  conditions?: string[];
+  conditionDurations?: Record<string, number>;
+  isDown?: boolean;
+  isDead?: boolean;
+  isStable?: boolean;
+  isDisabled?: boolean;
+  deathSaveSuccesses?: number;
+  deathSaveFailures?: number;
+  joiningNextRound?: boolean;
+  memberHp?: number[];
+  memberConditions?: string[][];
+  memberConditionDurations?: Array<Record<string, number>>;
+};
+
+export function createPreparedEncounterSnapshot<TCombatant extends PreparedCombatant>(
+  input: unknown,
+): EncounterSnapshot<TCombatant> | null {
+  const snapshot = normalizeEncounterSnapshot<TCombatant>(input);
+  if (!snapshot) return null;
+  if (snapshot.combatants.some(combatant =>
+    !isRecord(combatant)
+    || typeof combatant.initiative !== "number"
+    || !Number.isFinite(combatant.initiative)
+  )) return null;
+  return {
+    combatants: snapshot.combatants.map(combatant => {
+      const cloned = structuredClone(combatant);
+      const memberCount = cloned.memberHp?.length ?? 0;
+      return {
+        ...cloned,
+        initiative: 0,
+        initiativeRolled: false,
+        hp: cloned.maxHp ?? cloned.hp,
+        tempHp: 0,
+        conditions: [],
+        conditionDurations: undefined,
+        isDown: false,
+        isDead: false,
+        isStable: false,
+        isDisabled: false,
+        deathSaveSuccesses: 0,
+        deathSaveFailures: 0,
+        joiningNextRound: false,
+        memberHp: memberCount > 0 ? Array(memberCount).fill(cloned.maxHp ?? cloned.hp ?? 0) : cloned.memberHp,
+        memberConditions: memberCount > 0 ? Array.from({ length: memberCount }, () => []) : cloned.memberConditions,
+        memberConditionDurations: memberCount > 0 ? Array.from({ length: memberCount }, () => ({})) : cloned.memberConditionDurations,
+      } as TCombatant;
+    }),
+    round: 1,
+    activeIndex: 0,
+    combatState: "setup",
+    selectedVersions: [...snapshot.selectedVersions],
+  };
+}
+
 export function getEncounterSaveRevision(input: unknown): number {
   if (!isRecord(input)) return 0;
   return typeof input.saveRevision === "number" && Number.isFinite(input.saveRevision)
