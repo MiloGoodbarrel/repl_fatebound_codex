@@ -5,9 +5,12 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import re
+import shutil
 import sys
-from collections import defaultdict
+import tempfile
+from collections import Counter, defaultdict
 from pathlib import Path
 
 import pymupdf
@@ -298,6 +301,66 @@ def extract_lore(monster: dict[str, str], start: int, lines: list[dict]) -> str:
     return clean_lore(parts)
 
 
+def write_outputs(actions: list[dict[str, str]], lore: dict[str, dict[str, str | int]]) -> None:
+    """Stage both files before replacing either; restore originals on commit failure."""
+    staged: dict[Path, Path] = {}
+    backups: dict[Path, Path | None] = {}
+    replaced: list[Path] = []
+    cleanup_backups = False
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", newline="", encoding="utf-8", dir=OUTPUT_PATH.parent,
+            prefix=f".{OUTPUT_PATH.name}.", delete=False,
+        ) as handle:
+            staged[OUTPUT_PATH] = Path(handle.name)
+            writer = csv.DictWriter(handle, fieldnames=FIELDNAMES)
+            writer.writeheader()
+            writer.writerows(actions)
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=LORE_OUTPUT_PATH.parent,
+            prefix=f".{LORE_OUTPUT_PATH.name}.", delete=False,
+        ) as handle:
+            staged[LORE_OUTPUT_PATH] = Path(handle.name)
+            json.dump(lore, handle, ensure_ascii=False, indent=2)
+
+        for path in staged:
+            if path.exists():
+                with tempfile.NamedTemporaryFile(
+                    dir=path.parent, prefix=f".{path.name}.backup.", delete=False,
+                ) as handle:
+                    backups[path] = Path(handle.name)
+                shutil.copy2(path, backups[path])
+            else:
+                backups[path] = None
+
+        for path, temporary in staged.items():
+            os.replace(temporary, path)
+            replaced.append(path)
+    except BaseException:
+        try:
+            for path in reversed(replaced):
+                backup = backups[path]
+                if backup is None:
+                    path.unlink()
+                else:
+                    os.replace(backup, path)
+        except BaseException as error:
+            raise RuntimeError(
+                f"Could not restore all outputs; backups retained: {backups}"
+            ) from error
+        cleanup_backups = True
+        raise
+    else:
+        cleanup_backups = True
+    finally:
+        for temporary in staged.values():
+            temporary.unlink(missing_ok=True)
+        if cleanup_backups:
+            for backup in backups.values():
+                if backup is not None:
+                    backup.unlink(missing_ok=True)
+
+
 def main() -> int:
     if not PDF_PATH.exists():
         print(f"Missing source PDF: {PDF_PATH}", file=sys.stderr)
@@ -308,9 +371,18 @@ def main() -> int:
             row for row in csv.DictReader(handle)
             if row["monster_id"].startswith(SOURCE_PREFIX)
         ]
+    source_ids = [monster["monster_id"] for monster in monsters]
+    duplicate_monsters = [id for id, count in Counter(source_ids).items() if count > 1]
+    if not monsters or duplicate_monsters:
+        print(
+            "Invalid source monsters: "
+            + ("no Grim Hollow monsters" if not monsters else "duplicate IDs: " + " | ".join(duplicate_monsters)),
+            file=sys.stderr,
+        )
+        return 2
 
-    document = pymupdf.open(PDF_PATH)
-    lines, page_ranges = load_lines(document)
+    with pymupdf.open(PDF_PATH) as document:
+        lines, page_ranges = load_lines(document)
     starts: dict[str, int] = {}
     missing_statblocks: list[str] = []
     for monster in monsters:
@@ -320,9 +392,14 @@ def main() -> int:
         else:
             starts[monster["monster_id"]] = start
 
+    duplicate_starts = [start for start, count in Counter(starts.values()).items() if count > 1]
+    if duplicate_starts:
+        print(f"Duplicate statblock positions: {duplicate_starts}", file=sys.stderr)
+        return 2
     ordered = sorted(
-        (start, monster) for monster in monsters
-        if (start := starts.get(monster["monster_id"])) is not None
+        ((start, monster) for monster in monsters
+         if (start := starts.get(monster["monster_id"])) is not None),
+        key=lambda pair: pair[0],
     )
     all_actions: list[dict[str, str]] = []
     lore_by_id: dict[str, dict[str, str | int]] = {}
@@ -354,13 +431,6 @@ def main() -> int:
             counts_by_category[action["action_category"]] += 1
         all_actions.extend(actions)
 
-    with OUTPUT_PATH.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=FIELDNAMES)
-        writer.writeheader()
-        writer.writerows(all_actions)
-    with LORE_OUTPUT_PATH.open("w", encoding="utf-8") as handle:
-        json.dump(lore_by_id, handle, ensure_ascii=False, indent=2)
-
     print(
         f"monsters={len(monsters)} matched={len(starts)} actions={len(all_actions)} "
         f"missing_statblocks={len(missing_statblocks)} missing_actions={len(missing_actions)} "
@@ -371,7 +441,24 @@ def main() -> int:
         print("missing statblocks: " + " | ".join(missing_statblocks))
     if missing_actions:
         print("missing actions: " + " | ".join(missing_actions))
-    return 0 if not missing_statblocks and not missing_actions else 2
+    duplicate_actions = [id for id, count in Counter(action["action_id"] for action in all_actions).items() if count > 1]
+    invalid_owners = [action["action_id"] for action in all_actions if action["monster_id"] not in starts]
+    errors = []
+    if missing_statblocks:
+        errors.append("missing statblocks")
+    if missing_actions:
+        errors.append("missing actions")
+    if duplicate_actions:
+        errors.append(f"duplicate action IDs: {duplicate_actions}")
+    if invalid_owners:
+        errors.append(f"actions with unknown monster IDs: {invalid_owners}")
+    if set(lore_by_id) != set(source_ids):
+        errors.append("incomplete lore coverage")
+    if errors:
+        print("Extraction failed: " + "; ".join(errors), file=sys.stderr)
+        return 2
+    write_outputs(all_actions, lore_by_id)
+    return 0
 
 
 if __name__ == "__main__":
