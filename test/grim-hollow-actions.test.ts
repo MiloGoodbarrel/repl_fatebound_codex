@@ -3,7 +3,7 @@ import test from "node:test";
 import fs from "node:fs";
 import path from "node:path";
 import { parse } from "csv-parse/sync";
-import { combineBestiaryActions, mapBestiaryActions } from "../server/bestiaryActions";
+import { combineBestiaryActions, mapBestiaryActions, validateBestiaryEffects } from "../server/bestiaryActions";
 
 const dataDir = path.resolve(import.meta.dirname, "../server/data/bestiary");
 const prefix = "dnd_5e2014_ghmg_";
@@ -27,6 +27,7 @@ function loadCsv(filename: string): CsvRow[] {
 const monsters = loadCsv("monsters.csv").filter(row => row.monster_id.startsWith(prefix));
 const grimActions = loadCsv("grim_hollow_actions.csv");
 const baseActions = loadCsv("monster_actions.csv");
+const effects = loadCsv("action_effects.csv");
 
 test("every Grim Hollow monster has restored actions or a source-accurate no-action exception", () => {
   assert.equal(monsters.length, 409);
@@ -71,6 +72,48 @@ test("seed combines base and restored actions without retaining legacy Grim Holl
   assert.throws(
     () => combineBestiaryActions(baseActions, [...grimActions, grimActions[0]]),
     /duplicate bestiary action ID/i,
+  );
+});
+
+test("all effects belong to imported actions and Grim Hollow damage matches restored text", () => {
+  assert.deepEqual(baseActions.filter(row => row.monster_id.startsWith(prefix)), []);
+  const combined = combineBestiaryActions(baseActions, grimActions);
+  assert.doesNotThrow(() => validateBestiaryEffects(combined, effects));
+  const byId = new Map(grimActions.map(row => [row.action_id, row]));
+  const restoredEffects = effects.filter(row => row.action_id.startsWith(prefix));
+  assert.ok(restoredEffects.length > 1000);
+  for (const effect of restoredEffects) {
+    const action = byId.get(effect.action_id);
+    assert.ok(action, `orphaned restored effect: ${effect.effect_id}`);
+    if (effect.effect_type === "damage") {
+      assert.ok(action.action_description.includes(effect.effect_description),
+        `damage is not in restored text: ${effect.effect_id}`);
+    }
+  }
+  const slam = grimActions.find(row =>
+    row.monster_id === `${prefix}amorphous_horror` && row.action_name === "Slam"
+  );
+  assert.ok(slam);
+  assert.deepEqual(
+    restoredEffects.filter(row => row.action_id === slam.action_id && row.effect_type === "damage")
+      .map(row => [row.dice_count, row.die_size, row.flat_modifier, row.printed_average, row.damage_type]),
+    [["1", "8", "3", "7", "bludgeoning"], ["2", "8", "0", "9", "acid"]],
+  );
+  assert.throws(
+    () => validateBestiaryEffects(combined, [...effects, {
+      effect_id: "test_orphan", action_id: "missing_action",
+    }]),
+    /orphan bestiary effect/i,
+  );
+  assert.throws(
+    () => validateBestiaryEffects(combined, [...effects, effects[0]]),
+    /duplicate bestiary effect ID/i,
+  );
+  assert.throws(
+    () => validateBestiaryEffects(combined, [...effects, {
+      effect_id: "", action_id: slam.action_id,
+    }]),
+    /missing or duplicate bestiary effect ID/i,
   );
 });
 

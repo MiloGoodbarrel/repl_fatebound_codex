@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
-import { combineBestiaryActions } from "./bestiaryActions";
+import { combineBestiaryActions, validateBestiaryEffects } from "./bestiaryActions";
 
 const DATA_DIR = path.join(import.meta.dirname, "data", "bestiary");
 
@@ -373,13 +373,11 @@ export async function seedBestiary() {
   const validActions = actions.filter(r => r.action_id?.trim() && r.monster_id?.trim() && monsterIdSet.has(r.monster_id.trim()));
   const validProfiles = profiles.filter(r => r.spellcasting_id?.trim() && r.monster_id?.trim() && monsterIdSet.has(r.monster_id.trim()));
   const validProfileIdSet = new Set(validProfiles.map(r => r.spellcasting_id.trim()));
-  const validActionIdSet = new Set(validActions.map(r => r.action_id.trim()));
-  const validEffects = effects.filter(r => r.effect_id?.trim() && r.action_id?.trim() && validActionIdSet.has(r.action_id.trim()));
+  validateBestiaryEffects(validActions, effects);
+  const validEffects = effects;
   const validSpells = spells.filter(r => r.monster_spell_id?.trim() && r.spellcasting_id?.trim() && validProfileIdSet.has(r.spellcasting_id.trim()));
 
-  const orphanEffects = effects.filter(r => r.action_id?.trim() && !validActionIdSet.has(r.action_id.trim()));
   const orphanSpells = spells.filter(r => r.spellcasting_id?.trim() && !validProfileIdSet.has(r.spellcasting_id.trim()));
-  if (orphanEffects.length > 0) console.warn(`  ⚠️  ${orphanEffects.length} orphan effects (action not found) — skipping`);
   if (orphanSpells.length > 0) console.warn(`  ⚠️  ${orphanSpells.length} orphan spells (profile not found) — skipping`);
 
   // Import in dependency order
@@ -392,6 +390,10 @@ export async function seedBestiary() {
   console.log(`  ✓ ${validTraits.length} traits`);
 
   console.log("💾 Importing monster actions...");
+  await db.execute(sql`
+    DELETE FROM bestiary_action_effects
+    WHERE action_id LIKE 'dnd_5e2014_ghmg_%'
+  `);
   await db.execute(sql`
     DELETE FROM bestiary_monster_actions
     WHERE monster_id LIKE 'dnd_5e2014_ghmg_%'

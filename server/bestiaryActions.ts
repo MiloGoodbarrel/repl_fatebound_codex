@@ -19,6 +19,23 @@ export function combineBestiaryActions<T extends ActionRow>(base: T[], grimHollo
   return actions;
 }
 
+export function validateBestiaryEffects(
+  actions: ActionRow[],
+  effects: ActionRow[],
+): void {
+  const actionIds = new Set(actions.map(row => row.action_id));
+  const effectIds = new Set<string>();
+  for (const effect of effects) {
+    if (!effect.effect_id?.trim() || effectIds.has(effect.effect_id)) {
+      throw new Error(`Missing or duplicate bestiary effect ID: ${effect.effect_id}`);
+    }
+    effectIds.add(effect.effect_id);
+    if (!effect.action_id?.trim() || !actionIds.has(effect.action_id)) {
+      throw new Error(`Orphan bestiary effect ${effect.effect_id}: action ${effect.action_id} not found`);
+    }
+  }
+}
+
 type DetailAction = {
   actionName?: string | null;
   actionDescription?: string | null;
