@@ -45,7 +45,9 @@ import {
   createPreparedEncounterSnapshot,
   createEncounterRestoreState,
   isCurrentEncounterCampaign,
+  setGroupMemberCondition,
   sortCombatantsPreservingActiveTurn,
+  tickGroupMemberConditions,
 } from "@shared/encounterRecovery";
 import { useToast } from "@/hooks/use-toast";
 
@@ -1995,14 +1997,8 @@ export default function InitiativeTracker() {
     const focusedMember = groupFocused[id] ?? 0;
     const currentConditions = conditionsForMember(combatant, focusedMember);
     const isRemoving = currentConditions.includes(condition);
-    const newConditions = isRemoving
-      ? currentConditions.filter(c => c !== condition)
-      : [...currentConditions, condition];
-    const newDurations = { ...conditionDurationsForMember(combatant, focusedMember) };
-
-    if (isRemoving) {
-      delete newDurations[condition];
-    } else {
+    let durationRounds: number | undefined;
+    if (!isRemoving) {
       const durationText = conditionDurationInputs[id]?.trim() ?? "";
       if (durationText !== "") {
         const durationMinutes = Number(durationText);
@@ -2014,28 +2010,30 @@ export default function InitiativeTracker() {
           });
           return;
         }
-        newDurations[condition] = Math.round(durationMinutes * 10);
+        durationRounds = Math.round(durationMinutes * 10);
       }
     }
     
     if (combatant.isGroup && combatant.memberHp) {
-      const memberConditions = combatant.memberConditions
-        ? combatant.memberConditions.map(member => [...member])
-        : combatant.memberHp.map(() => [...combatant.conditions]);
-      const memberConditionDurations = combatant.memberConditionDurations
-        ? combatant.memberConditionDurations.map(member => ({ ...member }))
-        : combatant.memberHp.map(() => ({ ...(combatant.conditionDurations ?? {}) }));
-      memberConditions[focusedMember] = newConditions;
-      memberConditionDurations[focusedMember] = newDurations;
-      const updated = { ...combatant, memberConditions, memberConditionDurations, conditions: [], conditionDurations: undefined };
+      const conditionState = setGroupMemberCondition(
+        combatant,
+        combatant.memberHp.length,
+        focusedMember,
+        condition,
+        durationRounds,
+      );
+      const updated = { ...combatant, ...conditionState };
       updateCombatant(id, {
-        memberConditions,
-        memberConditionDurations,
-        conditions: [],
-        conditionDurations: undefined,
+        ...conditionState,
         isDown: combatant.isDead || groupIsDown(updated),
       });
     } else {
+      const newConditions = isRemoving
+        ? currentConditions.filter(c => c !== condition)
+        : [...currentConditions, condition];
+      const newDurations = { ...conditionDurationsForMember(combatant, focusedMember) };
+      if (isRemoving) delete newDurations[condition];
+      else if (durationRounds !== undefined) newDurations[condition] = durationRounds;
       updateCombatant(id, {
         conditions: newConditions,
         conditionDurations: Object.keys(newDurations).length > 0 ? newDurations : undefined,
@@ -2148,34 +2146,15 @@ export default function InitiativeTracker() {
       const expiredConditions: string[] = [];
       const updatedCombatants = sorted.map(combatant => {
         if (combatant.isGroup && combatant.memberHp) {
-          const memberConditions = combatant.memberConditions
-            ? combatant.memberConditions.map(member => [...member])
-            : combatant.memberHp.map(() => [...combatant.conditions]);
-          const memberConditionDurations = combatant.memberConditionDurations
-            ? combatant.memberConditionDurations.map(member => ({ ...member }))
-            : combatant.memberHp.map(() => ({ ...(combatant.conditionDurations ?? {}) }));
-
-          memberConditions.forEach((conditions, memberIndex) => {
-            memberConditions[memberIndex] = conditions.filter(condition => {
-              const remainingRounds = memberConditionDurations[memberIndex]?.[condition];
-              if (remainingRounds == null) return true;
-              const nextRemainingRounds = remainingRounds - 1;
-              if (nextRemainingRounds <= 0) {
-                delete memberConditionDurations[memberIndex][condition];
-                expiredConditions.push(`${combatant.name} #${memberIndex + 1}: ${condition}`);
-                return false;
-              }
-              memberConditionDurations[memberIndex][condition] = nextRemainingRounds;
-              return true;
-            });
+          const ticked = tickGroupMemberConditions(combatant, combatant.memberHp.length);
+          const { expired, ...conditionState } = ticked;
+          expired.forEach(({ memberIndex, condition }) => {
+            expiredConditions.push(`${combatant.name} #${memberIndex + 1}: ${condition}`);
           });
 
           const updatedGroup = {
             ...combatant,
-            conditions: [],
-            conditionDurations: undefined,
-            memberConditions,
-            memberConditionDurations,
+            ...conditionState,
           };
           return {
             ...updatedGroup,

@@ -7,8 +7,11 @@ import {
   completeEncounterReset,
   createPreparedEncounterSnapshot,
   createEncounterRestoreState,
+  normalizeGroupConditionState,
+  setGroupMemberCondition,
   shouldApplyEncounterRevision,
   sortCombatantsPreservingActiveTurn,
+  tickGroupMemberConditions,
 } from "../shared/encounterRecovery";
 import { encounterRevisionConflictPredicate } from "../server/encounterPersistence";
 
@@ -161,4 +164,50 @@ test("loading a prepared encounter creates a fresh setup copy with unrolled init
   assert.deepEqual(prepared.combatants[0].memberConditions, [[], [], []]);
   assert.deepEqual(source.combatants[0].memberHp, [0, 7, 11]);
   assert.deepEqual(source.combatants[0].conditions, ["Poisoned"]);
+});
+
+test("two conditions coexist on one group member without affecting another", () => {
+  const initial = { conditions: [] as string[] };
+  const poisoned = setGroupMemberCondition(initial, 2, 0, "Poisoned");
+  const stacked = setGroupMemberCondition(poisoned, 2, 0, "Prone");
+
+  assert.deepEqual(stacked.memberConditions, [["Poisoned", "Prone"], []]);
+  assert.deepEqual(stacked.memberConditionDurations, [{}, {}]);
+});
+
+test("timed group conditions expire only from their intended member", () => {
+  const state = {
+    conditions: [] as string[],
+    memberConditions: [["Stunned", "Prone"], ["Stunned"]],
+    memberConditionDurations: [{ Stunned: 1, Prone: 2 }, { Stunned: 3 }],
+  };
+  const ticked = tickGroupMemberConditions(state, 2);
+
+  assert.deepEqual(ticked.memberConditions, [["Prone"], ["Stunned"]]);
+  assert.deepEqual(ticked.memberConditionDurations, [{ Prone: 1 }, { Stunned: 2 }]);
+  assert.deepEqual(ticked.expired, [{ memberIndex: 0, condition: "Stunned" }]);
+});
+
+test("legacy shared group conditions restore as independent member state", () => {
+  const restored = createEncounterRestoreState<{
+    id: string;
+    conditions: string[];
+    conditionDurations: Record<string, number>;
+  }>({
+    combatants: [{
+      id: "legacy-group",
+      conditions: ["Frightened"],
+      conditionDurations: { Frightened: 2 },
+    }],
+  });
+  assert.ok(restored);
+
+  const normalized = normalizeGroupConditionState(restored.combatants[0], 2);
+  normalized.memberConditions[0].push("Prone");
+  normalized.memberConditionDurations[0].Frightened = 1;
+
+  assert.deepEqual(normalized.memberConditions, [["Frightened", "Prone"], ["Frightened"]]);
+  assert.deepEqual(normalized.memberConditionDurations, [{ Frightened: 1 }, { Frightened: 2 }]);
+  assert.deepEqual(normalized.conditions, []);
+  assert.equal(normalized.conditionDurations, undefined);
 });

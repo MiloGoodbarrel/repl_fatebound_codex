@@ -15,6 +15,12 @@ export interface GroupDamageResult {
   isDead: boolean;
 }
 
+export interface GroupConditionState {
+  conditions: string[];
+  conditionDurations?: Record<string, number>;
+  memberConditions?: string[][];
+  memberConditionDurations?: Array<Record<string, number>>;
+}
 type RecordLike = Record<string, unknown>;
 
 function isRecord(value: unknown): value is RecordLike {
@@ -211,4 +217,82 @@ export function applyGroupDamage(
     isDown: allDead,
     isDead: allDead,
   };
+}
+
+/**
+ * Older saved groups stored one shared condition list. Expand that state into
+ * independent member copies before any member is changed.
+ */
+export function normalizeGroupConditionState(
+  state: GroupConditionState,
+  memberCount: number,
+): NormalizedGroupConditionState {
+  return {
+    conditions: [],
+    conditionDurations: undefined,
+    memberConditions: Array.from({ length: memberCount }, (_, index) => [
+      ...(state.memberConditions?.[index] ?? state.conditions),
+    ]),
+    memberConditionDurations: Array.from({ length: memberCount }, (_, index) => ({
+      ...(state.memberConditionDurations?.[index] ?? state.conditionDurations ?? {}),
+    })),
+  };
+}
+
+export function setGroupMemberCondition(
+  state: GroupConditionState,
+  memberCount: number,
+  memberIndex: number,
+  condition: string,
+  durationRounds?: number,
+): NormalizedGroupConditionState {
+  const normalized = normalizeGroupConditionState(state, memberCount);
+  if (memberIndex < 0 || memberIndex >= memberCount) return normalized;
+
+  const conditions = normalized.memberConditions[memberIndex];
+  if (conditions.includes(condition)) {
+    normalized.memberConditions[memberIndex] = conditions.filter(item => item !== condition);
+    delete normalized.memberConditionDurations[memberIndex][condition];
+  } else {
+    normalized.memberConditions[memberIndex] = [...conditions, condition];
+    if (durationRounds !== undefined) {
+      normalized.memberConditionDurations[memberIndex][condition] = durationRounds;
+    }
+  }
+  return normalized;
+}
+
+export interface GroupConditionTickResult extends NormalizedGroupConditionState {
+  expired: Array<{ memberIndex: number; condition: string }>;
+}
+
+export function tickGroupMemberConditions(
+  state: GroupConditionState,
+  memberCount: number,
+): GroupConditionTickResult {
+  const normalized = normalizeGroupConditionState(state, memberCount);
+  const expired: GroupConditionTickResult["expired"] = [];
+
+  normalized.memberConditions.forEach((conditions, memberIndex) => {
+    normalized.memberConditions[memberIndex] = conditions.filter(condition => {
+      const remainingRounds = normalized.memberConditionDurations[memberIndex][condition];
+      if (remainingRounds == null) return true;
+      if (remainingRounds <= 1) {
+        delete normalized.memberConditionDurations[memberIndex][condition];
+        expired.push({ memberIndex, condition });
+        return false;
+      }
+      normalized.memberConditionDurations[memberIndex][condition] = remainingRounds - 1;
+      return true;
+    });
+  });
+
+  return { ...normalized, expired };
+}
+
+export interface NormalizedGroupConditionState {
+  conditions: [];
+  conditionDurations: undefined;
+  memberConditions: string[][];
+  memberConditionDurations: Array<Record<string, number>>;
 }
