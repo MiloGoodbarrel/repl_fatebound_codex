@@ -138,6 +138,31 @@ export function createPreparedEncounterSnapshot<TCombatant extends PreparedComba
   };
 }
 
+/** Change the number of fresh members in a saved group without mutating its roster. */
+export function resizePreparedGroup<TCombatant extends PreparedCombatant & {
+  id: string;
+  isGroup?: boolean;
+}>(
+  input: unknown,
+  groupId: string,
+  count: number,
+): EncounterSnapshot<TCombatant> | null {
+  const snapshot = createPreparedEncounterSnapshot<TCombatant>(input);
+  if (!snapshot || !Number.isSafeInteger(count) || count < 1 || count > 100) return null;
+  const group = snapshot.combatants.find(combatant => combatant.id === groupId);
+  if (!group?.isGroup || !Array.isArray(group.memberHp) || group.memberHp.length < 1) return null;
+  const hp = group.maxHp ?? group.hp ?? 0;
+  return {
+    ...snapshot,
+    combatants: snapshot.combatants.map(combatant => combatant.id === groupId ? {
+      ...combatant,
+      memberHp: Array(count).fill(hp),
+      memberConditions: Array.from({ length: count }, () => []),
+      memberConditionDurations: Array.from({ length: count }, () => ({})),
+    } as TCombatant : combatant),
+  };
+}
+
 export function getEncounterSaveRevision(input: unknown): number {
   if (!isRecord(input)) return 0;
   return typeof input.saveRevision === "number" && Number.isFinite(input.saveRevision)

@@ -9,6 +9,7 @@ import {
   createPreparedEncounterSnapshot,
   createEncounterRestoreState,
   normalizeGroupConditionState,
+  resizePreparedGroup,
   setGroupMemberCondition,
   shouldApplyEncounterRevision,
   sortCombatantsPreservingActiveTurn,
@@ -185,6 +186,29 @@ test("starting a loaded encounter rolls only unassigned non-player initiative", 
   assert.deepEqual(result[0].memberHp, [8, 8]);
   assert.equal(combatants[0].initiative, 0);
   assert.equal(rolls.length, 0);
+});
+
+test("resizing a saved group persists a fresh member count without changing other groups or the source", () => {
+  const source = {
+    combatants: [
+      { id: "wolves", isGroup: true, initiative: 14, initiativeRolled: true, hp: 3, maxHp: 11,
+        memberHp: [0, 7], memberConditions: [["Prone"], []] },
+      { id: "bandits", isGroup: true, initiative: 5, hp: 8, maxHp: 8, memberHp: [8, 8, 8] },
+    ],
+    selectedVersions: ["5e"],
+  };
+  const grown = resizePreparedGroup(source, "wolves", 4);
+  assert.ok(grown);
+  assert.deepEqual(grown.combatants[0].memberHp, [11, 11, 11, 11]);
+  assert.deepEqual(grown.combatants[0].memberConditions, [[], [], [], []]);
+  assert.deepEqual(grown.combatants[1].memberHp, [8, 8, 8]);
+  assert.equal(grown.combatants[0].initiative, 0);
+  assert.deepEqual(source.combatants[0].memberHp, [0, 7]);
+  const shrunk = resizePreparedGroup(grown, "wolves", 1);
+  assert.deepEqual(shrunk?.combatants[0].memberHp, [11]);
+  assert.equal(resizePreparedGroup(source, "wolves", 0), null);
+  assert.equal(resizePreparedGroup(source, "bandits", 101), null);
+  assert.equal(resizePreparedGroup(source, "missing", 2), null);
 });
 
 test("two conditions coexist on one group member without affecting another", () => {

@@ -44,6 +44,7 @@ import {
   completeEncounterQuery,
   completeEncounterReset,
   createPreparedEncounterSnapshot,
+  resizePreparedGroup,
   createEncounterRestoreState,
   isCurrentEncounterCampaign,
   setGroupMemberCondition,
@@ -2393,6 +2394,19 @@ export default function InitiativeTracker() {
     }
   };
 
+  const changePreparedGroupCount = async (encounter: PreparedEncounter, groupId: string, count: number) => {
+    const prepared = resizePreparedGroup<Combatant>(encounter.data, groupId, count);
+    if (!prepared) return;
+    setPreparedEncounterBusy(encounter.id);
+    try {
+      await preparedEncounterRequest("PUT", encounter.id, { data: prepared });
+    } catch (error) {
+      toast({ title: "Could not change group size", description: error instanceof Error ? error.message : "Update failed", variant: "destructive" });
+    } finally {
+      setPreparedEncounterBusy(null);
+    }
+  };
+
   const deletePreparedEncounter = async (encounter: PreparedEncounter) => {
     if (!window.confirm(`Delete "${encounter.name}"? This cannot be undone.`)) return;
     setPreparedEncounterBusy(encounter.id);
@@ -3805,6 +3819,28 @@ export default function InitiativeTracker() {
                       </div>
                       {preparedEncounterBusy === encounter.id && <Loader2 className="w-3 h-3 animate-spin" />}
                     </div>
+                    {encounter.data.combatants.filter(combatant => combatant.isGroup && combatant.memberHp?.length).map(group => (
+                      <div key={group.id} className="flex items-center justify-between gap-2 text-xs">
+                        <span className="truncate" title={group.name}>{group.name}</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button size="icon" variant="outline" className="w-7 h-7"
+                            aria-label={`Remove last member from saved ${group.name}`}
+                            title="Remove last member from saved group"
+                            disabled={preparedEncounterBusy !== null || (group.memberHp?.length ?? 0) <= 1}
+                            onClick={() => changePreparedGroupCount(encounter, group.id, group.memberHp!.length - 1)}>
+                            <Minus className="w-3 h-3" />
+                          </Button>
+                          <span className="min-w-8 text-center font-mono" aria-label={`${group.name} group size`}>×{group.memberHp?.length}</span>
+                          <Button size="icon" variant="outline" className="w-7 h-7"
+                            aria-label={`Add member to saved ${group.name}`}
+                            title="Add member to saved group"
+                            disabled={preparedEncounterBusy !== null || (group.memberHp?.length ?? 0) >= 100}
+                            onClick={() => changePreparedGroupCount(encounter, group.id, group.memberHp!.length + 1)}>
+                            <Plus className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                     <div className="flex gap-1">
                       <Button
                         size="sm"
@@ -3831,6 +3867,11 @@ export default function InitiativeTracker() {
                   </div>
                 ))}
               </div>
+              {loadedPreparedEncounter && (
+                <p className="text-[10px] text-muted-foreground">
+                  Setup group changes affect this run. To keep them in a saved encounter, use its “Replace with current roster” button.
+                </p>
+              )}
             </div>
           )}
 
@@ -4168,7 +4209,27 @@ export default function InitiativeTracker() {
                               {/* Group count */}
                               {combatant.isGroup && combatant.memberHp && (
                                 <>
-                                  <span className="font-semibold text-primary/80">×{combatant.memberHp.length}</span>
+                                  {combatState === "setup" && (
+                                    <div className="inline-flex items-center gap-1">
+                                      <Button size="icon" variant="outline" className="w-6 h-6"
+                                        aria-label={`Remove last member from ${combatant.name}`}
+                                        title="Remove last group member"
+                                        disabled={combatant.memberHp.length <= 1}
+                                        onClick={() => removeGroupMember(combatant.id)}>
+                                        <Minus className="w-3 h-3" />
+                                      </Button>
+                                      <span className="font-semibold text-primary/80">×{combatant.memberHp.length}</span>
+                                      <Button size="icon" variant="outline" className="w-6 h-6"
+                                        aria-label={`Add member to ${combatant.name}`}
+                                        title="Add group member"
+                                        onClick={() => addGroupMember(combatant.id)}>
+                                        <Plus className="w-3 h-3" />
+                                      </Button>
+                                    </div>
+                                  )}
+                                  {combatState !== "setup" && (
+                                    <span className="font-semibold text-primary/80">×{combatant.memberHp.length}</span>
+                                  )}
                                   <span>·</span>
                                   <span>{combatant.memberHp.filter(h => h > 0).length} alive</span>
                                   <span>·</span>
