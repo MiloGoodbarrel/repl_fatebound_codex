@@ -321,6 +321,7 @@ type AbilityKey = "str" | "dex" | "con" | "int" | "wis" | "cha";
 type AbilityModifierOverrides = Partial<Record<AbilityKey, number>>;
 interface CorrectionDraft {
   id: string;
+  name: string;
   hp: string;
   maxHp: string;
   initiative: string;
@@ -1520,6 +1521,7 @@ export default function InitiativeTracker() {
       : combatant.hp;
     setCorrectionDraft({
       id: combatant.id,
+      name: combatant.name,
       hp: String(currentHp),
       maxHp: String(combatant.maxHp),
       initiative: String(combatant.initiative),
@@ -1539,6 +1541,15 @@ export default function InitiativeTracker() {
     if (!correctionDraft) return;
     const combatant = combatants.find(c => c.id === correctionDraft.id);
     if (!combatant) return;
+    const name = correctionDraft.name.trim();
+    if (!name || name.length > 100) {
+      toast({
+        title: "Check combatant name",
+        description: "Enter a name between 1 and 100 characters.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const hp = Number(correctionDraft.hp);
     const maxHp = Number(correctionDraft.maxHp);
@@ -1568,6 +1579,7 @@ export default function InitiativeTracker() {
       const allDead = memberHp.every(value => value <= 0);
       corrected = {
         ...combatant,
+        name,
         initiative,
         ac,
         maxHp,
@@ -1581,6 +1593,7 @@ export default function InitiativeTracker() {
       const correctedHp = Math.min(hp, maxHp);
       corrected = {
         ...combatant,
+        name,
         initiative,
         ac,
         maxHp,
@@ -1597,7 +1610,7 @@ export default function InitiativeTracker() {
     setCombatants(correctedResult.combatants);
     if (correctedResult.activeIndex !== null) setActiveIndex(correctedResult.activeIndex);
     setCorrectionDraft(null);
-    toast({ title: "Combatant corrected", description: `${combatant.name}'s encounter stats were updated.` });
+    toast({ title: "Combatant updated", description: `${name}'s encounter details were saved.` });
   };
 
   const commitStatEdit = () => {
@@ -2587,6 +2600,16 @@ export default function InitiativeTracker() {
           </DialogHeader>
           {correctionDraft && (
             <div className="space-y-5 py-2">
+              <div className="space-y-1">
+                <Label htmlFor="correct-name">Encounter name</Label>
+                <Input
+                  id="correct-name"
+                  value={correctionDraft.name}
+                  maxLength={100}
+                  onChange={e => setCorrectionDraft(d => d ? { ...d, name: e.target.value } : d)}
+                  data-testid="input-correction-name"
+                />
+              </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="correct-hp">
@@ -3970,7 +3993,12 @@ export default function InitiativeTracker() {
 
                                           {/* Header */}
                                           <div className="border-b border-border pb-2">
-                                            <h4 className="text-lg font-bold text-primary">{combatant.monsterData.name}</h4>
+                                            <h4 className="text-lg font-bold text-primary">{combatant.name}</h4>
+                                            {combatant.name !== combatant.monsterData.name && (
+                                              <p className="text-xs text-muted-foreground">
+                                                Bestiary: {combatant.monsterData.name}
+                                              </p>
+                                            )}
                                             <p className="text-xs text-muted-foreground">
                                               {combatant.monsterData.size} {combatant.monsterData.type}, CR {combatant.monsterData.cr}
                                             </p>
@@ -4104,6 +4132,19 @@ export default function InitiativeTracker() {
                                   </ScrollArea>
                                 </HoverCardContent>
                               </HoverCard>
+                              {combatant.combatantType === "monster" && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="w-7 h-7 flex-shrink-0"
+                                  onClick={() => openCorrectionEditor(combatant)}
+                                  title={`Rename ${combatant.name}`}
+                                  aria-label={`Rename ${combatant.name}`}
+                                  data-testid={`button-rename-monster-${combatant.id}`}
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                              )}
                             </div>
                             <div className="text-xs text-muted-foreground ml-8 flex items-center gap-1.5 flex-wrap">
                               {/* Group count */}
@@ -4665,7 +4706,7 @@ export default function InitiativeTracker() {
                             variant="outline"
                             className="text-primary border-primary/40 hover:bg-primary/10"
                             onClick={() => openCorrectionEditor(combatant)}
-                            title="Correct encounter stats"
+                            title="Edit encounter name and stats"
                             data-testid={`button-correct-stats-${combatant.id}`}
                           >
                             <Pencil className="w-4 h-4" />
