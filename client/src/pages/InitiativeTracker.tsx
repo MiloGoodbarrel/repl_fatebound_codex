@@ -40,6 +40,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { CampaignCharacter } from "@shared/schema";
 import {
   applyGroupDamage as calculateGroupDamage,
+  assignLoadedEncounterInitiative,
   completeEncounterQuery,
   completeEncounterReset,
   createPreparedEncounterSnapshot,
@@ -701,6 +702,7 @@ export default function InitiativeTracker() {
   const [selectedVersions, setSelectedVersions] = useState<string[]>([]);
   const [combatants, setCombatants] = useState<Combatant[]>([]);
   const [combatState, setCombatState] = useState<CombatState>("setup");
+  const [loadedPreparedEncounter, setLoadedPreparedEncounter] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [round, setRound] = useState(1);
   const [mobileTab, setMobileTab] = useState<"controls" | "combat">("controls");
@@ -873,6 +875,7 @@ export default function InitiativeTracker() {
       setEncounterOwnerCampaignId(campaignId);
       setShowRestoreBanner(false);
       setCombatants([]);
+      setLoadedPreparedEncounter(false);
       setCombatState("setup");
       setActiveIndex(0);
       setRound(1);
@@ -909,9 +912,10 @@ export default function InitiativeTracker() {
       activeIndex,
       combatState,
       selectedVersions,
+      loadedPreparedEncounter,
       saveRevision: saveRevisionRef.current,
     };
-  }, [combatants, round, activeIndex, combatState, selectedVersions]);
+  }, [combatants, round, activeIndex, combatState, selectedVersions, loadedPreparedEncounter]);
 
   if (
     activeCampaign
@@ -2103,7 +2107,7 @@ export default function InitiativeTracker() {
     const unrolled = combatants.filter(combatant =>
       combatant.combatantType !== "pc" && combatant.initiativeRolled !== true
     );
-    if (unrolled.length > 0) {
+    if (unrolled.length > 0 && !loadedPreparedEncounter) {
       toast({
         title: "Roll monster initiative first",
         description: `${unrolled.length} combatant${unrolled.length === 1 ? " is" : "s are"} still unrolled.`,
@@ -2111,9 +2115,16 @@ export default function InitiativeTracker() {
       });
       return;
     }
-    const sorted = getSortedCombatants();
+    const readyCombatants = loadedPreparedEncounter
+      ? assignLoadedEncounterInitiative(
+          combatants,
+          combatant => combatant.monsterData?.dexMod ?? getCombatantAbilityModifier(combatant, "dex"),
+        )
+      : combatants;
+    const sorted = [...readyCombatants].sort((a, b) => b.initiative - a.initiative);
     setCombatants(sorted);
     setCombatState("active");
+    setLoadedPreparedEncounter(false);
     
     // Find first combatant that shouldn't be skipped
     let startIndex = 0;
@@ -2244,6 +2255,9 @@ export default function InitiativeTracker() {
     const snapshot = createEncounterRestoreState<Combatant>(savedEncounterResult.data);
     if (!snapshot) return;
     setCombatants(snapshot.combatants);
+    setLoadedPreparedEncounter(
+      snapshot.combatState === "setup" && savedEncounterResult.data.loadedPreparedEncounter === true,
+    );
     setRound(snapshot.round);
     setActiveIndex(snapshot.activeIndex);
     setCombatState(snapshot.combatState);
@@ -2318,6 +2332,7 @@ export default function InitiativeTracker() {
     const prepared = createPreparedEncounterSnapshot<Combatant>(encounter.data);
     if (!prepared) return;
     setCombatants(prepared.combatants);
+    setLoadedPreparedEncounter(true);
     setRound(1);
     setActiveIndex(0);
     setCombatState("setup");
@@ -2326,7 +2341,7 @@ export default function InitiativeTracker() {
     setShowRestoreBanner(false);
     setAutoSaveReady(true);
     setMobileTab("combat");
-    toast({ title: `${encounter.name} loaded`, description: "Initiative is unrolled. Review the roster, roll initiative, then start combat." });
+    toast({ title: `${encounter.name} loaded`, description: "Review the roster and add player initiatives. Unrolled monsters and NPCs will roll when combat starts." });
   };
 
   const renamePreparedEncounter = async (encounter: PreparedEncounter) => {
@@ -2406,6 +2421,7 @@ export default function InitiativeTracker() {
   const resetCombat = () => {
     clearSavedEncounterRemote();
     setCombatants([]);
+    setLoadedPreparedEncounter(false);
     setCombatState("setup");
     setActiveIndex(0);
     setRound(1);
@@ -2416,6 +2432,7 @@ export default function InitiativeTracker() {
   // Reset encounter: remove monsters/NPCs, keep PCs
   const resetEncounter = () => {
     setCombatants(prev => prev.filter(c => c.combatantType === "pc"));
+    setLoadedPreparedEncounter(false);
     setCombatState("setup");
     setActiveIndex(0);
     setRound(1);
@@ -2426,6 +2443,7 @@ export default function InitiativeTracker() {
 
   const confirmResetAll = () => {
     setCombatants([]);
+    setLoadedPreparedEncounter(false);
     setCombatState("setup");
     setActiveIndex(0);
     setRound(1);
@@ -3618,13 +3636,13 @@ export default function InitiativeTracker() {
                   className="w-full"
                   data-testid="button-roll-monster-initiative"
                 >
-                  <Dices className="mr-2 w-4 h-4" /> Roll Monster Initiative
+                  <Dices className="mr-2 w-4 h-4" /> Roll NPC/Monster Initiative
                 </Button>
                 <Button
                   onClick={startCombat}
                   disabled={
                     combatants.length === 0
-                    || combatants.some(combatant => combatant.combatantType !== "pc" && combatant.initiativeRolled !== true)
+                    || (!loadedPreparedEncounter && combatants.some(combatant => combatant.combatantType !== "pc" && combatant.initiativeRolled !== true))
                   }
                   className="w-full h-12 text-lg font-display"
                   data-testid="button-start-combat"

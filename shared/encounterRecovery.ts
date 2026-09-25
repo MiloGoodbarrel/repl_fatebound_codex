@@ -202,6 +202,23 @@ export function sortCombatantsPreservingActiveTurn<T extends { id: string; initi
   return { combatants: sorted, activeIndex: activeIndex >= 0 ? activeIndex : null };
 }
 
+/** Roll only unassigned non-player initiative when starting a loaded encounter. */
+export function assignLoadedEncounterInitiative<T extends {
+  combatantType: string;
+  initiative: number;
+  initiativeRolled?: boolean;
+}>(
+  combatants: T[],
+  dexModifier: (combatant: T) => number,
+  rollD20: () => number = () => Math.floor(Math.random() * 20) + 1,
+): T[] {
+  return combatants.map(combatant =>
+    combatant.combatantType !== "pc" && combatant.initiativeRolled !== true
+      ? { ...combatant, initiative: rollD20() + dexModifier(combatant), initiativeRolled: true }
+      : combatant
+  );
+}
+
 export function applyGroupDamage(
   memberHp: number[],
   focusedMember: number,

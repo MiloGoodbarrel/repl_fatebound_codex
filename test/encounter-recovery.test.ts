@@ -3,6 +3,7 @@ import test from "node:test";
 import { PgDialect } from "drizzle-orm/pg-core";
 import {
   applyGroupDamage,
+  assignLoadedEncounterInitiative,
   completeEncounterQuery,
   completeEncounterReset,
   createPreparedEncounterSnapshot,
@@ -164,6 +165,26 @@ test("loading a prepared encounter creates a fresh setup copy with unrolled init
   assert.deepEqual(prepared.combatants[0].memberConditions, [[], [], []]);
   assert.deepEqual(source.combatants[0].memberHp, [0, 7, 11]);
   assert.deepEqual(source.combatants[0].conditions, ["Poisoned"]);
+});
+
+test("starting a loaded encounter rolls only unassigned non-player initiative", () => {
+  const combatants = [
+    { id: "monster", combatantType: "monster", initiative: 0, initiativeRolled: false, memberHp: [8, 8] },
+    { id: "npc", combatantType: "npc", initiative: 0, initiativeRolled: false },
+    { id: "manual", combatantType: "monster", initiative: 19, initiativeRolled: true },
+    { id: "player", combatantType: "pc", initiative: 12, initiativeRolled: false },
+  ];
+  const rolls = [7, 14];
+  const result = assignLoadedEncounterInitiative(
+    combatants,
+    combatant => combatant.id === "monster" ? 2 : -1,
+    () => rolls.shift()!,
+  );
+  assert.deepEqual(result.map(combatant => combatant.initiative), [9, 13, 19, 12]);
+  assert.deepEqual(result.map(combatant => combatant.initiativeRolled), [true, true, true, false]);
+  assert.deepEqual(result[0].memberHp, [8, 8]);
+  assert.equal(combatants[0].initiative, 0);
+  assert.equal(rolls.length, 0);
 });
 
 test("two conditions coexist on one group member without affecting another", () => {
