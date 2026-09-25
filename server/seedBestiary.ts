@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
+import { combineBestiaryActions } from "./bestiaryActions";
 
 const DATA_DIR = path.join(import.meta.dirname, "data", "bestiary");
 
@@ -337,7 +338,7 @@ export async function seedBestiary() {
     parseCSV(path.join(DATA_DIR, FILES.spellcasting_profiles)),
     parseCSV(path.join(DATA_DIR, FILES.monster_spells)),
   ]);
-  const actions = [...baseActions, ...grimHollowActions];
+  const actions = combineBestiaryActions(baseActions, grimHollowActions);
 
   console.log(`  monsters: ${monsters.length} rows`);
   console.log(`  traits: ${traits.length} rows`);

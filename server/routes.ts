@@ -8,6 +8,7 @@ import { z } from "zod";
 import { insertCampaignSchema, insertCampaignCharacterSchema, rollTableInputSchema, type InsertItem, type InsertHomebrewItem } from "@shared/schema";
 import { STOCK_ROLL_TABLES } from "@shared/rollTables";
 import { seedLootTable } from "./seedLoot";
+import { mapBestiaryActions } from "./bestiaryActions";
 
 const grimHollowLorePath = path.resolve(process.cwd(), "server/data/bestiary/grim_hollow_lore.json");
 const grimHollowLore: Record<string, { description?: string; sourcePage?: number; imageUrl?: string }> =
@@ -661,22 +662,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           description: t.traitDescription || "",
           type: t.traitType || "passive",
         })),
-        detailedActions: (detail.actions || []).map((a: any) => ({
-          name: a.actionName || "",
-          description: a.actionDescription || "",
-          category: a.actionCategory || "action",
-          attackBonus: a.attackBonus ?? undefined,
-          reachFt: a.reachFt ?? undefined,
-          saveAbility: a.saveAbility ?? undefined,
-          saveDc: a.saveDc ?? undefined,
-          damageDice: a.damageDice ?? undefined,
-          damageType: a.damageType ?? undefined,
-        })),
+        ...mapBestiaryActions(detail.actions || []),
         special_abilities: (detail.traits || [])
           .map((t: any) => ({ name: t.traitName || "", desc: t.traitDescription || "" })),
-        actions: (detail.actions || [])
-          .filter((a: any) => a.actionCategory === "action" || a.actionCategory === "standard")
-          .map((a: any) => ({ name: a.actionName || "", desc: a.actionDescription || "", attack_bonus: a.attackBonus })),
       };
       res.json(result);
     } catch (err) {
