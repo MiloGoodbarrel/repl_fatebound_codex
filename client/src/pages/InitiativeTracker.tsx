@@ -173,6 +173,7 @@ interface HomebrewMonster {
   challengeRating: string | null;
   actions: HomebrewAction[];
   profileData?: CreatureProfile | null;
+  linkedSource?: { campaignId: number; campaignName: string };
 }
 
 interface HomebrewPreviewRow {
@@ -1091,6 +1092,7 @@ export default function InitiativeTracker() {
     queryFn: () => fetch(`/api/campaigns/${homebrewCampaign!.id}/homebrew-bestiary`).then(r => r.json()),
     enabled: !!homebrewCampaign,
     staleTime: 60_000,
+    refetchInterval: 15_000,
   });
 
   // Auto-roll homebrew initiative when active combat + selection changes
@@ -1143,7 +1145,7 @@ export default function InitiativeTracker() {
 
   const clearHomebrewBestiary = async () => {
     if (!homebrewCampaign) return;
-    if (!confirm(`Clear all homebrew monsters from the ${homebrewCampaign.name} bestiary? This cannot be undone.`)) return;
+    if (!confirm(`Clear this campaign's own NPCs and creatures from ${homebrewCampaign.name}? Linked resources are managed separately and will remain. This cannot be undone.`)) return;
     await fetch(`/api/campaigns/${homebrewCampaign.id}/homebrew-bestiary`, { method: "DELETE" });
     setSelectedHomebrewId(null);
     refetchHomebrew();
@@ -3207,6 +3209,7 @@ export default function InitiativeTracker() {
                             </div>
                             <div className="text-[11px] text-muted-foreground mt-0.5">
                               {[m.size, m.creatureType].filter(Boolean).join(" ")}
+                              {m.linkedSource && <span className="block text-primary/80">Linked from {m.linkedSource.campaignName}</span>}
                             </div>
                           </div>
                         ))}

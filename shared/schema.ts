@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, numeric, timestamp, uniqueIndex, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, numeric, timestamp, uniqueIndex, jsonb, check } from "drizzle-orm/pg-core";
 import type { CreatureProfile } from "./creatureProfiles";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
@@ -358,6 +358,20 @@ export const campaignHomebrewActions = pgTable("campaign_homebrew_actions", {
 
 export type CampaignHomebrewMonster = typeof campaignHomebrewMonsters.$inferSelect;
 export type CampaignHomebrewAction = typeof campaignHomebrewActions.$inferSelect;
+
+// Links point directly to source records; there are no copied stats or chained links.
+export const campaignResourceLinks = pgTable("campaign_resource_links", {
+  id: serial("id").primaryKey(),
+  campaignId: integer("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  sourceCampaignId: integer("source_campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  itemId: integer("item_id").references(() => campaignItems.id, { onDelete: "cascade" }),
+  npcId: integer("npc_id").references(() => campaignHomebrewMonsters.id, { onDelete: "cascade" }),
+}, table => [
+  uniqueIndex("campaign_resource_link_item_unique").on(table.campaignId, table.itemId),
+  uniqueIndex("campaign_resource_link_npc_unique").on(table.campaignId, table.npcId),
+  check("campaign_resource_link_one_target", sql`(${table.itemId} IS NOT NULL)::int + (${table.npcId} IS NOT NULL)::int = 1`),
+  check("campaign_resource_link_different_campaign", sql`${table.campaignId} <> ${table.sourceCampaignId}`),
+]);
 
 // ─── Draw Options ─────────────────────────────────────────────────────────────
 

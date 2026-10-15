@@ -3,6 +3,7 @@ import type { Server } from "http";
 import fs from "node:fs";
 import path from "node:path";
 import { storage } from "./storage";
+import { registerCampaignResourceRoutes } from "./campaignResources";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { insertCampaignSchema, insertCampaignCharacterSchema, rollTableInputSchema, type InsertItem, type InsertHomebrewItem } from "@shared/schema";
@@ -138,6 +139,7 @@ function readBody(req: any): Promise<string> {
 }
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
+  registerCampaignResourceRoutes(app, storage);
 
   // ── 5e Compendium ────────────────────────────────────────────────────────
 

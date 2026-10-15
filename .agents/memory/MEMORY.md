@@ -4,6 +4,6 @@
 - [Condition timer cadence](condition-timer-cadence.md) — timed conditions use encounter rounds and tick once when initiative wraps to the top.
 - [Roll Tables content model](roll-tables-content-model.md) — stock tables stay original/system-neutral; custom tables are campaign-scoped with strict ranges or weights.
 - [Aetherfall homebrew scope](aetherfall-homebrew-scope.md) — Aetherfall monsters belong only to that campaign; new homebrew imports append instead of replacing existing records.
-- [Campaign content is additive](campaign-content-additive.md) — selecting a campaign keeps global libraries available and layers campaign items, monsters, and roll tables on top.
+- [Campaign content is additive](campaign-content-additive.md) — global libraries stay available; opt-in cross-campaign access links items/NPCs only, never copies them.
 - [Grim Hollow actionless creatures](grim-hollow-actionless-creatures.md) — two Grimoire creatures intentionally have no action rows; audits must not treat them as missing imports.
 - [Hollow Carnival source decisions](hollow-carnival-source-decisions.md) — separate campaign, no pregens; preserve source ambiguities and distinguish civilian baselines from printed stats.

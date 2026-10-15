@@ -15,6 +15,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Campaign } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import CampaignResourceImport from "@/components/CampaignResourceImport";
 
 const EDITIONS = [
   { value: "5e",     label: "D&D 5e (2014)" },
@@ -35,6 +36,7 @@ export default function Landing() {
   const [newName, setNewName] = useState("");
   const [newEdition, setNewEdition] = useState("5e");
   const [newDescription, setNewDescription] = useState("");
+  const [importTarget, setImportTarget] = useState<Campaign | null>(null);
 
   const { data: campaigns = [], isLoading } = useQuery<Campaign[]>({
     queryKey: ["/api/campaigns"],
@@ -341,6 +343,11 @@ export default function Landing() {
                               {campaign.description && (
                                 <p className="text-xs text-muted-foreground italic truncate mt-1">{campaign.description}</p>
                               )}
+                              <Button size="sm" variant="ghost" className="h-auto p-0 mt-2 text-xs text-primary"
+                                onClick={() => setImportTarget(campaign)}
+                                data-testid={`button-link-resources-${campaign.id}`}>
+                                Link items & NPCs
+                              </Button>
                             </div>
                             <div className="flex items-center gap-2 ml-3 shrink-0">
                               <Button
@@ -373,6 +380,8 @@ export default function Landing() {
         </motion.div>
 
       </div>
+      {importTarget && <CampaignResourceImport key={importTarget.id} target={importTarget}
+        campaigns={campaigns} onClose={() => setImportTarget(null)} />}
     </div>
   );
 }

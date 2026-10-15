@@ -4,7 +4,7 @@ import type { ItemResponse } from "@shared/routes";
 import { Crown, Sparkles, Shield, Sword, FlaskConical, Scroll, Gem, Wand2, Crosshair, Weight, Coins, Zap } from "lucide-react";
 
 interface ItemCardProps {
-  item: ItemResponse;
+  item: ItemResponse & { linkedSource?: { campaignId: number; campaignName: string } };
   index: number;
 }
 
@@ -145,6 +145,7 @@ export function ItemCard({ item, index }: ItemCardProps) {
         )}
 
         {/* Source */}
+        {item.linkedSource && <p className="text-xs text-primary/80">Linked from {item.linkedSource.campaignName}</p>}
         {item.source && (
           <p className="text-xs text-muted-foreground/60 font-mono text-right tracking-wide pt-1">
             {item.source}

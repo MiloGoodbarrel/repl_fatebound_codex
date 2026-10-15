@@ -2,7 +2,7 @@ import { db } from "./db";
 import {
   items5e, homebrewItems, campaignItems, campaigns, campaignCharacters,
   bestiaryMonsters, bestiaryMonsterTraits, bestiaryMonsterActions,
-  campaignHomebrewMonsters, campaignHomebrewActions, campaignSavedEncounters, campaignPreparedEncounters,
+  campaignHomebrewMonsters, campaignHomebrewActions, campaignSavedEncounters, campaignPreparedEncounters, campaignResourceLinks,
   rollTables, rollTableEntries,
   type InsertItem, type Item,
   type HomebrewItem, type InsertHomebrewItem,
@@ -12,7 +12,7 @@ import {
   type CampaignHomebrewMonster,
   type DrawOptions,
 } from "@shared/schema";
-import { eq, inArray, sql, and, ilike, asc, desc } from "drizzle-orm";
+import { eq, inArray, sql, and, or, ilike, asc, desc } from "drizzle-orm";
 import { getEncounterSaveRevision } from "@shared/encounterRecovery";
 import { encounterRevisionConflictPredicate } from "./encounterPersistence";
 
@@ -135,10 +135,19 @@ export class DatabaseStorage implements IStorage {
   // ── Campaign items ─────────────────────────────────────────────────────────
 
   async getCampaignItems(campaignId: number): Promise<CampaignItem[]> {
-    return await db
-      .select()
+    const rows = await db
+      .select({ item: campaignItems, owner: campaigns })
       .from(campaignItems)
-      .where(eq(campaignItems.campaignId, campaignId));
+      .leftJoin(campaigns, eq(campaignItems.campaignId, campaigns.id))
+      .where(or(
+        eq(campaignItems.campaignId, campaignId),
+        sql`${campaignItems.id} IN (SELECT item_id FROM ${campaignResourceLinks} WHERE campaign_id = ${campaignId})`,
+      ));
+    return rows.map(({ item, owner }) => ({
+      ...item, ...(item.campaignId !== campaignId && owner ? {
+        linkedSource: { campaignId: owner.id, campaignName: owner.name },
+      } : {}),
+    }));
   }
 
   async importCampaignItems(
@@ -425,12 +434,16 @@ export class DatabaseStorage implements IStorage {
       : [];
 
     const campaignNameFilter = searchTerm ? ilike(campaignItems.name, `%${searchTerm}%`) : undefined;
-    const campaignAdditions: CampaignItem[] = campaignId != null
+    const campaignRows = campaignId != null
       ? await db
-          .select()
+          .select({ item: campaignItems, owner: campaigns })
           .from(campaignItems)
+          .leftJoin(campaigns, eq(campaignItems.campaignId, campaigns.id))
           .where(and(
-            eq(campaignItems.campaignId, campaignId),
+            or(
+              eq(campaignItems.campaignId, campaignId),
+              sql`${campaignItems.id} IN (SELECT item_id FROM ${campaignResourceLinks} WHERE campaign_id = ${campaignId})`,
+            ),
             campaignNameFilter,
             inArray(campaignItems.category, categories),
             campaignRarityFilter,
@@ -438,6 +451,11 @@ export class DatabaseStorage implements IStorage {
           .orderBy(sql`RANDOM()`)
           .limit(count)
       : [];
+    const campaignAdditions = campaignRows.map(({ item, owner }) => ({
+      ...item, ...(item.campaignId !== campaignId && owner ? {
+        linkedSource: { campaignId: owner.id, campaignName: owner.name },
+      } : {}),
+    }));
 
     // Combine, shuffle, and trim to count
     const combined = [...officialItems, ...brewed, ...campaignAdditions].sort(() => Math.random() - 0.5);
@@ -448,18 +466,24 @@ export class DatabaseStorage implements IStorage {
 
   async getCampaignHomebrew(campaignId: number): Promise<any[]> {
     const monsters = await db
-      .select()
+      .select({ monster: campaignHomebrewMonsters, owner: campaigns })
       .from(campaignHomebrewMonsters)
-      .where(eq(campaignHomebrewMonsters.campaignId, campaignId))
+      .leftJoin(campaigns, eq(campaignHomebrewMonsters.campaignId, campaigns.id))
+      .where(or(
+        eq(campaignHomebrewMonsters.campaignId, campaignId),
+        sql`${campaignHomebrewMonsters.id} IN (SELECT npc_id FROM ${campaignResourceLinks} WHERE campaign_id = ${campaignId})`,
+      ))
       .orderBy(asc(campaignHomebrewMonsters.name));
     const results: any[] = [];
-    for (const m of monsters) {
+    for (const { monster: m, owner } of monsters) {
       const actions = await db
         .select()
         .from(campaignHomebrewActions)
         .where(eq(campaignHomebrewActions.monsterRefId, m.id))
         .orderBy(asc(campaignHomebrewActions.actionOrder));
-      results.push({ ...m, actions });
+      results.push({ ...m, actions, ...(m.campaignId !== campaignId && owner ? {
+        linkedSource: { campaignId: owner.id, campaignName: owner.name },
+      } : {}) });
     }
     return results;
   }
