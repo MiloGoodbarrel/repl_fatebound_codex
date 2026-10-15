@@ -1,4 +1,5 @@
-import { pgTable, text, serial, integer, boolean, numeric, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, numeric, timestamp, uniqueIndex, jsonb } from "drizzle-orm/pg-core";
+import type { CreatureProfile } from "./creatureProfiles";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -343,6 +344,7 @@ export const campaignHomebrewMonsters = pgTable("campaign_homebrew_monsters", {
   hitDice: text("hit_dice"),
   dexScore: integer("dex_score"),
   challengeRating: text("challenge_rating"),
+  profileData: jsonb("profile_data").$type<CreatureProfile>(),
 });
 
 export const campaignHomebrewActions = pgTable("campaign_homebrew_actions", {

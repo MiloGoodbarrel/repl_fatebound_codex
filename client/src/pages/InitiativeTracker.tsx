@@ -39,6 +39,8 @@ import { useCampaign } from "@/lib/campaignContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { CampaignCharacter } from "@shared/schema";
 import { homebrewDisposition } from "@shared/homebrewDisposition";
+import { campaignProfileToMonster as homebrewToMonster, type CreatureProfile } from "@shared/creatureProfiles";
+import { applyFreedomWeakening, hasFreedomWeakening, normalizeRescuedCaptives } from "@shared/freedomWeakening";
 import {
   applyGroupDamage as calculateGroupDamage,
   assignLoadedEncounterInitiative,
@@ -146,34 +148,7 @@ interface BestiaryDetailedAction {
   damageType?: string;
 }
 
-interface Monster {
-  index: string;
-  name: string;
-  hp: number;
-  hit_dice?: string;
-  hitDiceCount?: number;
-  hitDieSize?: number;
-  ac: number;
-  cr: string;
-  type: string;
-  size: string;
-  speed?: Record<string, string>;
-  str?: number; dex?: number; con?: number; int?: number; wis?: number; cha?: number;
-  strMod?: number; dexMod?: number; conMod?: number; intMod?: number; wisMod?: number; chaMod?: number;
-  resistances?: string[];
-  immunities?: string[];
-  vulnerabilities?: string[];
-  actions?: MonsterAction[];
-  special_abilities?: Array<{ name: string; desc: string }>;
-  traits?: BestiaryTrait[];
-  detailedActions?: BestiaryDetailedAction[];
-  source?: string;
-  description?: string;
-  sourcePage?: number;
-  imageUrl?: string;
-  alignment?: string;
-  creatureTags?: string;
-}
+type Monster = CreatureProfile;
 
 interface HomebrewAction {
   id: number;
@@ -197,6 +172,7 @@ interface HomebrewMonster {
   dexScore: number | null;
   challengeRating: string | null;
   actions: HomebrewAction[];
+  profileData?: CreatureProfile | null;
 }
 
 interface HomebrewPreviewRow {
@@ -223,29 +199,6 @@ interface PreparedEncounter {
     selectedVersions: string[];
   };
   updatedAt: string;
-}
-
-function homebrewToMonster(m: HomebrewMonster): Monster {
-  const dexMod = m.dexScore != null ? Math.floor((m.dexScore - 10) / 2) : undefined;
-  return {
-    index: `homebrew-${m.id}`,
-    name: m.name,
-    hp: m.printedAverageHp ?? 10,
-    hit_dice: m.hitDice ?? undefined,
-    ac: m.armorClass ?? 10,
-    cr: m.challengeRating ?? "—",
-    type: m.creatureType ?? "",
-    size: m.size ?? "",
-    alignment: m.alignment ?? undefined,
-    dex: m.dexScore ?? undefined,
-    dexMod,
-    source: "Homebrew",
-    actions: m.actions.map(a => ({
-      name: a.actionName ?? "",
-      desc: a.actionDescription ?? "",
-      attack_bonus: a.attackBonus ?? undefined,
-    })),
-  };
 }
 
 function parseCSVClientSide(csvText: string): HomebrewPreviewRow[] {
@@ -448,6 +401,33 @@ function MonsterStatblock({ monster, onRoll }: { monster: Monster; onRoll: (nota
         </div>
       )}
 
+      {monster.savingThrows && (
+        <div className="flex flex-wrap items-center gap-1.5" data-testid="saving-throw-bonuses">
+          <span className="font-semibold">Saving throws:</span>
+          {Object.entries(monster.savingThrows).map(([ability, bonus]) => (
+            <button key={ability} className="rounded border border-border px-2 py-1 hover:bg-muted"
+              onClick={() => onRoll(`1d20${bonus >= 0 ? "+" : ""}${bonus}`, `${monster.name} ${ability.toUpperCase()} save`)}>
+              {ability.toUpperCase()} {formatMod(bonus)}
+            </button>
+          ))}
+        </div>
+      )}
+      {(monster.spellSaveDc != null || monster.spellAttackBonus != null) && (
+        <div className="flex flex-wrap items-center gap-3">
+          {monster.spellSaveDc != null && <span>Spell save DC <strong>{monster.spellSaveDc}</strong></span>}
+          {monster.spellAttackBonus != null && (
+            <button className="rounded border border-border px-2 py-1 hover:bg-muted"
+              onClick={() => onRoll(`1d20${monster.spellAttackBonus! >= 0 ? "+" : ""}${monster.spellAttackBonus}`, `${monster.name} spell attack`)}>
+              Spell attack {formatMod(monster.spellAttackBonus)}
+            </button>
+          )}
+        </div>
+      )}
+      {monster.speed && <div><span className="font-semibold">Speed: </span>{Object.entries(monster.speed).map(([mode, value]) => `${mode} ${value}`).join(", ")}</div>}
+      {monster.conditionImmunities?.length ? <div><span className="font-semibold">Condition immunities: </span>{monster.conditionImmunities.join(", ")}</div> : null}
+      {monster.senses && <div><span className="font-semibold">Senses: </span>{monster.senses}</div>}
+      {monster.languages && <div><span className="font-semibold">Languages: </span>{monster.languages}</div>}
+
       {/* Immunities / Resistances */}
       {monster.immunities && monster.immunities.length > 0 && (
         <div><span className="font-semibold text-muted-foreground">Immunities: </span>{monster.immunities.join(", ")}</div>
@@ -481,7 +461,10 @@ function MonsterStatblock({ monster, onRoll }: { monster: Monster; onRoll: (nota
               <span className="font-semibold text-foreground/90 italic">{action.name}. </span>
               <DiceText text={action.description ?? ""} onRoll={(n) => onRoll(n, action.name ?? undefined)} />
               {action.attackBonus != null && (
-                <span className="text-primary/80 ml-1">(+{action.attackBonus} to hit)</span>
+                <button className="text-primary/80 ml-1 hover:text-primary"
+                  onClick={() => onRoll(`1d20${action.attackBonus! >= 0 ? "+" : ""}${action.attackBonus}`, `${monster.name}: ${action.name}`)}>
+                  ({formatMod(action.attackBonus)} to hit — roll)
+                </button>
               )}
             </p>
           ))}
@@ -504,10 +487,21 @@ function MonsterStatblock({ monster, onRoll }: { monster: Monster; onRoll: (nota
         </div>
       )}
 
-      {/* Bonus/Legendary/Lair actions summary */}
+      {/* Keep the full text available, not only an ability count. */}
       {otherActions.length > 0 && (
-        <div className="text-muted-foreground italic text-[11px]">
-          + {otherActions.length} bonus/legendary action{otherActions.length !== 1 ? "s" : ""}
+        <div className="space-y-1.5">
+          <div className="font-bold text-foreground/80 uppercase tracking-wide text-[10px]">Bonus Actions, Reactions and Legendary Actions</div>
+          {otherActions.map((action, index) => (
+            <p key={index} className="text-muted-foreground leading-snug">
+              <span className="font-semibold text-foreground/90">{action.category}: {action.name}. </span>
+              <DiceText text={action.description} onRoll={(notation) => onRoll(notation, action.name)} />
+              {action.attackBonus != null && (
+                <button className="ml-1 text-primary" onClick={() => onRoll(`1d20${action.attackBonus! >= 0 ? "+" : ""}${action.attackBonus}`, action.name)}>
+                  ({formatMod(action.attackBonus)} to hit — roll)
+                </button>
+              )}
+            </p>
+          ))}
         </div>
       )}
     </div>
@@ -682,10 +676,10 @@ function formatSignedModifier(value: number): string {
   return value >= 0 ? `+${value}` : String(value);
 }
 
-function monsterWithOverrides(combatant: Combatant): Monster | undefined {
+function monsterWithOverrides(combatant: Combatant, rescuedCaptives = 0): Monster | undefined {
   if (!combatant.monsterData) return undefined;
   const overrides = combatant.abilityModifierOverrides;
-  return {
+  return applyFreedomWeakening({
     ...combatant.monsterData,
     hp: combatant.maxHp,
     ac: combatant.ac,
@@ -695,7 +689,7 @@ function monsterWithOverrides(combatant: Combatant): Monster | undefined {
     intMod: overrides?.int ?? combatant.monsterData.intMod,
     wisMod: overrides?.wis ?? combatant.monsterData.wisMod,
     chaMod: overrides?.cha ?? combatant.monsterData.chaMod,
-  };
+  }, rescuedCaptives);
 }
 
 export default function InitiativeTracker() {
@@ -705,6 +699,7 @@ export default function InitiativeTracker() {
   const [combatants, setCombatants] = useState<Combatant[]>([]);
   const [combatState, setCombatState] = useState<CombatState>("setup");
   const [loadedPreparedEncounter, setLoadedPreparedEncounter] = useState(false);
+  const [rescuedCaptives, setRescuedCaptives] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
   const [round, setRound] = useState(1);
   const [mobileTab, setMobileTab] = useState<"controls" | "combat">("controls");
@@ -873,6 +868,7 @@ export default function InitiativeTracker() {
       setShowRestoreBanner(false);
       setCombatants([]);
       setLoadedPreparedEncounter(false);
+      setRescuedCaptives(0);
       setCombatState("setup");
       setActiveIndex(0);
       setRound(1);
@@ -913,9 +909,10 @@ export default function InitiativeTracker() {
       combatState,
       selectedVersions,
       loadedPreparedEncounter,
+      rescuedCaptives,
       saveRevision: saveRevisionRef.current,
     };
-  }, [combatants, round, activeIndex, combatState, selectedVersions, loadedPreparedEncounter]);
+  }, [combatants, round, activeIndex, combatState, selectedVersions, loadedPreparedEncounter, rescuedCaptives]);
 
   if (
     activeCampaign
@@ -1154,7 +1151,7 @@ export default function InitiativeTracker() {
   };
 
   const addHomebrewMonster = (m: HomebrewMonster, count = 1) => {
-    const disposition = homebrewDisposition(m.actions);
+    const disposition = homebrewDisposition(m.actions, m.profileData);
     if (disposition.referenceOnly) {
       toast({
         title: "Reference profile only",
@@ -2263,6 +2260,7 @@ export default function InitiativeTracker() {
     const snapshot = createEncounterRestoreState<Combatant>(savedEncounterResult.data);
     if (!snapshot) return;
     setCombatants(snapshot.combatants);
+    setRescuedCaptives(normalizeRescuedCaptives(snapshot.rescuedCaptives));
     setLoadedPreparedEncounter(
       snapshot.combatState === "setup" && savedEncounterResult.data.loadedPreparedEncounter === true,
     );
@@ -2340,6 +2338,7 @@ export default function InitiativeTracker() {
     const prepared = createPreparedEncounterSnapshot<Combatant>(encounter.data);
     if (!prepared) return;
     setCombatants(prepared.combatants);
+    setRescuedCaptives(0);
     setLoadedPreparedEncounter(true);
     setRound(1);
     setActiveIndex(0);
@@ -2443,6 +2442,7 @@ export default function InitiativeTracker() {
     clearSavedEncounterRemote();
     setCombatants([]);
     setLoadedPreparedEncounter(false);
+    setRescuedCaptives(0);
     setCombatState("setup");
     setActiveIndex(0);
     setRound(1);
@@ -2454,6 +2454,7 @@ export default function InitiativeTracker() {
   const resetEncounter = () => {
     setCombatants(prev => prev.filter(c => c.combatantType === "pc"));
     setLoadedPreparedEncounter(false);
+    setRescuedCaptives(0);
     setCombatState("setup");
     setActiveIndex(0);
     setRound(1);
@@ -2465,6 +2466,7 @@ export default function InitiativeTracker() {
   const confirmResetAll = () => {
     setCombatants([]);
     setLoadedPreparedEncounter(false);
+    setRescuedCaptives(0);
     setCombatState("setup");
     setActiveIndex(0);
     setRound(1);
@@ -3243,7 +3245,8 @@ export default function InitiativeTracker() {
                               <div className="text-muted-foreground flex items-center justify-center gap-0.5"><Dices className="w-3 h-3" />Dice</div>
                             </div>
                           </div>
-                          {hm.actions.length > 0 && (
+                          {hm.profileData && <MonsterStatblock monster={homebrewToMonster(hm)} onRoll={requestRoll} />}
+                          {!hm.profileData && hm.actions.length > 0 && (
                             <div className="space-y-1 pt-1 border-t border-border/40">
                               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Actions</p>
                               {hm.actions.map((a, i) => (
@@ -3653,6 +3656,30 @@ export default function InitiativeTracker() {
 
           {/* Combat Controls */}
           <div className="space-y-2">
+            {combatants.some(combatant => hasFreedomWeakening(combatant.monsterData)) && (
+              <div className="rounded-lg border border-primary/40 bg-background/40 p-3 space-y-2">
+                <Label htmlFor="rescued-captives" className="font-semibold">Captives freed — Quill’s weakening</Label>
+                <div className="flex items-center gap-2">
+                  <Button size="icon" variant="outline" aria-label="Decrease rescued captives"
+                    disabled={rescuedCaptives === 0} onClick={() => setRescuedCaptives(count => Math.max(0, count - 1))}>
+                    <Minus className="w-4 h-4" />
+                  </Button>
+                  <Input id="rescued-captives" type="number" min={0} max={1000} step={1}
+                    value={rescuedCaptives} className="text-center"
+                    onChange={event => setRescuedCaptives(normalizeRescuedCaptives(event.target.valueAsNumber))}
+                    data-testid="input-rescued-captives" />
+                  <Button size="icon" variant="outline" aria-label="Increase rescued captives"
+                    disabled={rescuedCaptives >= 1000} onClick={() => setRescuedCaptives(count => count + 1)}>
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  −{rescuedCaptives} to Quill’s attack rolls, saving throws and spell save DC. Positive bonuses stop at +1; DC stops at 1.
+                  His card and roll buttons show the adjusted values. Ability scores and initiative do not change.
+                </p>
+                <p className="text-[10px] text-muted-foreground">Saved with this run only. Fresh prepared encounters start at zero.</p>
+              </div>
+            )}
             {combatState === "setup" && (
               <>
                 <Button
@@ -4816,8 +4843,8 @@ export default function InitiativeTracker() {
                         </div>
 
                         {/* Monster Statblock */}
-                        {combatant.monsterData && monsterWithOverrides(combatant) && (
-                          <MonsterStatblock monster={monsterWithOverrides(combatant)!} onRoll={requestRoll} />
+                        {combatant.monsterData && monsterWithOverrides(combatant, rescuedCaptives) && (
+                          <MonsterStatblock monster={monsterWithOverrides(combatant, rescuedCaptives)!} onRoll={requestRoll} />
                         )}
                       </CardContent>
                     </Card>

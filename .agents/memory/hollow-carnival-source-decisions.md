@@ -20,3 +20,12 @@ The narrative and player-handout captive names differ. In particular, Sara Mills
 **Why:** The supplied PDF contradicts itself in places and leaves some details undefined. Silent reconciliation would create unsupported identities, combat statistics, or encounter assumptions.
 
 **How to apply:** Label adaptations, preserve complete printed enemy rules, and retain uncertainty in module notes rather than inventing missing source details.
+
+## Quill's weakening
+Rescued-captive counts belong to the current run, not to the reusable module roster. Restore a saved run's chosen count, but start fresh prepared encounters at zero. Derive penalties from Quill's original statistics, never from an already weakened copy.
+
+Positive attack and saving-throw bonuses stop at +1; do not promote zero or negative modifiers into positive bonuses. Spell save DC has a defensive floor of 1. Weaken the spell save DC, not the separate non-spell Enthrall Audience DC, and leave ability scores, ordinary ability checks, damage, and initiative unchanged.
+
+**Why:** The source specifies attacks, saving throws, and spell save DC, not every roll or special-ability DC. Mutating baseline stats would compound penalties on refresh or count changes, and transferring a rescue count into a fresh template would silently assume a previous party's progress.
+
+**How to apply:** Keep original source profiles and encounter templates intact; use the DM's explicitly chosen per-run count for effective combat values.

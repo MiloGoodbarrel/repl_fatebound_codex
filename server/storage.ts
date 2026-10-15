@@ -9,6 +9,7 @@ import {
   type Campaign, type InsertCampaign,
   type CampaignItem, type InsertCampaignItem,
   type CampaignCharacter, type InsertCampaignCharacter,
+  type CampaignHomebrewMonster,
   type DrawOptions,
 } from "@shared/schema";
 import { eq, inArray, sql, and, ilike, asc, desc } from "drizzle-orm";
@@ -55,6 +56,7 @@ export interface IStorage {
   // Campaign homebrew bestiary
   getCampaignHomebrew(campaignId: number): Promise<any[]>;
   importCampaignHomebrew(campaignId: number, parsed: { monster: any; actions: any[] }[]): Promise<number>;
+  updateCampaignHomebrewProfile(campaignId: number, id: number, data: Partial<CampaignHomebrewMonster>): Promise<CampaignHomebrewMonster | undefined>;
   clearCampaignHomebrew(campaignId: number): Promise<void>;
 
   // Campaign saved encounters
@@ -498,6 +500,13 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(campaignHomebrewMonsters)
       .where(eq(campaignHomebrewMonsters.campaignId, campaignId));
+  }
+
+  async updateCampaignHomebrewProfile(campaignId: number, id: number, data: Partial<CampaignHomebrewMonster>) {
+    const [updated] = await db.update(campaignHomebrewMonsters).set(data)
+      .where(and(eq(campaignHomebrewMonsters.id, id), eq(campaignHomebrewMonsters.campaignId, campaignId)))
+      .returning();
+    return updated;
   }
 
   // ── Campaign saved encounters ──────────────────────────────────────────────

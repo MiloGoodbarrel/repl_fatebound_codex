@@ -9,6 +9,7 @@ import { insertCampaignSchema, insertCampaignCharacterSchema, rollTableInputSche
 import { STOCK_ROLL_TABLES } from "@shared/rollTables";
 import { seedLootTable } from "./seedLoot";
 import { mapBestiaryActions } from "./bestiaryActions";
+import { creatureProfileSchema, profileLibraryColumns } from "@shared/creatureProfiles";
 
 const grimHollowLorePath = path.resolve(process.cwd(), "server/data/bestiary/grim_hollow_lore.json");
 const grimHollowLore: Record<string, { description?: string; sourcePage?: number; imageUrl?: string }> =
@@ -439,6 +440,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ message: "Invalid campaign id" });
     try {
+      if (req.is("application/json")) {
+        const { profiles } = z.object({ profiles: z.array(creatureProfileSchema).min(1).max(200) }).parse(req.body);
+        const parsed = profiles.map(profile => ({
+          monster: profileLibraryColumns(profile),
+          actions: (profile.actions ?? []).map((action, actionOrder) => ({
+            actionOrder, actionName: action.name, actionDescription: action.desc,
+            attackBonus: action.attack_bonus ?? null,
+          })),
+        }));
+        const count = await storage.importCampaignHomebrew(id, parsed);
+        return res.json({ message: `Imported ${count} complete profiles`, count });
+      }
       const csvText = await readBody(req);
       const parsed = parseHomebrewCSV(csvText);
       if (parsed.length === 0) return res.status(400).json({ message: "No valid rows found in CSV" });
@@ -446,6 +459,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json({ message: `Imported ${count} monsters`, count });
     } catch (err) {
       res.status(400).json({ message: err instanceof Error ? err.message : "Error parsing CSV" });
+    }
+  });
+
+  app.patch("/api/campaigns/:id/homebrew-bestiary/:monsterId/profile", async (req, res) => {
+    const campaignId = Number(req.params.id);
+    const monsterId = Number(req.params.monsterId);
+    if (!Number.isInteger(campaignId) || !Number.isInteger(monsterId)) {
+      return res.status(400).json({ message: "Invalid campaign or creature id" });
+    }
+    try {
+      const profile = creatureProfileSchema.parse(req.body);
+      const updated = await storage.updateCampaignHomebrewProfile(campaignId, monsterId, profileLibraryColumns(profile));
+      if (!updated) return res.status(404).json({ message: "Campaign creature not found" });
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ message: error instanceof Error ? error.message : "Invalid creature profile" });
     }
   });
 

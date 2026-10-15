@@ -88,6 +88,26 @@ def parse_block(raw, page):
         "actions": actions, "special_abilities": [*traits, metadata],
         "source": TITLE, "sourcePage": page - 1, "description": source_note(page),
     }
+    categories = {"Actions": "action", "Bonus Actions": "bonus", "Reactions": "reaction", "Legendary Actions": "legendary"}
+    monster["detailedActions"] = [
+        {"name": action["name"], "description": action["desc"], "category": category,
+         **({"attackBonus": action["attack_bonus"]} if "attack_bonus" in action else {})}
+        for heading, category in categories.items() for action in sections.get(heading, [])
+    ]
+    saves_line = re.search(r"^[ \t]*Saves ([^\n]+)", raw, re.M)
+    if saves_line:
+        monster["savingThrows"] = {ability.lower(): int(bonus) for ability, bonus in re.findall(
+            r"(Str|Dex|Con|Int|Wis|Cha)\s+([+-]\d+)", saves_line[1])}
+    spell_dc = re.search(r"spell\s+save\s+DC\s+(\d+)", raw, re.I)
+    spell_attack = re.search(r"([+-]\d+)\s+to\s+hit\s+with\s+spell\s+attacks", raw, re.I)
+    if spell_dc:
+        monster["spellSaveDc"] = int(spell_dc[1])
+    if spell_attack:
+        monster["spellAttackBonus"] = int(spell_attack[1])
+    for label, key in (("Senses", "senses"), ("Languages", "languages"), ("Cond. Immune", "conditionImmunities")):
+        value = re.search(rf"^[ \t]*{re.escape(label)} ([^\n]+)", raw, re.M)
+        if value:
+            monster[key] = [part.strip() for part in value[1].split(",")] if key == "conditionImmunities" else value[1].strip()
     for prefix, key in (("Resist", "resistances"), ("Immune", "immunities")):
         match = re.search(rf"^[ \t]*{prefix} ([^\n]+)", raw, re.M)
         if match:
@@ -183,6 +203,12 @@ def build(doc):
         npc("The Impresario", "Sequel hook: a mysterious collector of exotic performances for an audience beyond mortal understanding. Only mentioned by name; identity, alignment, and statistics are not specified. Not an encounter opponent in this adventure.", 22, reference=True),
     ]
     profiles = enemies + cast + captives + townsfolk + supporting
+    for profile in profiles:
+        profile["monster"]["disposition"] = {
+            "combatantType": "monster" if profile["kind"] == "enemy" else "npc",
+            "stance": "enemy" if profile["kind"] == "enemy" else ("ally" if profile["kind"] == "friendly" else "neutral"),
+            "referenceOnly": profile["kind"] == "reference",
+        }
     assert len(profiles) == 30
     assert not PREGENS.intersection(profile["monster"]["name"] for profile in profiles)
     by_name = {profile["monster"]["name"]: profile for profile in profiles}
@@ -290,6 +316,7 @@ def profile_csv(profiles):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--apply", action="store_true", help="Create missing campaign records through the running app")
+    parser.add_argument("--enrich-profiles", action="store_true", help="Fill missing structured profiles without changing existing rich profiles or saved rosters")
     args = parser.parse_args()
     payload = build(fitz.open(SOURCE))
     OUT.mkdir(parents=True, exist_ok=True)
@@ -320,7 +347,13 @@ def main():
     names = {item["name"] for item in existing_profiles}
     missing = [profile for profile in payload["profiles"] if profile["monster"]["name"] not in names]
     if missing:
-        request(base, path + "/homebrew-bestiary/import", "POST", profile_csv(missing), "text/csv")
+        request(base, path + "/homebrew-bestiary/import", "POST", {"profiles": [item["monster"] for item in missing]})
+    if args.enrich_profiles:
+        by_name = {item["monster"]["name"]: item["monster"] for item in payload["profiles"]}
+        for existing in existing_profiles:
+            if existing["name"] in by_name and not existing.get("profileData"):
+                request(base, path + f"/homebrew-bestiary/{existing['id']}/profile",
+                        "PATCH", by_name[existing["name"]])
     existing_encounters = request(base, path + "/prepared-encounters")
     encounter_names = {item["name"] for item in existing_encounters}
     for encounter in payload["encounters"]:

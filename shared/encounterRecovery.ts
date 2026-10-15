@@ -1,3 +1,5 @@
+import { normalizeRescuedCaptives } from "./freedomWeakening";
+
 export type EncounterState = "setup" | "active" | "ended";
 
 export interface EncounterSnapshot<TCombatant = unknown> {
@@ -7,6 +9,7 @@ export interface EncounterSnapshot<TCombatant = unknown> {
   combatState: EncounterState;
   selectedVersions: string[];
   saveRevision?: number;
+  rescuedCaptives?: number;
 }
 
 export interface GroupDamageResult {
@@ -55,6 +58,8 @@ export function normalizeEncounterSnapshot<TCombatant = unknown>(
     saveRevision: typeof candidate.saveRevision === "number" && Number.isFinite(candidate.saveRevision)
       ? candidate.saveRevision
       : undefined,
+    ...(candidate.rescuedCaptives !== undefined
+      ? { rescuedCaptives: normalizeRescuedCaptives(candidate.rescuedCaptives) } : {}),
   };
 }
 
@@ -135,6 +140,7 @@ export function createPreparedEncounterSnapshot<TCombatant extends PreparedComba
     activeIndex: 0,
     combatState: "setup",
     selectedVersions: [...snapshot.selectedVersions],
+    rescuedCaptives: 0,
   };
 }
 
