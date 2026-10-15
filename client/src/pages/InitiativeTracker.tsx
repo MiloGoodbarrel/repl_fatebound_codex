@@ -38,6 +38,7 @@ import { cn } from "@/lib/utils";
 import { useCampaign } from "@/lib/campaignContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { CampaignCharacter } from "@shared/schema";
+import { homebrewDisposition } from "@shared/homebrewDisposition";
 import {
   applyGroupDamage as calculateGroupDamage,
   assignLoadedEncounterInitiative,
@@ -810,13 +811,8 @@ export default function InitiativeTracker() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  // Homebrew bestiary is always scoped to the "Aetherfall" campaign regardless of active campaign
-  const { data: allCampaigns = [] } = useQuery<{ id: number; name: string }[]>({
-    queryKey: ["/api/campaigns"],
-    queryFn: () => fetch("/api/campaigns").then(r => r.json()),
-    staleTime: 300_000,
-  });
-  const homebrewCampaign = allCampaigns.find(c => c.name === "Aetherfall") ?? null;
+  // Campaign additions belong to the selected campaign, never another campaign's library.
+  const homebrewCampaign = activeCampaign;
 
   // Saved encounter for active campaign
   const {
@@ -882,6 +878,9 @@ export default function InitiativeTracker() {
       setRound(1);
       setShowVersionDialog(true);
       setSelectedVersions([]);
+      setSelectedHomebrewId(null);
+      setHomebrewSearch("");
+      setHomebrewGroupCount(1);
     }
   }, [activeCampaign?.id]);
 
@@ -1089,7 +1088,7 @@ export default function InitiativeTracker() {
     return () => clearTimeout(t);
   }, [homebrewSearch]);
 
-  // Homebrew monsters — always scoped to the Aetherfall campaign
+  // Campaign-owned homebrew is additive to the shared bestiary above.
   const { data: homebrewMonsters = [], refetch: refetchHomebrew } = useQuery<HomebrewMonster[]>({
     queryKey: ["/api/campaigns", homebrewCampaign?.id, "homebrew-bestiary"],
     queryFn: () => fetch(`/api/campaigns/${homebrewCampaign!.id}/homebrew-bestiary`).then(r => r.json()),
@@ -1134,7 +1133,7 @@ export default function InitiativeTracker() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
-       toast({ title: `Added ${data.count} monsters`, description: `Appended to the Aetherfall homebrew bestiary.` });
+      toast({ title: `Added ${data.count} monsters`, description: `Appended to the ${homebrewCampaign.name} homebrew bestiary.` });
       setHomebrewImportPreview(null);
       setHomebrewImportRaw("");
       refetchHomebrew();
@@ -1147,7 +1146,7 @@ export default function InitiativeTracker() {
 
   const clearHomebrewBestiary = async () => {
     if (!homebrewCampaign) return;
-    if (!confirm(`Clear all homebrew monsters from the Aetherfall bestiary? This cannot be undone.`)) return;
+    if (!confirm(`Clear all homebrew monsters from the ${homebrewCampaign.name} bestiary? This cannot be undone.`)) return;
     await fetch(`/api/campaigns/${homebrewCampaign.id}/homebrew-bestiary`, { method: "DELETE" });
     setSelectedHomebrewId(null);
     refetchHomebrew();
@@ -1155,12 +1154,20 @@ export default function InitiativeTracker() {
   };
 
   const addHomebrewMonster = (m: HomebrewMonster, count = 1) => {
+    const disposition = homebrewDisposition(m.actions);
+    if (disposition.referenceOnly) {
+      toast({
+        title: "Reference profile only",
+        description: "The module supplies no combat statistics for this figure. Review its notes and assign a suitable stat block before adding it to combat.",
+      });
+      return;
+    }
     const monster = homebrewToMonster(m);
     const init = combatState === "active" ? homebrewMidCombatInit : 0;
     if (count > 1) {
-      addGroupToEncounter(monster, count, init);
+      addGroupToEncounter(monster, count, init, disposition.combatantType, disposition.stance);
     } else {
-      addSingleMonsterToEncounter(monster, init);
+      addSingleMonsterToEncounter(monster, init, disposition.combatantType, disposition.stance);
     }
     setSelectedHomebrewId(null);
   };
@@ -1238,7 +1245,7 @@ export default function InitiativeTracker() {
     }
   };
 
-  const addGroupToEncounter = (monster: Monster, count: number, initiative?: number) => {
+  const addGroupToEncounter = (monster: Monster, count: number, initiative?: number, combatantType: CombatantType = "monster", stance: NPCStance = "enemy") => {
     const memberHps = Array.from({ length: count }, () => {
       const hp = monster.hit_dice
         ? rollMonsterHp(monster.hit_dice, monster.hp)
@@ -1259,11 +1266,11 @@ export default function InitiativeTracker() {
       tempHp: 0,
       ac: monster.ac,
       isMonster: true,
-      combatantType: "monster",
+      combatantType,
       conditions: [],
       isDown: false,
       monsterData: monster,
-      stance: "enemy",
+      stance,
       deathSaveSuccesses: 0,
       deathSaveFailures: 0,
       isStable: false,
@@ -1277,7 +1284,7 @@ export default function InitiativeTracker() {
     setCombatants(prev => [...prev, newCombatant]);
   };
 
-  const addSingleMonsterToEncounter = (monster: Monster, initiative?: number) => {
+  const addSingleMonsterToEncounter = (monster: Monster, initiative?: number, combatantType: CombatantType = "monster", stance: NPCStance = "enemy") => {
     const baseName = monster.name;
     const existingCount = combatants.filter(c =>
       c.name === baseName || c.name.match(new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} #\\d+$`))
@@ -1302,11 +1309,11 @@ export default function InitiativeTracker() {
       tempHp: 0,
       ac: monster.ac,
       isMonster: true,
-      combatantType: "monster",
+      combatantType,
       conditions: [],
       isDown: false,
       monsterData: monster,
-      stance: "enemy",
+      stance,
       deathSaveSuccesses: 0,
       deathSaveFailures: 0,
       isStable: false,
@@ -3155,6 +3162,11 @@ export default function InitiativeTracker() {
 
             {showHomebrewSection && (
               <>
+                <p className="text-[11px] text-muted-foreground">
+                  {homebrewCampaign
+                    ? `${homebrewCampaign.name} — campaign NPCs and creatures`
+                    : "Select a campaign to view its NPCs and creatures."}
+                </p>
                 {homebrewMonsters.length === 0 ? (
                   <p className="text-xs text-muted-foreground italic">
                     No homebrew monsters yet. Download the template, fill it in, then import.

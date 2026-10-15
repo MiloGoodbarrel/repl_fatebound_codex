@@ -4,3 +4,5 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+/generated-artifacts/
+/attached_assets/The_Hollow_Carnival_Final_1792078281949.pdf
