@@ -1,12 +1,8 @@
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 import { db } from "./db";
 import { items5e } from "@shared/schema";
 import { eq, count } from "drizzle-orm";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Positional columns in the 5e_loot.csv (no header row):
 // 0:name  1:category  2:rarity  3:description  4:item_type
@@ -126,7 +122,9 @@ function parsePositionalCSV(text: string) {
 }
 
 export async function seedLootTable(edition: string = "5e", force = false): Promise<{ inserted: number; skipped: boolean }> {
-  const csvPath = path.resolve(__dirname, "data", `${edition}_loot.csv`);
+  // Both configured launch commands run from the project root. Keep the seed
+  // asset path independent of ESM versus the bundled CommonJS output directory.
+  const csvPath = path.resolve(process.cwd(), "server", "data", `${edition}_loot.csv`);
   if (!fs.existsSync(csvPath)) {
     console.warn(`[seed] No loot file found at ${csvPath}`);
     return { inserted: 0, skipped: true };

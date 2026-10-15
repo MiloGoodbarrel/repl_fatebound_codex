@@ -7,3 +7,4 @@
 - [Campaign content is additive](campaign-content-additive.md) — global libraries stay available; opt-in cross-campaign access links items/NPCs only, never copies them.
 - [Grim Hollow actionless creatures](grim-hollow-actionless-creatures.md) — two Grimoire creatures intentionally have no action rows; audits must not treat them as missing imports.
 - [Hollow Carnival source decisions](hollow-carnival-source-decisions.md) — separate campaign, no pregens; preserve source ambiguities and distinguish civilian baselines from printed stats.
+- [Publishing domain](publishing-domain.md) — intended custom domain is fateboundcodex.app; confirm publishing and DNS status before treating it as live.
