@@ -8,3 +8,4 @@
 - [Grim Hollow actionless creatures](grim-hollow-actionless-creatures.md) — two Grimoire creatures intentionally have no action rows; audits must not treat them as missing imports.
 - [Hollow Carnival source decisions](hollow-carnival-source-decisions.md) — separate campaign, no pregens; preserve source ambiguities and distinguish civilian baselines from printed stats.
 - [Publishing domain](publishing-domain.md) — intended custom domain is fateboundcodex.app; confirm publishing and DNS status before treating it as live.
+- [Campaign privacy](campaign-privacy.md) — separate user access must protect campaigns and spoilers, including linked resources; collaboration roles still need a user decision.
