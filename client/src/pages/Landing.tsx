@@ -227,9 +227,14 @@ export default function Landing() {
                 <div className="pt-4 space-y-4">
 
                   {/* Explainer */}
-                  <p className="text-sm text-muted-foreground px-1">
-                    Create a campaign to persist your <strong className="text-foreground/80">party roster</strong> and <strong className="text-foreground/80">homebrew items</strong> across sessions. Without one, the tools still work — you just start fresh each time.
-                  </p>
+                  <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+                    <p className="text-sm text-muted-foreground">
+                      Create a campaign to persist your <strong className="text-foreground/80">party roster</strong> and <strong className="text-foreground/80">homebrew items</strong> across sessions. Without one, the tools still work — you just start fresh each time.
+                    </p>
+                    {activeCampaign && <Link href="/sessions" className="inline-flex shrink-0 items-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary hover:bg-primary/20">
+                      <BookOpen className="h-4 w-4" /> Campaign journal <ChevronRight className="h-4 w-4" />
+                    </Link>}
+                  </div>
 
                   {/* Create button row */}
                   <div className="flex justify-end">

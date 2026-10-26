@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { DiceRoller, DiceText, useDiceRoller } from "@/components/DiceRoller";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -55,6 +55,7 @@ import {
   tickGroupMemberConditions,
 } from "@shared/encounterRecovery";
 import { useToast } from "@/hooks/use-toast";
+import { EmbeddedJournal } from "@/pages/Sessions";
 
 const VERSION_OPTIONS = [
   { id: "3.5", label: "D&D 3.5 Edition" },
@@ -695,6 +696,11 @@ function monsterWithOverrides(combatant: Combatant, rescuedCaptives = 0): Monste
 
 export default function InitiativeTracker() {
   const { open: diceOpen, setOpen: setDiceOpen, requestRoll } = useDiceRoller();
+  const [journalOpen, setJournalOpen] = useState(false);
+  const journalCloseRequestRef = useRef<(() => void) | null>(null);
+  const registerJournalCloseRequest = useCallback((request: (() => void) | null) => {
+    journalCloseRequestRef.current = request;
+  }, []);
   const [showVersionDialog, setShowVersionDialog] = useState(true);
   const [selectedVersions, setSelectedVersions] = useState<string[]>([]);
   const [combatants, setCombatants] = useState<Combatant[]>([]);
@@ -2593,7 +2599,7 @@ export default function InitiativeTracker() {
     : undefined;
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden">
+    <div className={`${journalOpen ? "min-h-[100dvh] h-auto overflow-visible md:h-screen md:overflow-hidden" : "h-screen overflow-hidden"} bg-background flex flex-col`}>
       {/* Version Selection Dialog */}
       <Dialog open={showVersionDialog} onOpenChange={setShowVersionDialog}>
         <DialogContent className="sm:max-w-md">
@@ -2755,7 +2761,7 @@ export default function InitiativeTracker() {
       </div>
 
       {/* Body: side-by-side on desktop, tab-controlled on mobile */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+      <div className={`${journalOpen ? "flex-none overflow-visible md:flex-1 md:overflow-hidden" : "flex-1 overflow-hidden"} flex flex-col md:flex-row`}>
 
       {/* Sidebar - Add Combatants */}
       <div className={`md:w-96 lg:w-[28rem] md:flex-shrink-0 border-r border-border p-6 bg-card overflow-y-auto scrollbar-fantasy flex-1 flex flex-col md:flex-none${mobileTab === "combat" ? " hidden md:flex md:flex-col" : ""}`}>
@@ -2779,6 +2785,9 @@ export default function InitiativeTracker() {
             <h2 className="text-xl font-display font-bold text-primary flex items-center gap-2">
               <Swords className="w-5 h-5" /> Initiative Tracker
             </h2>
+            {activeCampaign && <Button size="sm" variant="outline" className="gap-2" onClick={() => journalOpen ? journalCloseRequestRef.current?.() : setJournalOpen(true)}>
+              <BookOpen className="h-4 w-4" /> {journalOpen ? "Close campaign journal" : "Open campaign journal"}
+            </Button>}
             {combatState === "active" && (
               <div className="flex items-center justify-between gap-2">
                 <div>
@@ -3938,7 +3947,7 @@ export default function InitiativeTracker() {
       </div>
 
       {/* Main Area - Combat List */}
-      <main className={`flex-1 overflow-y-auto p-4 md:p-8 relative bg-background/50 scrollbar-fantasy${mobileTab === "controls" ? " hidden md:block" : ""}`}>
+      <main className={`min-w-0 flex-1 overflow-y-auto p-4 md:p-8 relative bg-background/50 scrollbar-fantasy${mobileTab === "controls" ? " hidden md:block" : ""}`}>
         <div className="max-w-5xl mx-auto space-y-4">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-display font-bold">Combat Order</h1>
@@ -4858,6 +4867,9 @@ export default function InitiativeTracker() {
           )}
         </div>
       </main>
+      {journalOpen && <section aria-label="Campaign session journal" className="w-full flex-shrink-0 border-t border-primary/30 bg-background md:w-[min(50%,720px)] md:max-w-[50vw] md:overflow-y-auto md:border-l md:border-t-0">
+        <EmbeddedJournal onClose={() => setJournalOpen(false)} onRegisterCloseRequest={registerJournalCloseRequest} />
+      </section>}
       </div>
 
       {/* 3D Dice Roller overlay */}

@@ -3,9 +3,16 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedLootTable } from "./seedLoot";
+import { registerJournalRoutes } from "./journal/routes";
+import { DatabaseJournalRepository } from "./journal/database";
 
 const app = express();
 const httpServer = createServer(app);
+
+// Intentionally no access policy: private journal operations fail closed until
+// the product's account and campaign membership model has been explicitly chosen.
+// Mount before body parsing AND response logging to protect private payloads.
+registerJournalRoutes(app, new DatabaseJournalRepository());
 
 declare module "http" {
   interface IncomingMessage {

@@ -1,4 +1,5 @@
-import { pgTable, text, serial, integer, boolean, numeric, timestamp, uniqueIndex, jsonb, check } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, numeric, timestamp, uniqueIndex, jsonb, check, customType } from "drizzle-orm/pg-core";
+import type { Decision, Suggestion } from "./journal";
 import type { CreatureProfile } from "./creatureProfiles";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
@@ -62,6 +63,47 @@ export const campaigns = pgTable("campaigns", {
 export const insertCampaignSchema = createInsertSchema(campaigns).omit({ id: true });
 export type Campaign = typeof campaigns.$inferSelect;
 export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
+
+// Private journal tables. No access is granted merely by knowing a campaign id.
+export const journalSessions = pgTable("journal_sessions", {
+  id: text("id").primaryKey(),
+  campaignId: integer("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  date: text("date").notNull(),
+  notes: text("notes").notNull().default(""),
+  revision: integer("revision").notNull().default(0),
+  updatedAt: text("updated_at").notNull(),
+});
+export const journalImports = pgTable("journal_imports", {
+  id: text("id").primaryKey(),
+  sessionId: text("session_id").notNull().references(() => journalSessions.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  kind: text("kind").notNull(),
+  format: text("format").notNull(),
+  original: text("original").notNull(),
+  suggestions: jsonb("suggestions").$type<Suggestion[]>().notNull(),
+  decisions: jsonb("decisions").$type<Decision[]>().notNull().default([]),
+  revision: integer("revision").notNull().default(0),
+  editedText: text("edited_text"),
+});
+export const journalAliases = pgTable("journal_aliases", {
+  id: text("id").primaryKey(),
+  campaignId: integer("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  phrase: text("phrase").notNull(),
+  phraseKey: text("phrase_key").notNull(),
+  referenceKey: text("reference_key").notNull(),
+}, table => [uniqueIndex("journal_alias_phrase_unique").on(table.campaignId, table.phraseKey)]);
+// Bounded private durable binary storage in PostgreSQL, never a public file path.
+const binary = customType<{ data: Buffer }>({ dataType: () => "bytea" });
+export const journalRecordings = pgTable("journal_recordings", {
+  id: text("id").primaryKey(),
+  sessionId: text("session_id").notNull().references(() => journalSessions.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  type: text("type").notNull(),
+  size: integer("size").notNull(),
+  digest: text("digest").notNull(),
+  bytes: binary("bytes").notNull(),
+});
 
 // ─── Campaign Items (homebrew) ─────────────────────────────────────────────────
 

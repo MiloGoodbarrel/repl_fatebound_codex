@@ -47,6 +47,14 @@ Preferred communication style: Simple, everyday language.
 
 ## External Dependencies
 
+### Private session journal
+
+Sessions are implemented but deliberately locked on the unauthenticated app.
+No journal or recording operations may be enabled until trusted server-side
+campaign permissions exist; selecting a campaign is never authorization.
+See `server/journal/README.md` for document boundaries, privacy requirements,
+Echo export limitations, development migration, private recording storage and tests.
+
 ### Database
 - **PostgreSQL**: Primary data store, connection via `DATABASE_URL` environment variable
 - **Drizzle ORM**: Database toolkit with `drizzle-kit` for migrations
