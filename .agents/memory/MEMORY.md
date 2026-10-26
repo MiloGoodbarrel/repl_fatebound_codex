@@ -9,3 +9,4 @@
 - [Hollow Carnival source decisions](hollow-carnival-source-decisions.md) — separate campaign, no pregens; preserve source ambiguities and distinguish civilian baselines from printed stats.
 - [Publishing domain](publishing-domain.md) — intended custom domain is fateboundcodex.app; confirm publishing and DNS status before treating it as live.
 - [Campaign privacy](campaign-privacy.md) — separate user access must protect campaigns and spoilers, including linked resources; collaboration roles still need a user decision.
+- [Session journal needs](session-journal.md) — live DM notes and post-session material from Echo recordings/transcripts; exact Echo app and integration scope undecided.
