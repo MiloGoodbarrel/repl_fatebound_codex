@@ -21,7 +21,6 @@ export async function syncAccount(cx: PoolClient, userId: string, creator: boole
 
 type CreatorIdentity = {
   emailAddresses: { emailAddress: string; verification: { status: string } | null }[];
-  externalAccounts: { provider: string; emailAddress: string }[];
 };
 
 export function creatorCheck(
@@ -33,9 +32,9 @@ export function creatorCheck(
   const matching = user.emailAddresses.filter(e => e.emailAddress.trim().toLowerCase() === email);
   if (!matching.length) return "email_mismatch";
   if (!matching.some(e => e.verification?.status === "verified")) return "email_unverified";
-  const google = user.externalAccounts.filter(a => a.provider === "google");
-  if (!google.length) return "google_not_linked";
-  if (!google.some(a => a.emailAddress?.trim().toLowerCase() === email)) return "google_email_mismatch";
+  // Identity comes from verified Clerk middleware and the server-side Clerk user.
+  // A verified owner email proves the configured identity regardless of sign-in
+  // provider. External-account metadata is not a second ownership credential.
   return "eligible";
 }
 

@@ -10,24 +10,24 @@ test("pairing diagnostic distinguishes failed checks without exposing identity v
   assert.equal(creatorCheck("dm@example.invalid", { ...user, emailAddresses: [{
     emailAddress: "dm@example.invalid", verification: null,
   }] }), "email_unverified");
-  assert.equal(creatorCheck("dm@example.invalid", { ...user, externalAccounts: [] }), "google_not_linked");
+  assert.equal(creatorCheck("dm@example.invalid", { ...user, externalAccounts: [] }), "eligible");
   assert.equal(creatorCheck("dm@example.invalid", { ...user, externalAccounts: [{
     provider: "google", emailAddress: "other@example.invalid",
-  }] }), "google_email_mismatch");
+  }] }), "eligible");
   assert.equal(creatorCheck(" DM@example.invalid ", user), "eligible");
 });
 
-test("creator bootstrap requires an explicit matching verified email AND linked Google identity", () => {
+test("creator bootstrap requires an explicit matching verified email, not provider metadata", () => {
   const verified = { emailAddresses: [{ emailAddress: "dm@example.invalid", verification: { status: "verified" } }],
     externalAccounts: [{ provider: "google", emailAddress: "dm@example.invalid" }] };
   assert.equal(matchesCreator(undefined, verified), false);
   assert.equal(matchesCreator("other@example.invalid", verified), false);
   assert.equal(matchesCreator("DM@example.invalid", verified), true);
-  // Clerk external-account provider is "google"; "oauth_google" is a sign-in strategy, not a provider.
+  // Provider names/strategies must not prevent an already-verified owner claim.
   assert.equal(matchesCreator("dm@example.invalid", { ...verified,
     externalAccounts: [{ provider: "oauth_google", emailAddress: "dm@example.invalid" }],
-  }), false);
-  assert.equal(matchesCreator("dm@example.invalid", { ...verified, externalAccounts: [] }), false);
+  }), true);
+  assert.equal(matchesCreator("dm@example.invalid", { ...verified, externalAccounts: [] }), true);
   assert.equal(matchesCreator("dm@example.invalid", { ...verified, emailAddresses: [{
     emailAddress: "dm@example.invalid", verification: { status: "unverified" },
   }] }), false);
