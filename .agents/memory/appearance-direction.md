@@ -13,9 +13,15 @@ Include Gunslinger and Illrigger among the class skins. Show visual mockups and 
 
 **How to apply:** Treat appearance as additive customization and preserve the original default. Use original visual treatments; the user's tribute intent does not imply permission to copy official artwork or branding.
 
-The user also requested Eberron, Cormanthor, Curse of Strahd, Storm King's Thunder, Rise of Tiamat, and individual Faerûnian pantheon member skins. They mentioned “illusions” and “Winterdale”; clarify those references and the intended deity roster rather than silently assuming meanings or an era.
+The user also requested Eberron, Cormanthor, Curse of Strahd, Storm King's Thunder, Rise of Tiamat, Illuskian and Icewind Dale skins. They clarified “illusions” as Illuskian (not Illusk), “Winterdale” as Icewind Dale, and selected core Faerûn deities, not additional racial pantheons.
 
 **Why:** These are additions to the user's requested tribute catalog, not replacements for the existing class and setting skins.
+
+Illuskian should follow the user's northern illusion-mage brief: Glacial Black `#0D1117`, Steely Slate `#4A5568`, Frost White `#F0F4F8`, Phantasm Violet `#8B5CF6`, Chroma Teal `#06B6D4`; subtle moving mesh surfaces, heavily frosted overlays, brief chromatic/mirror-split interactions, violet–teal loading shimmer, Inter-like UI with Cinzel headers, and original open-path icons.
+
+**Why:** The user supplied this specific palette and visual direction. It is their intended skin aesthetic, not a statement about canonical Illuskian culture.
+
+**How to apply:** Preserve the exact base colors in visual mockups. Test semantic text/icon contrast, provide readable opaque fallbacks and reduced motion, and keep essential DM state indicators unambiguous.
 
 The user has shared the live app URL with their party and expects live testing and feedback.
 
