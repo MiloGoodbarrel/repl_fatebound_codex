@@ -1,0 +1,58 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "bAQQKqtRS9KTsnHG1HIUi"
+uri = "file://generated-artifacts/skins/illuskian-dark.jpg"
+type = "image"
+title = "Illuskian — Dark"
+description = "Desktop mockup using your violet, teal and glacial-black direction."
+logical_id = "200a1b74-f433-4472-9704-fe351ac3789b"
+content_hash = "sha256:9a61dbda269f6dde2ebd3310791c3d1c05083415b44f7fbbd28c7f3641efc10b"
+size = 107366
+mtime_ms = 1793127037166
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:c28721a7-c2d8-4f64-bdb3-ddb8bc1505ee/200a1b74-f433-4472-9704-fe351ac3789b/583ddac0-79c0-4ba4-9a4e-3c30962f5d67"
+storage_version_token = "1793127092704974"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "Cb4g355kxUu45xm6cUBf7"
+uri = "file://generated-artifacts/skins/illuskian-light.jpg"
+type = "image"
+title = "Illuskian — Light"
+description = "Desktop mockup with frost-white surfaces and violet accents."
+logical_id = "f0bb27f8-5cb9-476c-87e5-d9bd8bac5ab3"
+content_hash = "sha256:3c61069d4f2cdf76a2c6d6163afea27edae8d1380f1feb83929eef4daf71bee8"
+size = 105870
+mtime_ms = 1793127039250
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:c28721a7-c2d8-4f64-bdb3-ddb8bc1505ee/f0bb27f8-5cb9-476c-87e5-d9bd8bac5ab3/b1df3f3b-caa1-4f89-a183-a690f85ef9b3"
+storage_version_token = "1793127093231002"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "2BsXaSW5cy2Eaab0GiUGw"
+uri = "file://generated-artifacts/skins/tribute-previews.jpg"
+type = "image"
+title = "Gunslinger & Illrigger — Light/Dark"
+description = "Screenshot of the first two tribute pairs; the live mockup includes the other settings below."
+logical_id = "04c08ed8-033a-45d3-8ec0-d19187e75c93"
+content_hash = "sha256:fcd6a88c761a5f7c809c353a9187d66587643db182e85b1535d3161583b83a21"
+size = 183806
+mtime_ms = 1793127041718
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:c28721a7-c2d8-4f64-bdb3-ddb8bc1505ee/04c08ed8-033a-45d3-8ec0-d19187e75c93/33440b55-1fe9-4a10-99f5-5db344e3b3eb"
+storage_version_token = "1793127093778650"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "oS1ZMoWfI5skYZJxLFcyY"
+uri = "file://generated-artifacts/skins/illuskian-mobile.jpg"
+type = "image"
+title = "Illuskian — Mobile"
+description = "Phone-size preview with vertically stacked content."
+logical_id = "82ad4cc6-cfde-4ad7-8836-d04db32a47bc"
+content_hash = "sha256:d0b4efd7b756d1a1fc90a802fa52cf1c68950f91adab6abb5df7ee096cc76898"
+size = 40166
+mtime_ms = 1793127043270
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:c28721a7-c2d8-4f64-bdb3-ddb8bc1505ee/82ad4cc6-cfde-4ad7-8836-d04db32a47bc/b108d5a3-c062-4ed7-a77d-c9e90b9b96c9"
+storage_version_token = "1793127094252778"
+content_type = "image/jpeg"

@@ -23,6 +23,12 @@ Illuskian should follow the user's northern illusion-mage brief: Glacial Black `
 
 **How to apply:** Preserve the exact base colors in visual mockups. Test semantic text/icon contrast, provide readable opaque fallbacks and reduced motion, and keep essential DM state indicators unambiguous.
 
+Use the official Basic Rules (2014), Appendix B, “Deities of the Forgotten Realms” table as the consistent core roster for deity previews (37 entries), excluding other pantheons.
+
+**Why:** “Core Faerûn” is era-dependent; choosing one published roster avoids silently mixing historical deity lists. This is the preview's source basis, not a claim that the user has approved the finished catalog.
+
+**How to apply:** Cite https://www.dndbeyond.com/sources/dnd/basic-rules-2014/appendix-b-gods-of-the-multiverse in the catalog. Ask before expanding to other rosters.
+
 The user has shared the live app URL with their party and expects live testing and feedback.
 
 **Why:** The user explicitly stated this when requesting skins.
