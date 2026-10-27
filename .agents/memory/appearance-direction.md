@@ -5,6 +5,10 @@ description: Creator's requested visual scope and preference for retaining the e
 
 Keep the current look and feel available while adding light/dark modes and class-inspired skins, each in both modes. The user also requested Færunic, Baldurian, Nethernese, and Neverwinter tributes as a homage to WotC's creation.
 
+Include Gunslinger and Illrigger among the class skins. Show visual mockups and screen captures for review before writing app implementation code.
+
+**Why:** The user explicitly added those classes and requested to see the look and feel before implementation.
+
 **Why:** The user likes the current appearance and wants additional skins, not a replacement redesign.
 
 **How to apply:** Treat appearance as additive customization and preserve the original default. Use original visual treatments; the user's tribute intent does not imply permission to copy official artwork or branding.
