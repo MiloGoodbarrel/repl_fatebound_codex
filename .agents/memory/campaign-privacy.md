@@ -7,4 +7,4 @@ Campaign access must be limited by who is using the app, rather than exposing al
 
 **Why:** The user explicitly raised user-account separation and campaign confidentiality as requirements before sharing the published app with friends.
 
-**How to apply:** Treat sign-in and campaign authorization as separate concerns. Include linked items and NPCs in any access-control design; linking must not create a way to read another user's private campaign resources. Do not assume a DM/player or co-DM sharing model until the user chooses it.
+**How to apply:** The user approved Google sign-in with private DM workspaces as the first version and wants to test using their own Google account after publishing. Treat sign-in and campaign authorization as separate concerns. Include linked items and NPCs in access controls; linking must not create a way to read another user's private campaign resources. Shared DM/player or co-DM access remains undecided and outside the initial version.
