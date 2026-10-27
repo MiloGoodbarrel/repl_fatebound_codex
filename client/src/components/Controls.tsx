@@ -200,7 +200,7 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
   };
 
   return (
-    <div className="h-full overflow-y-auto p-6 bg-card border-r border-border scrollbar-fantasy">
+    <div className="md:h-full md:overflow-y-auto p-6 bg-card border-r border-border scrollbar-fantasy">
       <div className="space-y-8">
 
         {/* Header */}

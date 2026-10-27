@@ -10,3 +10,4 @@
 - [Publishing domain](publishing-domain.md) — intended custom domain is fateboundcodex.app; confirm publishing and DNS status before treating it as live.
 - [Campaign privacy](campaign-privacy.md) — separate user access must protect campaigns and spoilers, including linked resources; collaboration roles still need a user decision.
 - [Session journal needs](session-journal.md) — separate originals/reviews; Echo export limits, private recording tradeoff, and import-time name snapshots.
+- [DM workspace navigation](dm-workspace-navigation.md) — user wants persistent feature tabs for live DM use, with working state retained between tools.

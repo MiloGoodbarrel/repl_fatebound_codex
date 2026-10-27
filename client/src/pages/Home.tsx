@@ -24,9 +24,9 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-background overflow-hidden">
+    <div className="flex flex-col md:flex-row min-h-full md:h-full bg-background md:overflow-hidden">
       {/* Sidebar */}
-      <div className="w-full md:w-80 lg:w-96 flex-shrink-0 border-b md:border-b-0 md:border-r border-border h-[30vh] md:h-full overflow-hidden">
+      <div className="w-full md:w-80 lg:w-96 flex-shrink-0 border-b md:border-b-0 md:border-r border-border md:h-full md:overflow-hidden">
         <Controls
           onDraw={handleDraw}
           isDrawing={drawItemsMutation.isPending}

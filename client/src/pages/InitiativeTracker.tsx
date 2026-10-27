@@ -2599,7 +2599,7 @@ export default function InitiativeTracker() {
     : undefined;
 
   return (
-    <div className={`${journalOpen ? "min-h-[100dvh] h-auto overflow-visible md:h-screen md:overflow-hidden" : "h-screen overflow-hidden"} bg-background flex flex-col`}>
+    <div className={`${journalOpen ? "min-h-full h-auto overflow-visible md:h-full md:overflow-hidden" : "h-full overflow-hidden"} bg-background flex flex-col`}>
       {/* Version Selection Dialog */}
       <Dialog open={showVersionDialog} onOpenChange={setShowVersionDialog}>
         <DialogContent className="sm:max-w-md">

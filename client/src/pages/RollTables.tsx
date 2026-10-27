@@ -237,9 +237,9 @@ export default function RollTables() {
     );
 
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-background overflow-hidden">
-      <aside className="w-full md:w-80 lg:w-96 shrink-0 border-b md:border-b-0 md:border-r border-border h-[36vh] md:h-full overflow-hidden bg-card">
-        <div className="h-full overflow-y-auto p-6 scrollbar-fantasy">
+    <div className="flex flex-col md:flex-row min-h-full md:h-full bg-background md:overflow-hidden">
+      <aside className="w-full md:w-80 lg:w-96 shrink-0 border-b md:border-b-0 md:border-r border-border md:h-full md:overflow-hidden bg-card">
+        <div className="md:h-full md:overflow-y-auto p-6 scrollbar-fantasy">
           <div className="space-y-6">
             <div className="space-y-2">
               <h2 className="text-2xl font-display font-bold text-primary flex items-center gap-2">
