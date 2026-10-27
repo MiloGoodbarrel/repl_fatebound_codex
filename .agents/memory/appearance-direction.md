@@ -13,6 +13,10 @@ Include Gunslinger and Illrigger among the class skins. Show visual mockups and 
 
 **How to apply:** Treat appearance as additive customization and preserve the original default. Use original visual treatments; the user's tribute intent does not imply permission to copy official artwork or branding.
 
+The user also requested Eberron, Cormanthor, Curse of Strahd, Storm King's Thunder, Rise of Tiamat, and individual Faerûnian pantheon member skins. They mentioned “illusions” and “Winterdale”; clarify those references and the intended deity roster rather than silently assuming meanings or an era.
+
+**Why:** These are additions to the user's requested tribute catalog, not replacements for the existing class and setting skins.
+
 The user has shared the live app URL with their party and expects live testing and feedback.
 
 **Why:** The user explicitly stated this when requesting skins.
