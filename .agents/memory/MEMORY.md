@@ -11,3 +11,4 @@
 - [Campaign privacy](campaign-privacy.md) — separate user access must protect campaigns and spoilers, including linked resources; collaboration roles still need a user decision.
 - [Session journal needs](session-journal.md) — separate originals/reviews; Echo export limits, private recording tradeoff, and import-time name snapshots.
 - [DM workspace navigation](dm-workspace-navigation.md) — user wants persistent feature tabs for live DM use, with working state retained between tools.
+- [Dependency override verification](dependency-overrides.md) — npm can retain vulnerable locked copies after adding version-qualified overrides; inspect every resolved copy.

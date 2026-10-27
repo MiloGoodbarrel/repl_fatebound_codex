@@ -198,7 +198,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json(items);
     } catch (err) {
       if (err instanceof z.ZodError) {
-        res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+        res.status(400).json({ message: err.issues[0].message, field: err.issues[0].path.join('.') });
       } else {
         console.error("Loot draw failed");
         res.status(500).json({ message: "Internal server error" });
@@ -220,7 +220,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json(campaign);
     } catch (err) {
       if (err instanceof z.ZodError) {
-        res.status(400).json({ message: err.errors[0].message });
+        res.status(400).json({ message: err.issues[0].message });
       } else {
         res.status(500).json({ message: "Failed to create campaign" });
       }
@@ -282,7 +282,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json(char);
     } catch (err) {
       if (err instanceof z.ZodError) {
-        res.status(400).json({ message: err.errors[0].message });
+        res.status(400).json({ message: err.issues[0].message });
       } else {
         res.status(500).json({ message: "Failed to save character" });
       }
@@ -643,7 +643,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.status(201).json(table);
     } catch (err) {
       if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join(".") });
+        return res.status(400).json({ message: err.issues[0].message, field: err.issues[0].path.join(".") });
       }
       console.error("Roll table operation failed");
       res.status(500).json({ message: "Failed to create roll table" });
@@ -662,7 +662,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json(table);
     } catch (err) {
       if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join(".") });
+        return res.status(400).json({ message: err.issues[0].message, field: err.issues[0].path.join(".") });
       }
       console.error("Roll table operation failed");
       res.status(500).json({ message: "Failed to update roll table" });
