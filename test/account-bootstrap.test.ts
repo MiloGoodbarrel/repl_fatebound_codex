@@ -4,10 +4,14 @@ import { matchesCreator } from "../server/auth/accounts";
 
 test("creator bootstrap requires an explicit matching verified email AND linked Google identity", () => {
   const verified = { emailAddresses: [{ emailAddress: "dm@example.invalid", verification: { status: "verified" } }],
-    externalAccounts: [{ provider: "oauth_google", emailAddress: "dm@example.invalid" }] };
+    externalAccounts: [{ provider: "google", emailAddress: "dm@example.invalid" }] };
   assert.equal(matchesCreator(undefined, verified), false);
   assert.equal(matchesCreator("other@example.invalid", verified), false);
   assert.equal(matchesCreator("DM@example.invalid", verified), true);
+  // Clerk external-account provider is "google"; "oauth_google" is a sign-in strategy, not a provider.
+  assert.equal(matchesCreator("dm@example.invalid", { ...verified,
+    externalAccounts: [{ provider: "oauth_google", emailAddress: "dm@example.invalid" }],
+  }), false);
   assert.equal(matchesCreator("dm@example.invalid", { ...verified, externalAccounts: [] }), false);
   assert.equal(matchesCreator("dm@example.invalid", { ...verified, emailAddresses: [{
     emailAddress: "dm@example.invalid", verification: { status: "unverified" },

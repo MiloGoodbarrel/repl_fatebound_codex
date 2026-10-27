@@ -26,7 +26,7 @@ export function matchesCreator(
 ) {
   const email = configured?.trim().toLowerCase();
   return !!email && user.emailAddresses.some(e => e.emailAddress.toLowerCase() === email && e.verification?.status === "verified") &&
-    user.externalAccounts.some(a => a.provider === "oauth_google" && a.emailAddress.toLowerCase() === email);
+    user.externalAccounts.some(a => a.provider === "google" && a.emailAddress.toLowerCase() === email);
 }
 
 export async function resolveAccount(userId: string): Promise<Actor> {

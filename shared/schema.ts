@@ -5,6 +5,17 @@ import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Clerk identities are distinct in Development and Production. No passwords,
+// Google tokens, or email addresses are stored in these app-side records.
+export const appAccounts = pgTable("app_accounts", {
+  userId: text("user_id").primaryKey(),
+  isAdmin: boolean("is_admin").notNull().default(false),
+});
+export const appSetup = pgTable("app_setup", {
+  key: text("key").primaryKey(),
+  completedAt: timestamp("completed_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ─── 5e Compendium ────────────────────────────────────────────────────────────
 
 const itemColumns = {
