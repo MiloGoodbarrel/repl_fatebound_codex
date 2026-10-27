@@ -11,6 +11,7 @@ import { MemoryJournalRepository } from "./journal-fixtures";
 import { MAX_TEXT_BYTES, MAX_AUDIO_BYTES, decodeTextFile, renderReviewed, suggestNames, validateAudio, type JournalImport, type JournalSession, type Reference, type SessionDetail } from "../shared/journal";
 import { AutosaveCoordinator, type SavePayload, type SaveResult } from "../client/src/components/journal/autosaveCoordinator";
 import SafeMarkdown from "../client/src/components/journal/Markdown";
+import { pdf, docx } from "./document-fixtures";
 
 const ref: Reference = { key: "character:1", name: "Quill", source: "Party character", campaignId: 1 };
 const json = (method: string, body: unknown): RequestInit => ({ method, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -215,6 +216,13 @@ test("text and Markdown imports validate size, encoding, format, unsafe text and
     const s = await create(f), url = `/1/journal/sessions/${s.id}/imports/file`;
     const upload = (name: string, body: Uint8Array) => f.request(url, { method: "POST", headers: { "content-type": "application/octet-stream", "x-file-name": encodeURIComponent(name) }, body });
     assert.equal((await upload("echo.md", encode(unsafe))).status, 201);
+    const documentResponse = await upload("notes.pdf", pdf("Quil arrived"));
+    assert.equal(documentResponse.status, 201);
+    const documentImport = await documentResponse.json() as JournalImport;
+    assert.match(documentImport.original, /Quil arrived/);
+    assert.ok(documentImport.suggestions.some(s => s.phrase === "Quil"));
+    assert.equal(documentImport.format, "text");
+    assert.equal((await upload("notes.docx", await docx("Quil arrived"))).status, 201);
     assert.equal((await upload("echo.pdf", encode("Not a transcript"))).status, 400);
     assert.equal((await upload("echo.txt", Uint8Array.from([255]))).status, 400);
     assert.equal((await upload("echo.txt", new Uint8Array(MAX_TEXT_BYTES + 1))).status, 413);

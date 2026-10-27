@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const MAX_TEXT_BYTES = 256 * 1024;
+export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 export const MAX_AUDIO_BYTES = 20 * 1024 * 1024;
 export const nameKey = (s: string) => s.normalize("NFKD").replace(new RegExp("\\p{M}", "gu"), "").toLowerCase().replace(/[’']/g, "").replace(/[^a-z0-9]+/g, " ").trim();
 export const sessionInput = z.object({

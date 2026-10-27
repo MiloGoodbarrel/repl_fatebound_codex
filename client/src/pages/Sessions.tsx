@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { AlertTriangle, ArrowLeft, BookOpen, ChevronRight, Clock3, FileAudio, FileText, LockKeyhole, Plus, RefreshCw, Save, ShieldCheck, Trash2, Upload, X } from "lucide-react";
 import type { Alias, JournalImport, JournalSession, Reference, Recording, SessionDetail, Suggestion } from "@shared/journal";
-import { MAX_AUDIO_BYTES, MAX_TEXT_BYTES } from "@shared/journal";
+import { MAX_AUDIO_BYTES, MAX_TEXT_BYTES, MAX_DOCUMENT_BYTES } from "@shared/journal";
 import { useCampaign } from "@/lib/campaignContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -422,8 +422,8 @@ function JournalWorkspace({ embedded = false, onClose, registerCloseRequest }: {
   const uploadTextFile = (file?: File) => file && run(async isCurrent => {
     if (!detail) return;
     const sid = detail.session.id;
-    if (file.size > MAX_TEXT_BYTES) throw new Error("Text files must be at most 256 KiB.");
-    if (!/\.(txt|md|markdown)$/i.test(file.name)) throw new Error("Only UTF-8 .txt, .md and .markdown exports are supported. Audio and proprietary Echo files cannot be transcribed here.");
+    if (file.size > MAX_DOCUMENT_BYTES) throw new Error("Documents must be at most 10 MiB.");
+    if (!/\.(pdf|docx|txt|md|markdown)$/i.test(file.name)) throw new Error("Choose PDF, DOCX, TXT or Markdown. Export legacy DOC, RTF or Pages files to a supported format first.");
     const item = await api<JournalImport>(`${base}/sessions/${encodeURIComponent(sid)}/imports/file`, {
       method: "POST", headers: { "Content-Type": "application/octet-stream", "x-file-name": encodeURIComponent(file.name), "x-import-kind": importKind }, body: await file.arrayBuffer(),
     });
@@ -552,11 +552,11 @@ function JournalWorkspace({ embedded = false, onClose, registerCloseRequest }: {
               </div>}
             </section>
             <section className="rounded-xl border border-border bg-card/40 p-5">
-              <div className="mb-4"><h2 className="font-display text-xl">Add source material</h2><p className="mt-1 text-sm text-muted-foreground">Echo summary Markdown is supported. Transcript and audio formats have not been verified; export or paste UTF-8 text. Audio is stored privately only—no transcription or automatic extraction. Name matching is a bounded, non-exhaustive scan (up to 500 suggestions).</p></div>
+              <div className="mb-4"><h2 className="font-display text-xl">Add source material</h2><p className="mt-1 text-sm text-muted-foreground">Import PDF, Word DOCX, UTF-8 TXT or Markdown, or paste notes below. Documents: up to 10 MiB; PDF: up to 100 pages; extracted text: up to 256 KiB. Scans need OCR first. Extracted text is preserved for correction review; original document files and layout are not retained. Audio is stored privately only—no transcription. Name matching scans up to 500 suggestions.</p></div>
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-2 rounded-lg border border-border/70 p-4">
                   <div className="flex gap-2"><Input placeholder="Import title" aria-label="Import title" value={importTitle} onChange={e => setImportTitle(e.target.value)} /><select aria-label="Import kind" className="rounded-md border border-border bg-background px-2" value={importKind} onChange={e => setImportKind(e.target.value as "transcript" | "summary")}><option value="transcript">Transcript</option><option value="summary">Summary</option></select></div>
-                  <div className="flex gap-2"><select aria-label="Text format" className="rounded-md border border-border bg-background px-2" value={importFormat} onChange={e => setImportFormat(e.target.value as "text" | "markdown")}><option value="text">Plain text</option><option value="markdown">Markdown</option></select><label className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 text-sm"><Upload className="h-4 w-4" />Import .txt/.md<input className="sr-only" type="file" accept=".txt,.md,.markdown,text/plain,text/markdown" onChange={e => uploadTextFile(e.target.files?.[0])} /></label></div>
+                  <div className="flex flex-wrap gap-2"><select aria-label="Text format" className="rounded-md border border-border bg-background px-2" value={importFormat} onChange={e => setImportFormat(e.target.value as "text" | "markdown")}><option value="text">Plain text</option><option value="markdown">Markdown</option></select><label className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm"><Upload className="h-4 w-4" />Import document<input className="sr-only" type="file" aria-label="Import journal document" accept=".pdf,.docx,.txt,.md,.markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown" disabled={busy} onChange={e => { uploadTextFile(e.target.files?.[0]); e.target.value = ""; }} /></label></div>
                   <textarea className="min-h-28 w-full rounded-md border border-border bg-background/60 p-3 text-sm" placeholder="Paste UTF-8 notes or an exported summary…" value={importText} onChange={e => setImportText(e.target.value)} />
                   <Button disabled={busy || !importTitle.trim() || !importText.trim()} onClick={saveImport}><FileText className="mr-2 h-4 w-4" />Add immutable source</Button>
                 </div>

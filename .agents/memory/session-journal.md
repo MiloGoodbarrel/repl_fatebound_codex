@@ -20,3 +20,9 @@ Private drafts must stay recoverable during every in-app navigation path, not ju
 **Why:** SPA browser Back/Forward and programmatic route changes do not trigger `beforeunload`; best-effort saving on unmount cannot preserve a draft when that save fails.
 
 **How to apply:** Keep the existing workspace mounted until a route transition passes its draft guard, including history navigation. Exercise failed saves with browser Back and non-anchor route changes when changing journal navigation.
+
+Document imports should feed the existing original-text/correction-review workflow, without sending journal content to a third-party extraction service.
+
+**Why:** The user asked for standard document note imports into the journal, whose original and reviewed texts must remain separate. Text extraction does not preserve the source document's visual layout or scanned handwriting; do not present extracted text as an archived original file.
+
+**How to apply:** State clearly which source formats are supported and whether originals are retained. Keep unreadable/scanned documents explicit failures rather than blank or fabricated notes.

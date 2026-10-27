@@ -1,8 +1,10 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { randomUUID, createHash } from "node:crypto";
 import { z } from "zod";
-import { MAX_AUDIO_BYTES, MAX_TEXT_BYTES, decodeTextFile, importInput, nameKey, notesInput, renderReviewed, sessionInput, suggestNames, validateAudio, validateText, type Reference, type JournalImport } from "@shared/journal";
+import { MAX_AUDIO_BYTES, MAX_TEXT_BYTES, importInput, nameKey, notesInput, renderReviewed, sessionInput, suggestNames, validateAudio, validateText, type Reference, type JournalImport } from "@shared/journal";
 import type { JournalRepository, StoredImport } from "./repository";
+import { MAX_DOCUMENT_BYTES } from "@shared/journal";
+import { extractJournalDocument } from "./documents";
 
 export const JOURNAL_PRIVACY_REASON = "Private sessions are locked until sign-in and server-verified campaign permissions are configured. Selecting a campaign is not authorization.";
 export interface JournalAccess {
@@ -138,12 +140,16 @@ export function registerJournalRoutes(app: Express, repo: JournalRepository, acc
     return hydrate(row, refs);
   };
   router.post("/sessions/:sid/imports", wrap(async (req, res) => res.status(201).json(await createImport(req, importInput.parse(req.body)))));
-  router.post("/sessions/:sid/imports/file", express.raw({ type: "application/octet-stream", limit: MAX_TEXT_BYTES }), wrap(async (req, res) => {
-    if (!Buffer.isBuffer(req.body)) fail(415, "Send UTF-8 text bytes as application/octet-stream.");
+  router.post("/sessions/:sid/imports/file", express.raw({ type: "application/octet-stream", limit: MAX_DOCUMENT_BYTES }), wrap(async (req, res) => {
+    await session(req);
+    if (!Buffer.isBuffer(req.body)) fail(415, "Send document bytes as application/octet-stream.");
     const title = safeFilename(req);
-    const text = checked(() => decodeTextFile(req.body, title));
+    if (/\.(txt|md|markdown)$/i.test(title) && req.body.length > MAX_TEXT_BYTES) fail(413, "Text files must be at most 256 KiB.");
+    let document;
+    try { document = await extractJournalDocument(req.body, title); }
+    catch (error) { return fail(400, error instanceof Error ? error.message : "Could not read this document."); }
     res.status(201).json(await createImport(req, importInput.parse({
-      title, text, kind: req.get("x-import-kind") ?? "transcript", format: /\.txt$/i.test(title) ? "text" : "markdown",
+      title, ...document, kind: req.get("x-import-kind") ?? "transcript",
     })));
   }));
   router.post("/sessions/:sid/imports/:iid/decisions", wrap(async (req, res) => {
