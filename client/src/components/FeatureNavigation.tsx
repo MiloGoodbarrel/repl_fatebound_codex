@@ -1,9 +1,14 @@
 import { Link, useLocation } from "wouter";
 import { BookOpen, Compass, Dices, Package, Swords } from "lucide-react";
 import { useCampaign } from "@/lib/campaignContext";
+import { AccountControls } from "@/components/AccountControls";
+import { useClerk } from "@clerk/react";
+import { useCheckNavigation } from "@/lib/navigationGuard";
+import { closeWorkspace } from "@/lib/workspaceRequests";
+import { queryClient } from "@/lib/queryClient";
 
 const destinations = [
-  { href: "/", label: "Campaigns", Icon: Compass },
+  { href: "/campaigns", label: "Campaigns", Icon: Compass },
   { href: "/loot", label: "Loot", Icon: Package },
   { href: "/tables", label: "Roll Tables", Icon: Dices },
   { href: "/initiative", label: "Initiative", Icon: Swords },
@@ -14,13 +19,26 @@ export default function FeatureNavigation() {
   const [location] = useLocation();
   const { activeCampaign } = useCampaign();
   const currentPath = location.split("?")[0];
+  const clerk = useClerk();
+  const check = useCheckNavigation();
+  const signOut = async () => {
+    if (!await check()) return;
+    closeWorkspace();
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    try { await clerk.signOut({ redirectUrl: "/" }); }
+    catch { window.location.replace("/"); }
+  };
 
   return (
     <nav
       aria-label="Campaign tools"
       className="sticky top-0 z-40 border-b border-border/80 bg-background/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/85"
     >
-      <div className="mx-auto flex min-h-14 max-w-screen-2xl items-center gap-3 px-3 sm:px-6">
+      <div className="mx-auto flex min-h-14 max-w-screen-2xl flex-wrap items-center gap-x-3 px-3 sm:px-6">
+        <div className="flex w-full justify-end border-b border-border/40 py-1 md:w-auto md:border-0 md:order-last">
+          <AccountControls onSignOut={signOut} />
+        </div>
         <div className="hidden shrink-0 items-center gap-2.5 md:flex">
           <span
             aria-hidden="true"

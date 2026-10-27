@@ -61,6 +61,7 @@ interface ControlsProps {
 
 export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }: ControlsProps) {
   const { activeCampaign } = useCampaign();
+  const { data: account } = useQuery<{ admin: boolean }>({ queryKey: ["/api/account"] });
   const [editions, setEditions] = useState<string[]>(["5e"]);
   const [categories, setCategories] = useState<string[]>([...CATEGORIES]);
   const [rarities, setRarities] = useState<string[]>(RARITIES.map(r => r.value));
@@ -444,7 +445,7 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
             <Upload className="w-4 h-4 mr-2" />
             {uploading ? "Importing..." : "Choose CSV File"}
           </Button>
-          {!activeCampaign && (
+          {!activeCampaign && account?.admin && (
             <Button
               onClick={handleReloadLootTable}
               disabled={reloading}

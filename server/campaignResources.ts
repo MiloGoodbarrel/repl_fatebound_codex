@@ -4,6 +4,7 @@ import { db } from "./db";
 import type { IStorage } from "./storage";
 import { campaigns, campaignItems, campaignHomebrewMonsters, campaignResourceLinks } from "@shared/schema";
 import { planResourceLinks, resourceLinkSchema, type LinkedResource } from "@shared/campaignResources";
+import { currentActor } from "./auth/context";
 
 class ResourceLinkError extends Error {
   constructor(message: string, readonly status: number) { super(message); }
@@ -17,14 +18,14 @@ async function getLinks(campaignId: number): Promise<LinkedResource[]> {
     }).from(campaignResourceLinks)
       .innerJoin(campaignItems, eq(campaignResourceLinks.itemId, campaignItems.id))
       .innerJoin(campaigns, eq(campaignItems.campaignId, campaigns.id))
-      .where(eq(campaignResourceLinks.campaignId, campaignId)),
+      .where(and(eq(campaignResourceLinks.campaignId, campaignId), eq(campaigns.ownerUserId, currentActor().userId))),
     db.select({
       id: campaignResourceLinks.id, resourceId: campaignHomebrewMonsters.id, name: campaignHomebrewMonsters.name,
       sourceCampaignId: campaigns.id, sourceCampaignName: campaigns.name,
     }).from(campaignResourceLinks)
       .innerJoin(campaignHomebrewMonsters, eq(campaignResourceLinks.npcId, campaignHomebrewMonsters.id))
       .innerJoin(campaigns, eq(campaignHomebrewMonsters.campaignId, campaigns.id))
-      .where(eq(campaignResourceLinks.campaignId, campaignId)),
+      .where(and(eq(campaignResourceLinks.campaignId, campaignId), eq(campaigns.ownerUserId, currentActor().userId))),
   ]);
   return [...items.map(row => ({ ...row, kind: "items" as const })), ...npcs.map(row => ({ ...row, kind: "npcs" as const }))];
 }
@@ -41,7 +42,7 @@ export function registerCampaignResourceRoutes(app: Express, storage: IStorage) 
       // Only owned originals can be offered as sources; links never form chains.
       res.json({ items: items.filter(row => row.campaignId === id), npcs: npcs.filter(row => row.campaignId === id), links });
     } catch (error) {
-      console.error("Could not load campaign resources", error);
+      console.error("Could not load campaign resources");
       res.status(500).json({ message: "Could not load campaign resources" });
     }
   });
@@ -63,7 +64,9 @@ export function registerCampaignResourceRoutes(app: Express, storage: IStorage) 
       const result = await db.transaction(async tx => {
         // Serialize link creation in a stable lock order.
         await tx.execute(sql`SELECT id FROM campaigns WHERE id IN (${targetId}, ${sourceCampaignId}) ORDER BY id FOR UPDATE`);
-        const found = await tx.select().from(campaigns).where(inArray(campaigns.id, [targetId, sourceCampaignId]));
+        const found = await tx.select().from(campaigns).where(and(
+          inArray(campaigns.id, [targetId, sourceCampaignId]), eq(campaigns.ownerUserId, currentActor().userId),
+        ));
         if (found.length !== 2) throw new ResourceLinkError("Source or destination campaign not found", 404);
         const sourceItems = await tx.select({ id: campaignItems.id }).from(campaignItems).where(eq(campaignItems.campaignId, sourceCampaignId));
         const sourceNpcs = await tx.select({ id: campaignHomebrewMonsters.id }).from(campaignHomebrewMonsters).where(eq(campaignHomebrewMonsters.campaignId, sourceCampaignId));
@@ -88,7 +91,7 @@ export function registerCampaignResourceRoutes(app: Express, storage: IStorage) 
       res.json(result);
     } catch (error) {
       if (error instanceof ResourceLinkError) return res.status(error.status).json({ message: error.message });
-      console.error("Could not link campaign resources", error);
+      console.error("Could not link campaign resources");
       res.status(500).json({ message: "Could not link campaign resources; no links were added." });
     }
   });
@@ -101,11 +104,12 @@ export function registerCampaignResourceRoutes(app: Express, storage: IStorage) 
     try {
       const removed = await db.delete(campaignResourceLinks).where(and(
         eq(campaignResourceLinks.id, linkId), eq(campaignResourceLinks.campaignId, campaignId),
+        sql`${campaignResourceLinks.sourceCampaignId} IN (SELECT id FROM campaigns WHERE owner_user_id = ${currentActor().userId})`,
       )).returning();
       if (!removed.length) return res.status(404).json({ message: "Link not found in this campaign" });
       res.json({ message: "Link removed; the source resource is unchanged." });
     } catch (error) {
-      console.error("Could not remove resource link", error);
+      console.error("Could not remove resource link");
       res.status(500).json({ message: "Could not remove resource link" });
     }
   });

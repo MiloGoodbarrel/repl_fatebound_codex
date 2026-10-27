@@ -67,3 +67,9 @@ export function useNavigationBlocker(check: Blocker) {
     return () => { if (blocker.current === current) blocker.current = null; };
   }, [blocker]);
 }
+
+export function useCheckNavigation() {
+  const context = useContext(Context);
+  if (!context) throw new Error("NavigationGuardProvider required.");
+  return async () => context.blocker.current ? await context.blocker.current() : true;
+}

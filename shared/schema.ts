@@ -33,6 +33,7 @@ export type InsertItem = z.infer<typeof insertItem5eSchema>;
 
 export const homebrewItems = pgTable("homebrew_items", {
   id: serial("id").primaryKey(),
+  ownerUserId: text("owner_user_id"),
   name: text("name").notNull(),
   category: text("category").notNull(),
   itemType: text("item_type"),
@@ -47,7 +48,7 @@ export const homebrewItems = pgTable("homebrew_items", {
   source: text("source").default("Homebrew"),
 });
 
-export const insertHomebrewItemSchema = createInsertSchema(homebrewItems).omit({ id: true });
+export const insertHomebrewItemSchema = createInsertSchema(homebrewItems).omit({ id: true, ownerUserId: true });
 export type HomebrewItem = typeof homebrewItems.$inferSelect;
 export type InsertHomebrewItem = z.infer<typeof insertHomebrewItemSchema>;
 
@@ -55,12 +56,13 @@ export type InsertHomebrewItem = z.infer<typeof insertHomebrewItemSchema>;
 
 export const campaigns = pgTable("campaigns", {
   id: serial("id").primaryKey(),
+  ownerUserId: text("owner_user_id"),
   name: text("name").notNull(),
   edition: text("edition").notNull().default("5e"),
   description: text("description"),
 });
 
-export const insertCampaignSchema = createInsertSchema(campaigns).omit({ id: true });
+export const insertCampaignSchema = createInsertSchema(campaigns).omit({ id: true, ownerUserId: true });
 export type Campaign = typeof campaigns.$inferSelect;
 export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
 

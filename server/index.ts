@@ -5,14 +5,38 @@ import { createServer } from "http";
 import { seedLootTable } from "./seedLoot";
 import { registerJournalRoutes } from "./journal/routes";
 import { DatabaseJournalRepository } from "./journal/database";
+import { clerkMiddleware } from "@clerk/express";
+import { publishableKeyFromHost } from "@clerk/shared/keys";
+import { CLERK_PROXY_PATH, clerkProxyMiddleware, getClerkProxyHost } from "./middlewares/clerkProxyMiddleware";
+import { registerAccountPolicy, accessRepository } from "./auth/access";
+import { requestActors } from "./auth/context";
+import { migrateAccounts } from "./auth/migrate";
 
 const app = express();
 const httpServer = createServer(app);
 
-// Intentionally no access policy: private journal operations fail closed until
-// the product's account and campaign membership model has been explicitly chosen.
-// Mount before body parsing AND response logging to protect private payloads.
-registerJournalRoutes(app, new DatabaseJournalRepository());
+app.disable("x-powered-by");
+app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
+app.use(
+  clerkMiddleware((req) => ({
+    publishableKey: publishableKeyFromHost(
+      getClerkProxyHost(req) ?? "",
+      process.env.CLERK_PUBLISHABLE_KEY,
+    ),
+  })),
+);
+// Parse bounded JSON before authorization for body-based campaign references,
+// but leave private journal raw files and larger text bodies to its own parsers.
+const jsonParser = express.json({ limit: "1mb" });
+app.use((req, res, next) => /\/journal(?:\/|$)/.test(req.path) ? next() : jsonParser(req, res, next));
+app.use((req, res, next) => /\/journal(?:\/|$)/.test(req.path) ? next() : express.urlencoded({ extended: false, limit: "1mb" })(req, res, next));
+registerAccountPolicy(app);
+registerJournalRoutes(app, new DatabaseJournalRepository(), {
+  authorizeCampaign: async (req, campaignId) => {
+    const actor = requestActors.get(req);
+    return !!actor && await accessRepository.campaignOwner(campaignId) === actor.userId;
+  },
+});
 
 declare module "http" {
   interface IncomingMessage {
@@ -20,15 +44,6 @@ declare module "http" {
   }
 }
 
-app.use(
-  express.json({
-    verify: (req, _res, buf) => {
-      req.rawBody = buf;
-    },
-  }),
-);
-
-app.use(express.urlencoded({ extended: false }));
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -44,22 +59,10 @@ export function log(message: string, source = "express") {
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
+      const logLine = `${req.method} ${path.replace(/[0-9a-f-]{16,}/gi, ":id")} ${res.statusCode} in ${duration}ms`;
       log(logLine);
     }
   });
@@ -68,6 +71,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  await migrateAccounts();
   // Auto-seed loot table on first run (skips if table already has rows)
   await seedLootTable("5e", false);
 
@@ -75,10 +79,9 @@ app.use((req, res, next) => {
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    const message = status >= 500 ? "The operation failed. Please retry." : err.message || "Invalid request";
 
     res.status(status).json({ message });
-    throw err;
   });
 
   // importantly only setup vite in development and after

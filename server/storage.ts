@@ -15,6 +15,10 @@ import {
 import { eq, inArray, sql, and, or, ilike, asc, desc } from "drizzle-orm";
 import { getEncounterSaveRevision } from "@shared/encounterRecovery";
 import { encounterRevisionConflictPredicate } from "./encounterPersistence";
+import { currentActor } from "./auth/context";
+
+// SQL boundary for directly linked records: a link never grants access by itself.
+const ownedSource = () => eq(campaigns.ownerUserId, currentActor().userId);
 
 export interface IStorage {
   // 5e compendium
@@ -95,36 +99,37 @@ export class DatabaseStorage implements IStorage {
   // ── Homebrew ───────────────────────────────────────────────────────────────
 
   async getHomebrewItems(): Promise<HomebrewItem[]> {
-    return await db.select().from(homebrewItems);
+    return await db.select().from(homebrewItems).where(eq(homebrewItems.ownerUserId, currentActor().userId));
   }
 
   async addHomebrewItems(items: Omit<InsertHomebrewItem, "source">[]): Promise<HomebrewItem[]> {
     if (items.length === 0) return [];
-    const withSource = items.map(i => ({ ...i, source: "Homebrew" as const }));
+    const withSource = items.map(i => ({ ...i, source: "Homebrew" as const, ownerUserId: currentActor().userId }));
     return await db.insert(homebrewItems).values(withSource).returning();
   }
 
   async clearHomebrewItems(): Promise<void> {
-    await db.delete(homebrewItems);
+    await db.delete(homebrewItems).where(eq(homebrewItems.ownerUserId, currentActor().userId));
   }
 
   // ── Campaigns ─────────────────────────────────────────────────────────────
 
   async getCampaigns(): Promise<Campaign[]> {
-    return await db.select().from(campaigns).orderBy(campaigns.name);
+    return await db.select().from(campaigns).where(ownedSource()).orderBy(campaigns.name);
   }
 
   async getCampaign(id: number): Promise<Campaign | undefined> {
-    const [campaign] = await db.select().from(campaigns).where(eq(campaigns.id, id));
+    const [campaign] = await db.select().from(campaigns).where(and(eq(campaigns.id, id), ownedSource()));
     return campaign;
   }
 
   async createCampaign(campaign: InsertCampaign): Promise<Campaign> {
-    const [created] = await db.insert(campaigns).values(campaign).returning();
+    const [created] = await db.insert(campaigns).values({ ...campaign, ownerUserId: currentActor().userId }).returning();
     return created;
   }
 
   async deleteCampaign(id: number): Promise<void> {
+    if (!await this.getCampaign(id)) throw new Error("Campaign not found.");
     await db.delete(campaignItems).where(eq(campaignItems.campaignId, id));
     await db.delete(campaignCharacters).where(eq(campaignCharacters.campaignId, id));
     await this.clearCampaignHomebrew(id);
@@ -139,10 +144,10 @@ export class DatabaseStorage implements IStorage {
       .select({ item: campaignItems, owner: campaigns })
       .from(campaignItems)
       .leftJoin(campaigns, eq(campaignItems.campaignId, campaigns.id))
-      .where(or(
+      .where(and(ownedSource(), or(
         eq(campaignItems.campaignId, campaignId),
         sql`${campaignItems.id} IN (SELECT item_id FROM ${campaignResourceLinks} WHERE campaign_id = ${campaignId})`,
-      ));
+      )));
     return rows.map(({ item, owner }) => ({
       ...item, ...(item.campaignId !== campaignId && owner ? {
         linkedSource: { campaignId: owner.id, campaignName: owner.name },
@@ -428,7 +433,7 @@ export class DatabaseStorage implements IStorage {
       ? await db
           .select()
           .from(homebrewItems)
-          .where(and(homebrewNameFilter, inArray(homebrewItems.category, categories), homebrewRarityFilter))
+          .where(and(eq(homebrewItems.ownerUserId, currentActor().userId), homebrewNameFilter, inArray(homebrewItems.category, categories), homebrewRarityFilter))
           .orderBy(sql`RANDOM()`)
           .limit(count)
       : [];
@@ -440,6 +445,7 @@ export class DatabaseStorage implements IStorage {
           .from(campaignItems)
           .leftJoin(campaigns, eq(campaignItems.campaignId, campaigns.id))
           .where(and(
+            ownedSource(),
             or(
               eq(campaignItems.campaignId, campaignId),
               sql`${campaignItems.id} IN (SELECT item_id FROM ${campaignResourceLinks} WHERE campaign_id = ${campaignId})`,
@@ -469,10 +475,10 @@ export class DatabaseStorage implements IStorage {
       .select({ monster: campaignHomebrewMonsters, owner: campaigns })
       .from(campaignHomebrewMonsters)
       .leftJoin(campaigns, eq(campaignHomebrewMonsters.campaignId, campaigns.id))
-      .where(or(
+      .where(and(ownedSource(), or(
         eq(campaignHomebrewMonsters.campaignId, campaignId),
         sql`${campaignHomebrewMonsters.id} IN (SELECT npc_id FROM ${campaignResourceLinks} WHERE campaign_id = ${campaignId})`,
-      ))
+      )))
       .orderBy(asc(campaignHomebrewMonsters.name));
     const results: any[] = [];
     for (const { monster: m, owner } of monsters) {

@@ -131,8 +131,13 @@ function parseHomebrewCSV(csvText: string): { monster: any; actions: any[] }[] {
 function readBody(req: any): Promise<string> {
   return new Promise((resolve, reject) => {
     let body = '';
+    let size = 0;
     req.setEncoding('utf8');
-    req.on('data', (chunk: string) => { body += chunk; });
+    req.on('data', (chunk: string) => {
+      size += Buffer.byteLength(chunk);
+      if (size > 2 * 1024 * 1024) { reject(new Error("CSV exceeds the 2 MB limit.")); req.pause(); }
+      else body += chunk;
+    });
     req.on('end', () => resolve(body));
     req.on('error', reject);
   });
@@ -195,7 +200,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (err instanceof z.ZodError) {
         res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
       } else {
-        console.error(err);
+        console.error("Loot draw failed");
         res.status(500).json({ message: "Internal server error" });
       }
     }
@@ -288,7 +293,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const charId = parseInt(req.params.charId);
     if (isNaN(charId)) return res.status(400).json({ message: "Invalid character id" });
     try {
-      const char = await storage.updateCampaignCharacter(charId, req.body);
+      const data = insertCampaignCharacterSchema.omit({ campaignId: true }).partial().strict().parse(req.body);
+      const char = await storage.updateCampaignCharacter(charId, data);
       res.json(char);
     } catch (err) {
       res.status(500).json({ message: "Failed to update character" });
@@ -623,7 +629,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const custom = campaignId === undefined ? [] : await storage.getRollTables(campaignId);
       res.json([...STOCK_ROLL_TABLES, ...custom]);
     } catch (err) {
-      console.error(err);
+      console.error("Roll table operation failed");
       res.status(500).json({ message: "Failed to fetch roll tables" });
     }
   });
@@ -639,7 +645,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join(".") });
       }
-      console.error(err);
+      console.error("Roll table operation failed");
       res.status(500).json({ message: "Failed to create roll table" });
     }
   });
@@ -658,7 +664,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join(".") });
       }
-      console.error(err);
+      console.error("Roll table operation failed");
       res.status(500).json({ message: "Failed to update roll table" });
     }
   });
@@ -676,7 +682,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!deleted) return res.status(404).json({ message: "Roll table not found" });
       res.json({ message: "Roll table deleted" });
     } catch (err) {
-      console.error(err);
+      console.error("Roll table operation failed");
       res.status(500).json({ message: "Failed to delete roll table" });
     }
   });

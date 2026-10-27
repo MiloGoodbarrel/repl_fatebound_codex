@@ -12,22 +12,10 @@ const CampaignContext = createContext<CampaignContextValue>({
 });
 
 export function CampaignProvider({ children }: { children: ReactNode }) {
-  const [activeCampaign, setActiveCampaignState] = useState<Campaign | null>(() => {
-    try {
-      const stored = localStorage.getItem("activeCampaign");
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [activeCampaign, setActiveCampaignState] = useState<Campaign | null>(null);
 
   const setActiveCampaign = (campaign: Campaign | null) => {
     setActiveCampaignState(campaign);
-    if (campaign) {
-      localStorage.setItem("activeCampaign", JSON.stringify(campaign));
-    } else {
-      localStorage.removeItem("activeCampaign");
-    }
   };
 
   return (
