@@ -9,6 +9,6 @@ Campaign access must be limited by who is using the app, rather than exposing al
 
 **How to apply:** The user approved Google sign-in with private DM workspaces as the first version and wants to test using their own Google account after publishing. Treat sign-in and campaign authorization as separate concerns. Include linked items and NPCs in access controls; linking must not create a way to read another user's private campaign resources. Shared DM/player or co-DM access remains undecided and outside the initial version.
 
-Existing campaign ownership is reserved for the creator's explicitly configured, verified Google identity, never the first person who signs in. Initial resource linking is limited to campaigns with the same owner.
+Automatic legacy campaign ownership is reserved for the creator's explicitly configured, verified Google identity, never the first person who signs in. The user explicitly chose their current signed-in preview account instead for the existing development campaigns; that manual designation does not designate a production identity. Initial resource linking is limited to campaigns with the same owner.
 
 **Why:** The first release is for independent DM workspaces; no permission has been given to expose the creator's existing campaigns or spoilers to other accounts.
