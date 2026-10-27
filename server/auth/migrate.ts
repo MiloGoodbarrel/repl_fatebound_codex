@@ -18,6 +18,7 @@ export async function migrateAccounts() {
       key text PRIMARY KEY,
       completed_at timestamptz NOT NULL DEFAULT now()
     );
+    ALTER TABLE app_accounts ADD COLUMN IF NOT EXISTS appearance jsonb;
     ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS owner_user_id text;
     ALTER TABLE homebrew_items ADD COLUMN IF NOT EXISTS owner_user_id text;
     CREATE INDEX IF NOT EXISTS campaigns_owner_idx ON campaigns(owner_user_id);

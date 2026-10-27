@@ -7,6 +7,10 @@ Keep the current look and feel available while adding light/dark modes and class
 
 Include Gunslinger and Illrigger among the class skins. Show visual mockups and screen captures for review before writing app implementation code.
 
+The user approved the presented mockup direction and said “Proceed with this direction.”
+
+**Why:** This satisfies the requested visual-review prerequisite. Preserve the approved skins as additive appearance choices, not a redesigned workspace.
+
 **Why:** The user explicitly added those classes and requested to see the look and feel before implementation.
 
 **Why:** The user likes the current appearance and wants additional skins, not a replacement redesign.

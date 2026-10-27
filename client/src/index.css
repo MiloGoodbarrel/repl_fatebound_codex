@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Lato:ital,wght@0,300;0,400;0,700;1,400&family=Metamorphous&display=swap');
+@import "./appearance.css";
 
 @tailwind base;
 @tailwind components;

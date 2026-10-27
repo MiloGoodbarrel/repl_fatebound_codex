@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { Switch, Route, Redirect, Router as BrowserRouter, useLocation } from "wouter";
 import { ClerkProvider, useAuth, useClerk } from "@clerk/react";
+import { AppearanceProvider } from "@/lib/appearance";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -44,7 +45,7 @@ function Router() {
   }, [location, persistent]);
 
   return (
-    <div className="h-dvh flex flex-col overflow-hidden bg-background">
+    <div className="dm-workspace h-dvh flex flex-col overflow-hidden bg-background">
       <FeatureNavigation />
       <div className="min-h-0 flex-1 overflow-auto">
         {persistentFeatures.map(({ path, Component }) => (visited.includes(path) || location === path) && (
@@ -96,7 +97,7 @@ function AuthenticatedApp() {
     <Route path="/sign-up/*?"><AuthPage mode="sign-up" /></Route>
     <Route path="/privacy"><PrivacyPage /></Route>
     <Route>
-      {userId ? <CampaignProvider key={userId}><Router /></CampaignProvider> : <PublicLanding />}
+      {userId ? <AppearanceProvider key={userId} userId={userId}><CampaignProvider><Router /></CampaignProvider></AppearanceProvider> : <PublicLanding />}
     </Route>
   </Switch>;
 }

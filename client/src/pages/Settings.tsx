@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { closeWorkspace } from "@/lib/workspaceRequests";
 import { useCheckNavigation } from "@/lib/navigationGuard";
+import AppearanceSettings from "@/components/AppearanceSettings";
 
 export default function Settings() {
   const clerk = useClerk();
@@ -46,6 +47,7 @@ export default function Settings() {
     <h1 className="font-display text-3xl text-primary">Account & privacy</h1>
     <p>Your campaigns and session journal are private to your account. Google verifies your identity; it does not receive your campaign content through sign-in.</p>
     <Link href="/privacy" className="underline text-primary">Read the privacy notice</Link>
+    <AppearanceSettings />
     <section className="space-y-3 rounded-lg border p-5">
       <h2 className="font-display text-xl">Campaign account pairing</h2>
       <p>Signed in as: {clerk.user?.primaryEmailAddress?.emailAddress ?? "Loading account…"}</p>

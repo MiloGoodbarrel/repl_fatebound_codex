@@ -89,6 +89,7 @@
     "zod-validation-error": "^5.0.0"
   },
   "devDependencies": {
+    "@types/pg": "^8.23.1",
     "@playwright/test": "^1.64.1",
     "@replit/vite-plugin-cartographer": "^0.4.4",
     "@replit/vite-plugin-dev-banner": "^0.1.1",
