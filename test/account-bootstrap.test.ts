@@ -1,6 +1,21 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { matchesCreator } from "../server/auth/accounts";
+import { matchesCreator, creatorCheck } from "../server/auth/accounts";
+
+test("pairing diagnostic distinguishes failed checks without exposing identity values", () => {
+  const user = { emailAddresses: [{ emailAddress: "dm@example.invalid", verification: { status: "verified" } }],
+    externalAccounts: [{ provider: "google", emailAddress: "dm@example.invalid" }] };
+  assert.equal(creatorCheck(undefined, user), "not_configured");
+  assert.equal(creatorCheck("other@example.invalid", user), "email_mismatch");
+  assert.equal(creatorCheck("dm@example.invalid", { ...user, emailAddresses: [{
+    emailAddress: "dm@example.invalid", verification: null,
+  }] }), "email_unverified");
+  assert.equal(creatorCheck("dm@example.invalid", { ...user, externalAccounts: [] }), "google_not_linked");
+  assert.equal(creatorCheck("dm@example.invalid", { ...user, externalAccounts: [{
+    provider: "google", emailAddress: "other@example.invalid",
+  }] }), "google_email_mismatch");
+  assert.equal(creatorCheck(" DM@example.invalid ", user), "eligible");
+});
 
 test("creator bootstrap requires an explicit matching verified email AND linked Google identity", () => {
   const verified = { emailAddresses: [{ emailAddress: "dm@example.invalid", verification: { status: "verified" } }],

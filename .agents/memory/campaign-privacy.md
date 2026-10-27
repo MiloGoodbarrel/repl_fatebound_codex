@@ -12,3 +12,9 @@ Campaign access must be limited by who is using the app, rather than exposing al
 Automatic legacy campaign ownership is reserved for the creator's explicitly configured, verified Google identity, never the first person who signs in. The user explicitly chose their current signed-in preview account instead for the existing development campaigns; that manual designation does not designate a production identity. Initial resource linking is limited to campaigns with the same owner.
 
 **Why:** The first release is for independent DM workspaces; no permission has been given to expose the creator's existing campaigns or spoilers to other accounts.
+
+Do not treat saving the owner email or publishing as proof of campaign ownership. Verify the target environment's ownership records; when automatic claiming fails, distinguish the failed identity checks without exposing configured email values or weakening authorization.
+
+**Why:** Preview ownership was assigned successfully while published campaigns remained unclaimed despite successful Google sign-in and repeated owner-setting updates. Silent creator-check rejection made those failures indistinguishable.
+
+**How to apply:** Diagnose the published identity in the published runtime. Do not infer a production email/provider mismatch from a development account, or promise that republishing alone will resolve it.

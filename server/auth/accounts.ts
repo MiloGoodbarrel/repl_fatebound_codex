@@ -19,14 +19,36 @@ export async function syncAccount(cx: PoolClient, userId: string, creator: boole
   return { userId, admin: row.rows[0].is_admin };
 }
 
-export function matchesCreator(
+type CreatorIdentity = {
+  emailAddresses: { emailAddress: string; verification: { status: string } | null }[];
+  externalAccounts: { provider: string; emailAddress: string }[];
+};
+
+export function creatorCheck(
   configured: string | undefined,
-  user: { emailAddresses: { emailAddress: string; verification: { status: string } | null }[];
-    externalAccounts: { provider: string; emailAddress: string }[] },
+  user: CreatorIdentity,
 ) {
   const email = configured?.trim().toLowerCase();
-  return !!email && user.emailAddresses.some(e => e.emailAddress.toLowerCase() === email && e.verification?.status === "verified") &&
-    user.externalAccounts.some(a => a.provider === "google" && a.emailAddress.toLowerCase() === email);
+  if (!email) return "not_configured";
+  const matching = user.emailAddresses.filter(e => e.emailAddress.trim().toLowerCase() === email);
+  if (!matching.length) return "email_mismatch";
+  if (!matching.some(e => e.verification?.status === "verified")) return "email_unverified";
+  const google = user.externalAccounts.filter(a => a.provider === "google");
+  if (!google.length) return "google_not_linked";
+  if (!google.some(a => a.emailAddress?.trim().toLowerCase() === email)) return "google_email_mismatch";
+  return "eligible";
+}
+
+export function matchesCreator(configured: string | undefined, user: CreatorIdentity) {
+  return creatorCheck(configured, user) === "eligible";
+}
+
+export async function legacyOwnershipStatus(actor: Actor) {
+  const done = await pool.query("SELECT 1 FROM app_setup WHERE key='legacy-owner'");
+  if (done.rowCount) return actor.admin ? "setup_completed" : "already_claimed";
+  const configured = process.env.CREATOR_GOOGLE_EMAIL;
+  if (!configured?.trim()) return "not_configured";
+  return creatorCheck(configured, await clerkClient.users.getUser(actor.userId));
 }
 
 export async function resolveAccount(userId: string): Promise<Actor> {

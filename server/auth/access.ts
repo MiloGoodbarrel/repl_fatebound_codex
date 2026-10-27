@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { getAuth } from "@clerk/express";
 import { pool } from "../db";
-import { resolveAccount } from "./accounts";
+import { resolveAccount, legacyOwnershipStatus } from "./accounts";
 import { currentActor } from "./context";
 import { apiPolicy, type AccessRepository } from "./policy";
 import { storage } from "../storage";
@@ -23,8 +23,14 @@ export function registerAccountPolicy(app: Express) {
     const { userId } = getAuth(req);
     return userId ? await resolveAccount(userId) : null;
   }, accessRepository));
-  app.get("/api/account", (_req, res) => {
-    res.json({ admin: currentActor().admin, legacyOwnershipConfigured: !!process.env.CREATOR_GOOGLE_EMAIL });
+  app.get("/api/account", async (_req, res, next) => {
+    try {
+      const actor = currentActor();
+      res.json({ admin: actor.admin, legacyOwnershipConfigured: !!process.env.CREATOR_GOOGLE_EMAIL,
+        legacyOwnershipStatus: await legacyOwnershipStatus(actor), environment: process.env.NODE_ENV === "production" ? "published" : "preview" });
+    } catch {
+      next(new Error("Could not check account setup. Please retry."));
+    }
   });
   app.delete("/api/account/data", async (_req, res, next) => {
     try {
