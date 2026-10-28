@@ -13,3 +13,4 @@
 - [DM workspace navigation](dm-workspace-navigation.md) — user wants persistent feature tabs for live DM use, with working state retained between tools.
 - [Dependency override verification](dependency-overrides.md) — npm can retain vulnerable locked copies after adding version-qualified overrides; inspect every resolved copy.
 - [Appearance direction](appearance-direction.md) — retain the current look; add light/dark, class skins, and original setting tributes without disrupting live DM use.
+- [Isolated browser video capture](video-capture.md) — film private GUI screens with fictional data and no auth bypass; Playwright recording needs its own FFmpeg binary.
