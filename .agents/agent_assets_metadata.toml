@@ -70,3 +70,17 @@ mtime_ms = 1793208765369
 storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:c28721a7-c2d8-4f64-bdb3-ddb8bc1505ee/3e96852f-12f1-409e-8f82-b848a478edb9/92fc2f67-ac7b-4b87-803d-2b72956147ed"
 storage_version_token = "1793208791148213"
 content_type = "video/mp4"
+
+[[outputs]]
+id = "T-WUlg6bNHaJq9x60OJ8e"
+uri = "file://generated-artifacts/demo-reel/fatebound-codex-feature-reel.mp4"
+type = "video"
+title = "Fatebound Codex feature reel"
+description = "62-second 1080p widescreen demo with active GUI, feature captions, fictional campaign data, and your music track."
+logical_id = "d380bf02-5c3d-4e1b-a211-57f8b0f1e8ec"
+content_hash = "sha256:fe859672ceffef0290d957c8a8cf9b0a9b2dfd25579692e220ead3f642cca567"
+size = 3996981
+mtime_ms = 1793208998917
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:c28721a7-c2d8-4f64-bdb3-ddb8bc1505ee/d380bf02-5c3d-4e1b-a211-57f8b0f1e8ec/151f10cf-f9f2-43b3-8023-4b81054c8637"
+storage_version_token = "1793209010548232"
+content_type = "video/mp4"
