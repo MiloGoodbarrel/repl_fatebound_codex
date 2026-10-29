@@ -12,20 +12,30 @@ import { CLERK_PROXY_PATH, clerkProxyMiddleware, getClerkProxyHost } from "./mid
 import { registerAccountPolicy, accessRepository } from "./auth/access";
 import { requestActors } from "./auth/context";
 import { migrateAccounts } from "./auth/migrate";
+import { isDemoDocument } from "../shared/demoPath";
 
 const app = express();
 const httpServer = createServer(app);
 
 app.disable("x-powered-by");
+// A public demo document is not a test principal or an exception to API policy.
+app.use("/dev", (_req, res, next) => {
+  res.set({ "X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store" });
+  next();
+});
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
-app.use(
-  clerkMiddleware((req) => ({
+const identifyClerkRequest = clerkMiddleware((req) => ({
     publishableKey: publishableKeyFromHost(
       getClerkProxyHost(req) ?? "",
       process.env.CLERK_PUBLISHABLE_KEY,
     ),
-  })),
-);
+  }));
+app.use((req, res, next) => {
+  // Public simulation documents have no identity to establish. This does not
+  // cover /api, proxy requests, writes, or any authenticated workspace route.
+  if (isDemoDocument(req.method, req.path)) { next(); return; }
+  return identifyClerkRequest(req, res, next);
+});
 // Parse bounded JSON before authorization for body-based campaign references,
 // but leave private journal raw files and larger text bodies to its own parsers.
 const jsonParser = express.json({ limit: "1mb" });

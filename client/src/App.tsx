@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { lazy, Suspense, useEffect, useState, useRef } from "react";
 import { Switch, Route, Redirect, Router as BrowserRouter, useLocation } from "wouter";
 import { ClerkProvider, useAuth, useClerk } from "@clerk/react";
 import { AppearanceProvider } from "@/lib/appearance";
@@ -20,6 +20,9 @@ import CopyrightNotice from "@/components/CopyrightNotice";
 import { AuthPage, PrivacyPage, PublicLanding, clerkAppearance, clerkLocalization } from "@/components/AuthPages";
 import Settings from "@/pages/Settings";
 import { activateWorkspace, closeWorkspace } from "@/lib/workspaceRequests";
+import { isDemoPath } from "@/demo/model";
+
+const DemoApp = lazy(() => import("@/demo/DemoApp"));
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
@@ -121,6 +124,16 @@ function ClerkApp() {
 }
 
 function App() {
+  // This is a separate, local-only simulation, not an authenticated workspace
+  // with a different identity. Never install workspace transport or fetch data.
+  if (isDemoPath(window.location.pathname, basePath)) {
+    return <TooltipProvider>
+      <Suspense fallback={<div className="p-8" role="status">Opening the fictional demo…</div>}>
+        <DemoApp basePath={basePath} />
+      </Suspense>
+      <Toaster />
+    </TooltipProvider>;
+  }
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

@@ -165,6 +165,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
             </Link>
           </div>
           <footer className="mx-auto mt-6 max-w-[440px] text-center">
+            <a href={`${basePath}/dev`} className="mb-4 inline-block text-sm text-primary underline underline-offset-4">Browse the demo without an account</a>
             <CopyrightNotice compact />
           </footer>
         </div>
@@ -266,6 +267,7 @@ export function PublicLanding() {
           <CopyrightNotice />
         </div>
         <div className="flex items-center gap-5">
+          <a href={`${basePath}/dev`} className="underline-offset-4 hover:text-foreground hover:underline">Try the demo</a>
           <Link href="/privacy" className="underline-offset-4 hover:text-foreground hover:underline">Privacy & data</Link>
           <Link href="/sign-up" className="underline-offset-4 hover:text-foreground hover:underline">Create account</Link>
         </div>
