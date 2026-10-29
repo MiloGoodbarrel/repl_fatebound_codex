@@ -2,6 +2,7 @@ import { SignIn, SignUp } from "@clerk/react";
 import { shadcn } from "@clerk/themes";
 import { BookOpen, ChevronRight, Compass, Feather, ShieldCheck } from "lucide-react";
 import { Link } from "wouter";
+import CopyrightNotice from "@/components/CopyrightNotice";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -163,6 +164,9 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
               Back to the codex <ChevronRight aria-hidden="true" className="size-3.5" />
             </Link>
           </div>
+          <footer className="mx-auto mt-6 max-w-[440px] text-center">
+            <CopyrightNotice compact />
+          </footer>
         </div>
       </div>
     </main>
@@ -257,7 +261,10 @@ export function PublicLanding() {
       </section>
 
       <footer className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-7 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-8">
-        <span>Fatebound Codex · Made for the next story.</span>
+        <div>
+          <p className="mb-2">Fatebound Codex · Made for the next story.</p>
+          <CopyrightNotice />
+        </div>
         <div className="flex items-center gap-5">
           <Link href="/privacy" className="underline-offset-4 hover:text-foreground hover:underline">Privacy & data</Link>
           <Link href="/sign-up" className="underline-offset-4 hover:text-foreground hover:underline">Create account</Link>
@@ -307,6 +314,9 @@ export function PrivacyPage() {
             Back to the codex
           </Link>
         </div>
+        <footer className="mt-10 border-t border-border/70 pt-6">
+          <CopyrightNotice />
+        </footer>
       </div>
     </main>
   );

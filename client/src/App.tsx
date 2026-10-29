@@ -16,6 +16,7 @@ import NotFound from "@/pages/not-found";
 import Sessions from "@/pages/Sessions";
 import { NavigationGuardProvider, useGuardedLocation } from "@/lib/navigationGuard";
 import FeatureNavigation from "@/components/FeatureNavigation";
+import CopyrightNotice from "@/components/CopyrightNotice";
 import { AuthPage, PrivacyPage, PublicLanding, clerkAppearance, clerkLocalization } from "@/components/AuthPages";
 import Settings from "@/pages/Settings";
 import { activateWorkspace, closeWorkspace } from "@/lib/workspaceRequests";
@@ -62,6 +63,9 @@ function Router() {
           <Route component={NotFound} />
         </Switch></div>}
       </div>
+      <footer className="shrink-0 border-t border-border/60 bg-background px-4 py-2 text-center">
+        <CopyrightNotice compact />
+      </footer>
     </div>
   );
 }
