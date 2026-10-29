@@ -26,3 +26,9 @@ Document imports should feed the existing original-text/correction-review workfl
 **Why:** The user asked for standard document note imports into the journal, whose original and reviewed texts must remain separate. Text extraction does not preserve the source document's visual layout or scanned handwriting; do not present extracted text as an archived original file.
 
 **How to apply:** State clearly which source formats are supported and whether originals are retained. Keep unreadable/scanned documents explicit failures rather than blank or fabricated notes.
+
+Do not make a personal xAI account a prerequisite for the campaign journal. Prefer a user-approved managed AI connection for future automatic drafting; manual journal work must remain usable without it.
+
+**Why:** The user said they do not have an xAI account and dismissed the provider connection. A structured editor is useful without a model, but must not be presented as automatic AI summarization.
+
+**How to apply:** Clearly distinguish manual summaries from generated drafts, do not send session content without an approved connection, and do not promise that the deferred chronicle or campaign chat is already implemented.

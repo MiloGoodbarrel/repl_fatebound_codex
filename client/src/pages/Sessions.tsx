@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import SafeMarkdown from "@/components/journal/Markdown";
+import SessionSummary from "@/components/journal/SessionSummary";
 import { AutosaveCoordinator } from "@/components/journal/autosaveCoordinator";
 import { useNavigationBlocker } from "@/lib/navigationGuard";
 
@@ -81,6 +82,8 @@ function JournalWorkspace({ embedded = false, onClose, registerCloseRequest }: {
   const [notesError, setNotesError] = useState("");
   const [notesConflict, setNotesConflict] = useState(false);
   const [selectionPending, setSelectionPending] = useState(false);
+  const [summaryDirty, setSummaryDirty] = useState(false);
+  const [summaryBusy, setSummaryBusy] = useState(false);
   const [manualDrafts, setManualDrafts] = useState<Record<string, string>>({});
   const [newTitle, setNewTitle] = useState("");
   const [newDate, setNewDate] = useState(today());
@@ -131,6 +134,10 @@ function JournalWorkspace({ embedded = false, onClose, registerCloseRequest }: {
   });
   const manualDraftsDirtyRef = useRef(hasManualDrafts);
   manualDraftsDirtyRef.current = hasManualDrafts;
+  const summaryDirtyRef = useRef(summaryDirty);
+  summaryDirtyRef.current = summaryDirty;
+  const summaryBusyRef = useRef(summaryBusy);
+  summaryBusyRef.current = summaryBusy;
   const manualDraftIsDirty = (item: JournalImport) => manualDrafts[item.id] !== undefined && manualDrafts[item.id] !== (item.editedText ?? item.reviewed);
 
   const refreshSessions = useCallback(async () => {
@@ -162,12 +169,12 @@ function JournalWorkspace({ embedded = false, onClose, registerCloseRequest }: {
 
   useEffect(() => {
     if (workspaceCampaignId === campaignId) return;
-    if (coordinator.isDirty || coordinator.isSaving || hasManualDrafts || busy) return;
+    if (coordinator.isDirty || coordinator.isSaving || hasManualDrafts || summaryDirtyRef.current || summaryBusyRef.current || busy) return;
     selectionPendingRef.current = false;
     setSelectionPending(false);
     setWorkspaceCampaignId(campaignId);
     setCapability(null); setCapError(""); setSessions([]); setSelected(null); setDetail(null); setReferences([]); setAliases([]);
-  }, [busy, campaignId, coordinator, hasManualDrafts, notesState, workspaceCampaignId]);
+  }, [busy, campaignId, coordinator, hasManualDrafts, notesState, summaryBusy, summaryDirty, workspaceCampaignId]);
 
   useEffect(() => {
     if (workspaceCampaignId !== campaignId) return;
@@ -227,6 +234,10 @@ function JournalWorkspace({ embedded = false, onClose, registerCloseRequest }: {
     }
   };
   const guardNavigation = async () => {
+    if (summaryDirtyRef.current || summaryBusyRef.current) {
+      setToastError("Save or discard the session summary before navigating or closing the journal.");
+      return false;
+    }
     if (busyRef.current) {
       setToastError("Wait for the journal request to finish before navigating or closing the panel.");
       return false;
@@ -302,7 +313,7 @@ function JournalWorkspace({ embedded = false, onClose, registerCloseRequest }: {
 
   useEffect(() => {
     const handler = (event: BeforeUnloadEvent) => {
-      if (coordinator.isDirty || coordinator.isSaving || hasManualDrafts || busyRef.current) { event.preventDefault(); event.returnValue = ""; }
+      if (coordinator.isDirty || coordinator.isSaving || hasManualDrafts || summaryDirtyRef.current || summaryBusyRef.current || busyRef.current) { event.preventDefault(); event.returnValue = ""; }
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
@@ -319,7 +330,7 @@ function JournalWorkspace({ embedded = false, onClose, registerCloseRequest }: {
       let url: URL;
       try { url = new URL(anchor.href, window.location.href); } catch { return; }
       if (url.origin !== window.location.origin) return;
-      if (!coordinator.isDirty && !coordinator.isSaving && !hasManualDrafts && !busyRef.current) return;
+       if (!coordinator.isDirty && !coordinator.isSaving && !hasManualDrafts && !summaryDirtyRef.current && !summaryBusyRef.current && !busyRef.current) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       void guardNavigation().then(allowed => {
@@ -344,6 +355,7 @@ function JournalWorkspace({ embedded = false, onClose, registerCloseRequest }: {
   };
   const selectSession = async (sid: string) => {
     if (busyRef.current || selectionPendingRef.current) return;
+    if (summaryDirtyRef.current || summaryBusyRef.current) { setToastError("Save or discard the session summary before changing sessions."); return; }
     if (hasManualDrafts) { setToastError("Save or discard the manual reviewed-text draft before changing sessions."); return; }
     const generation = campaignGenerationRef.current;
     const requestToken = ++selectionRequestRef.current;
@@ -373,6 +385,7 @@ function JournalWorkspace({ embedded = false, onClose, registerCloseRequest }: {
     if (requestToken === selectionRequestRef.current) { selectionPendingRef.current = false; setSelectionPending(false); }
   };
   const createSession = () => run(async isCurrent => {
+    if (summaryDirtyRef.current || summaryBusyRef.current) throw new Error("Save or discard the session summary before opening another session.");
     const created = await api<JournalSession>(`${base}/sessions`, json("POST", { title: newTitle.trim(), date: newDate }));
     if (!isCurrent()) return;
     const generation = campaignGenerationRef.current;
@@ -390,7 +403,11 @@ function JournalWorkspace({ embedded = false, onClose, registerCloseRequest }: {
   const deleteSession = (sid: string) => {
     if (!window.confirm("Delete this session, its notes, imports, decisions, and recordings? This cannot be undone.")) return;
     void run(async isCurrent => {
-      if (selected === sid && (coordinator.isDirty || coordinator.isSaving || hasManualDrafts)) {
+      if (selected === sid && (coordinator.isDirty || coordinator.isSaving || hasManualDrafts || summaryDirtyRef.current || summaryBusyRef.current)) {
+        if (summaryDirtyRef.current || summaryBusyRef.current) {
+          setToastError("Save or discard the session summary before deleting this session.");
+          return;
+        }
         if (coordinator.currentStatus === "failed" || hasManualDrafts) {
           setToastError("The session cannot be deleted while its failed notes draft is unresolved.");
           return;
@@ -489,42 +506,53 @@ function JournalWorkspace({ embedded = false, onClose, registerCloseRequest }: {
       <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5">
         <div><Link href="/" className="mb-2 inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-primary"><ArrowLeft className="h-3 w-3" /> Toolkit</Link>
           <h1 className="flex items-center gap-3 text-3xl font-display"><BookOpen className="h-7 w-7 text-primary" /> Session journal</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{activeCampaign ? activeCampaign.name : "Choose a campaign to open its private journal"}</p></div>
+           <p className="mt-1 text-sm text-muted-foreground">{workspaceCampaignId !== campaignId && detail ? "Finish the previous campaign’s unsaved journal draft before switching." : activeCampaign ? activeCampaign.name : "Choose a campaign to open its private journal"}</p></div>
         <div className="hidden items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary md:flex"><ShieldCheck className="h-4 w-4" /> Campaign-scoped archive</div>
       </div>
     </header>}
-    {embedded && <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card/95 px-4 py-3 backdrop-blur"><div><p className="font-display">Campaign journal</p><p className="text-xs text-muted-foreground">{activeCampaign?.name ?? "No campaign selected"}</p></div><Button size="sm" variant="outline" onClick={() => void requestPanelClose()}><X className="mr-1 h-4 w-4" />Close</Button></div>}
+    {embedded && <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card/95 px-4 py-3 backdrop-blur"><div><p className="font-display">Campaign journal</p><p className="text-xs text-muted-foreground">{workspaceCampaignId !== campaignId && detail ? "Finish the previous campaign’s unsaved draft" : activeCampaign?.name ?? "No campaign selected"}</p></div><Button size="sm" variant="outline" onClick={() => void requestPanelClose()}><X className="mr-1 h-4 w-4" />Close</Button></div>}
     <main className={`mx-auto grid max-w-7xl gap-6 px-5 py-7 [overflow-wrap:anywhere] ${embedded ? "grid-cols-1" : "lg:grid-cols-[280px_minmax(0,1fr)]"}`}>
-      {workspaceCampaignId !== campaignId ? coordinator.isDirty || coordinator.isSaving || hasManualDrafts ? <section role="alert" className="mx-auto max-w-2xl rounded-xl border border-destructive/40 bg-card p-6 lg:col-span-2">
+      {(capability?.available || (workspaceCampaignId !== campaignId && (summaryDirty || summaryBusy))) && selected && detail && <div className={`min-w-0 ${embedded ? "" : "lg:col-start-2 lg:row-start-1"}`}>
+        {workspaceCampaignId !== campaignId && <p role="status" className="mb-3 rounded-md border border-primary/30 bg-primary/10 p-3 text-sm">Finish the previous campaign’s summary below. Its draft remains attached to that session, not the newly selected campaign.</p>}
+        <SessionSummary key={`${detail.session.campaignId}:${detail.session.id}`} campaignId={detail.session.campaignId} sessionId={detail.session.id}
+          sourceRevisionKey={`${coordinator.currentRevision}:${detail.session.title}:${detail.session.date}:${detail.imports.map(item => `${item.id}-${item.revision}`).join(",")}`}
+          onUnsavedChange={(dirty, inFlight) => {
+            summaryDirtyRef.current = dirty;
+            summaryBusyRef.current = inFlight;
+            setSummaryDirty(dirty);
+            setSummaryBusy(inFlight);
+          }} />
+      </div>}
+      {workspaceCampaignId !== campaignId ? coordinator.isDirty || coordinator.isSaving || hasManualDrafts || summaryDirty || summaryBusy ? <section role="alert" className="mx-auto max-w-2xl rounded-xl border border-destructive/40 bg-card p-6 lg:col-span-2">
         <LockKeyhole className="mb-3 h-7 w-7 text-primary" /><h2 className="font-display text-xl">Unsaved journal edits are holding this campaign switch</h2>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">The previous campaign’s drafts remain in this tab and will not be shown under the newly selected campaign. Save or reconcile them, or explicitly download and discard them before switching.</p>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">The previous campaign’s drafts remain in this tab, separate from the newly selected campaign. Save or reconcile them, or explicitly download and discard them before switching.</p>
         <div className="mt-4 flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={downloadNotesCopy}>Download preserved draft</Button>
           {notesConflict ? <Button size="sm" variant="outline" disabled={busy || coordinator.isSaving} onClick={reconcilePreviousCampaignDraft}>Reconcile previous campaign draft</Button> : <Button size="sm" variant="outline" disabled={busy || coordinator.isSaving} onClick={() => void flushNotes()}>Save previous campaign draft</Button>}
           {hasManualDrafts && <Button size="sm" variant="outline" disabled={busy} onClick={() => void run(saveManualDrafts)}>Save reviewed-text drafts</Button>}
           {hasManualDrafts && <Button size="sm" variant="ghost" disabled={busy} onClick={discardManualDrafts}>Discard reviewed-text drafts</Button>}
-          <Button size="sm" variant="ghost" disabled={busy || coordinator.isSaving} onClick={discardPreviousCampaignDraft}>Discard and switch</Button>
+          <Button size="sm" variant="ghost" disabled={busy || coordinator.isSaving || summaryDirty || summaryBusy} onClick={discardPreviousCampaignDraft}>Discard and switch</Button>
         </div>
         {notesConflict && <p className="mt-3 text-xs text-muted-foreground">A stale revision is never retried automatically. Reconcile fetches that campaign’s latest revision, then makes one compare-and-swap attempt.</p>}
       </section> : <div className="animate-pulse rounded-xl border border-border p-8 lg:col-span-2"><div className="h-4 w-1/3 rounded bg-muted" /></div> : !campaignId ? <div className="rounded-xl border border-dashed border-border p-10 text-center lg:col-span-2"><BookOpen className="mx-auto mb-4 h-8 w-8 text-primary" /><h2 className="font-display text-xl">Select a campaign first</h2><p className="mt-2 text-muted-foreground">Session records are always attached to one campaign.</p><Link href="/" className="mt-4 inline-block text-primary underline">Choose campaign</Link></div> : <>
-        <aside className="space-y-4">
+        <aside className={`space-y-4 ${embedded ? "" : `lg:col-start-1 lg:row-start-1 ${selected && detail ? "lg:row-span-2" : ""}`}`}>
           {capError && <div role="alert" className="rounded-lg border border-destructive/40 p-3 text-sm">{capError} <Button size="sm" variant="ghost" onClick={() => { const generation = campaignGenerationRef.current; setCapError(""); setCapability(null); void api<Capability>(`${base}/capabilities`).then(value => { if (generation === campaignGenerationRef.current) setCapability(value); }).catch(e => { if (generation === campaignGenerationRef.current) setCapError(String(e)); }); }}><RefreshCw className="mr-1 h-3 w-3" /> Retry</Button></div>}
           {capability?.available && <div className="rounded-xl border border-border bg-card/50 p-4">
             <h2 className="mb-3 font-display text-lg">New session</h2>
             <Label htmlFor="session-title">Session name</Label><Input id="session-title" className="my-2" value={newTitle} maxLength={150} onChange={e => setNewTitle(e.target.value)} placeholder="The night at Hollowbridge" />
             <Label htmlFor="session-date">Date</Label><Input id="session-date" type="date" className="my-2" value={newDate} onChange={e => setNewDate(e.target.value)} />
-            <Button className="mt-2 w-full" disabled={busy || hasManualDrafts || coordinator.isDirty || coordinator.isSaving || !newTitle.trim()} onClick={createSession}><Plus className="mr-2 h-4 w-4" /> Create session</Button>
+            <Button className="mt-2 w-full" disabled={busy || hasManualDrafts || coordinator.isDirty || coordinator.isSaving || summaryDirty || summaryBusy || !newTitle.trim()} onClick={createSession}><Plus className="mr-2 h-4 w-4" /> Create session</Button>
           </div>}
           {capability?.available && <div className="space-y-2">
             <div className="flex items-center justify-between px-1"><h2 className="font-display text-lg">Campaign sessions</h2><span className="font-mono text-xs text-muted-foreground">{sessions.length}</span></div>
             {loadError && <div className="rounded-lg border border-destructive/40 p-3 text-sm">{loadError}<Button size="sm" variant="ghost" onClick={() => void run(refreshSessions)}>Retry</Button></div>}
             {sessions.map(session => <div key={session.id} className={`group flex items-center gap-2 rounded-lg border p-3 ${selected === session.id ? "border-primary/50 bg-primary/10" : "border-border/60 bg-card/30 hover:bg-card/70"}`}>
-              <button disabled={busy || selectionPending} className="min-w-0 flex-1 text-left disabled:opacity-60" onClick={() => void selectSession(session.id)}><span className="block truncate font-semibold">{session.title}</span><span className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><Clock3 className="h-3 w-3" />{session.date}</span></button>
-              <Button size="icon" variant="ghost" disabled={busy || selectionPending} aria-label={`Delete ${session.title}`} onClick={() => deleteSession(session.id)}><Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" /></Button>
+              <button disabled={busy || selectionPending || summaryDirty || summaryBusy} className="min-w-0 flex-1 text-left disabled:opacity-60" onClick={() => void selectSession(session.id)}><span className="block truncate font-semibold">{session.title}</span><span className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><Clock3 className="h-3 w-3" />{session.date}</span></button>
+              <Button size="icon" variant="ghost" disabled={busy || selectionPending || (selected === session.id && (summaryDirty || summaryBusy))} aria-label={`Delete ${session.title}`} onClick={() => deleteSession(session.id)}><Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" /></Button>
             </div>)}
             {!sessions.length && !loadError && <div className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">No sessions yet. Start a campaign chronicle above.</div>}
           </div>}
         </aside>
-        <div className="min-w-0 space-y-5">
+        <div className={`min-w-0 space-y-5 ${embedded ? "" : `lg:col-start-2 ${selected && detail ? "lg:row-start-2" : "lg:row-start-1"}`}`}>
           {!capability && !capError && <div className="animate-pulse space-y-3 rounded-xl border border-border bg-card/40 p-7"><div className="h-5 w-1/3 rounded bg-muted" /><div className="h-3 w-2/3 rounded bg-muted" /></div>}
           {capability && !capability.available && <CapabilityLock reason={capability.reason} />}
           {capability?.available && toastError && <div role="alert" className="flex items-center justify-between rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm"><span className="flex items-center gap-2"><AlertTriangle className="h-4 w-4" />{toastError}</span><button onClick={() => setToastError("")} aria-label="Dismiss"><X className="h-4 w-4" /></button></div>}
@@ -551,8 +579,11 @@ function JournalWorkspace({ embedded = false, onClose, registerCloseRequest }: {
                 {notesConflict && <p className="mt-2 text-xs text-muted-foreground">Reconcile fetches the newest server revision once, then submits your draft once. A new conflict stops for another explicit choice.</p>}
               </div>}
             </section>
-            <section className="rounded-xl border border-border bg-card/40 p-5">
-              <div className="mb-4"><h2 className="font-display text-xl">Add source material</h2><p className="mt-1 text-sm text-muted-foreground">Import PDF, Word DOCX, UTF-8 TXT or Markdown, or paste notes below. Documents: up to 10 MiB; PDF: up to 100 pages; extracted text: up to 256 KiB. Scans need OCR first. Extracted text is preserved for correction review; original document files and layout are not retained. Audio is stored privately only—no transcription. Name matching scans up to 500 suggestions.</p></div>
+             <details className="rounded-xl border border-border bg-card/40">
+               <summary className="flex cursor-pointer list-none items-center gap-2 p-5 font-display text-xl">Sources &amp; review<ChevronRight className="ml-auto h-4 w-4" /></summary>
+               <div className="space-y-5 border-t border-border/60 p-5">
+               <section className="rounded-xl border border-border/70 bg-card/30 p-4">
+               <div className="mb-4"><h2 className="font-display text-xl">Add source material</h2><p className="mt-1 text-sm text-muted-foreground">Import PDF, Word DOCX, UTF-8 TXT or Markdown, or paste notes below. Documents: up to 10 MiB; PDF: up to 100 pages; extracted text: up to 256 KiB. Scans need OCR first. Extracted text is preserved for correction review; original document files and layout are not retained. Audio is stored privately only—no transcription. Name matching scans up to 500 suggestions.</p></div>
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-2 rounded-lg border border-border/70 p-4">
                   <div className="flex gap-2"><Input placeholder="Import title" aria-label="Import title" value={importTitle} onChange={e => setImportTitle(e.target.value)} /><select aria-label="Import kind" className="rounded-md border border-border bg-background px-2" value={importKind} onChange={e => setImportKind(e.target.value as "transcript" | "summary")}><option value="transcript">Transcript</option><option value="summary">Summary</option></select></div>
@@ -566,7 +597,7 @@ function JournalWorkspace({ embedded = false, onClose, registerCloseRequest }: {
                   {detail.recordings.map(recording => <div key={recording.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-border/60 p-2 text-sm"><span className="truncate">{recording.name} <small className="text-muted-foreground">· {(recording.size / 1024 / 1024).toFixed(1)} MiB</small></span><div className="flex items-center gap-2"><audio controls preload="none" className="h-8 max-w-40" src={`${base}/sessions/${encodeURIComponent(recording.sessionId)}/recordings/${encodeURIComponent(recording.id)}`} onError={() => setToastError(`Could not play private recording “${recording.name}”.`)} /><Button size="icon" variant="ghost" aria-label={`Delete ${recording.name}`} onClick={() => deleteRecording(recording)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></div>)}
                 </div>
               </div>
-            </section>
+               </section>
             <section className="space-y-3">
               <div><h2 className="font-display text-xl">Originals & reviewed text</h2><p className="text-sm text-muted-foreground">Original source is immutable. Decisions only affect the reviewed copy; nothing is inferred or substituted automatically.</p></div>
               {detail.imports.map(item => <article key={item.id} className="overflow-hidden rounded-xl border border-border bg-card/40">
@@ -587,6 +618,8 @@ function JournalWorkspace({ embedded = false, onClose, registerCloseRequest }: {
               <div className="mb-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto]"><Input aria-label="Alias phrase" placeholder="Phrase to remember" value={aliasPhrase} onChange={e => setAliasPhrase(e.target.value)} /><select aria-label="Alias target" className="rounded-md border border-border bg-background px-3" value={aliasKey} onChange={e => setAliasKey(e.target.value)}><option value="">Choose resource</option>{references.map(ref => <option value={ref.key} key={ref.key}>{ref.name} · {ref.source}</option>)}</select><Button disabled={busy || !aliasPhrase.trim() || !aliasKey} onClick={() => saveAlias(aliasPhrase.trim(), aliasKey)}>Approve alias</Button></div>
               <div className="space-y-2">{aliases.map(alias => { const draft = aliasDrafts[alias.id] ?? alias; return <div key={alias.id} className="grid gap-2 rounded-lg border border-border/60 p-3 sm:grid-cols-[1fr_1fr_auto_auto]"><Input aria-label={`Alias ${alias.phrase}`} value={draft.phrase} onChange={e => setAliasDrafts(prev => ({ ...prev, [alias.id]: { ...draft, phrase: e.target.value } }))} /><select aria-label={`Reference for ${alias.phrase}`} className="rounded-md border border-border bg-background px-3" value={draft.referenceKey} onChange={e => setAliasDrafts(prev => ({ ...prev, [alias.id]: { ...draft, referenceKey: e.target.value } }))}>{references.map(ref => <option key={ref.key} value={ref.key}>{ref.name} · {ref.source}</option>)}</select><Button size="sm" variant="outline" onClick={() => updateAlias(alias.id)}>Save</Button><Button size="icon" variant="ghost" aria-label={`Delete alias ${alias.phrase}`} onClick={() => deleteAlias(alias.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>; })}</div>
             </section>
+               </div>
+             </details>
           </div>}
           {capability?.available && selected && !detail && !busy && <div className="rounded-lg border border-border p-5 text-muted-foreground">Could not open {selectedTitle ?? "session"}. <Button variant="outline" size="sm" onClick={() => void run(async () => { await loadDetail(selected); })}>Retry</Button></div>}
         </div>

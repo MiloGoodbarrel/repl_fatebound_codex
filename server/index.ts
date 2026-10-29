@@ -5,6 +5,7 @@ import { createServer } from "http";
 import { seedLootTable } from "./seedLoot";
 import { registerJournalRoutes } from "./journal/routes";
 import { DatabaseJournalRepository } from "./journal/database";
+import { DatabaseSummaryRepository } from "./journal/summaryDatabase";
 import { clerkMiddleware } from "@clerk/express";
 import { publishableKeyFromHost } from "@clerk/shared/keys";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware, getClerkProxyHost } from "./middlewares/clerkProxyMiddleware";
@@ -36,7 +37,7 @@ registerJournalRoutes(app, new DatabaseJournalRepository(), {
     const actor = requestActors.get(req);
     return !!actor && await accessRepository.campaignOwner(campaignId) === actor.userId;
   },
-});
+}, new DatabaseSummaryRepository());
 
 declare module "http" {
   interface IncomingMessage {

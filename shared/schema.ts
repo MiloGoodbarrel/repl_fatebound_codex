@@ -1,4 +1,5 @@
-import { pgTable, text, serial, integer, boolean, numeric, timestamp, uniqueIndex, jsonb, check, customType } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, numeric, timestamp, uniqueIndex, jsonb, check, customType, primaryKey } from "drizzle-orm/pg-core";
+import type { SummarySection, SummarySource } from "./sessionSummary";
 import type { Decision, Suggestion } from "./journal";
 import type { CreatureProfile } from "./creatureProfiles";
 import { sql } from "drizzle-orm";
@@ -106,6 +107,17 @@ export const journalAliases = pgTable("journal_aliases", {
   phraseKey: text("phrase_key").notNull(),
   referenceKey: text("reference_key").notNull(),
 }, table => [uniqueIndex("journal_alias_phrase_unique").on(table.campaignId, table.phraseKey)]);
+export const journalSummaryVersions = pgTable("journal_summary_versions", {
+  sessionId: text("session_id").notNull().references(() => journalSessions.id, { onDelete: "cascade" }),
+  revision: integer("revision").notNull(),
+  status: text("status").$type<"draft" | "approved">().notNull(),
+  action: text("action").$type<"save" | "approve" | "restore">().notNull(),
+  sections: jsonb("sections").$type<SummarySection[]>().notNull(),
+  sources: jsonb("sources").$type<SummarySource[]>().notNull(),
+  sourceFingerprint: text("source_fingerprint").notNull(),
+  createdAt: text("created_at").notNull(),
+  restoredFrom: integer("restored_from"),
+}, table => [primaryKey({ columns: [table.sessionId, table.revision] })]);
 // Bounded private durable binary storage in PostgreSQL, never a public file path.
 const binary = customType<{ data: Buffer }>({ dataType: () => "bytea" });
 export const journalRecordings = pgTable("journal_recordings", {

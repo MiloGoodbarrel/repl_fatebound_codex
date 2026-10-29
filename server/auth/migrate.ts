@@ -5,6 +5,7 @@ import path from "node:path";
 // Additive and safe to run on each deployment. Never infer ownership from a first login.
 export async function migrateAccounts() {
   const journalSql = await readFile(path.resolve(process.cwd(), "scripts/migrations/20261026-journal.sql"), "utf8");
+  const summarySql = await readFile(path.resolve(process.cwd(), "scripts/migrations/20261029-session-summaries.sql"), "utf8");
   const cx = await pool.connect();
   try {
     await cx.query("BEGIN");
@@ -25,6 +26,7 @@ export async function migrateAccounts() {
     CREATE INDEX IF NOT EXISTS homebrew_owner_idx ON homebrew_items(owner_user_id);
     `);
     await cx.query(journalSql.replace(/^\s*BEGIN;/, "").replace(/COMMIT;\s*$/, ""));
+    await cx.query(summarySql.replace(/^\s*BEGIN;/, "").replace(/COMMIT;\s*$/, ""));
     await cx.query("COMMIT");
   } catch (e) {
     await cx.query("ROLLBACK"); throw e;

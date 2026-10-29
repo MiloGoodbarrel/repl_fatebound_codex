@@ -5,6 +5,7 @@ import { MAX_AUDIO_BYTES, MAX_TEXT_BYTES, importInput, nameKey, notesInput, rend
 import type { JournalRepository, StoredImport } from "./repository";
 import { MAX_DOCUMENT_BYTES } from "@shared/journal";
 import { extractJournalDocument } from "./documents";
+import { registerSummaryRoutes, SummaryError, type SummaryRepository } from "./summary";
 
 export const JOURNAL_PRIVACY_REASON = "Private sessions are locked until sign-in and server-verified campaign permissions are configured. Selecting a campaign is not authorization.";
 export interface JournalAccess {
@@ -38,7 +39,7 @@ const safeFilename = (req: Request) => {
 const wrap = (handler: (req: Request, res: Response) => Promise<unknown>) =>
   (req: Request, res: Response, next: NextFunction) => { Promise.resolve(handler(req, res)).catch(next); };
 
-export function registerJournalRoutes(app: Express, repo: JournalRepository, access?: JournalAccess) {
+export function registerJournalRoutes(app: Express, repo: JournalRepository, access?: JournalAccess, summaries?: SummaryRepository) {
   // The legacy campaign deletion route cascades into journal tables. Protect that
   // indirect write too, without changing deletion behavior for campaigns without journals.
   app.delete("/api/campaigns/:id", (req, res, next) => {
@@ -103,6 +104,7 @@ export function registerJournalRoutes(app: Express, repo: JournalRepository, acc
     const suggestions = row.suggestions.map(s => ({ ...s, candidates: s.candidates.filter(c => byKey.has(c.key)) })).filter(s => s.candidates.length);
     return { ...row, suggestions, reviewed: row.editedText ?? renderReviewed(row.original, suggestions, row.decisions) };
   };
+  registerSummaryRoutes(router, session, summaries);
   router.get("/references", wrap(async (req, res) => res.json(await references(req))));
   router.get("/sessions", wrap(async (req, res) => res.json(await repo.listSessions(campaignId(req)))));
   router.post("/sessions", wrap(async (req, res) => {
@@ -219,11 +221,11 @@ export function registerJournalRoutes(app: Express, repo: JournalRepository, acc
   }));
   router.use((_req, res) => res.status(404).json({ message: "Journal endpoint not found." }));
   router.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
-    const status = error instanceof JournalError ? error.status : error instanceof z.ZodError ? 400 :
+    const status = error instanceof JournalError || error instanceof SummaryError ? error.status : error instanceof z.ZodError ? 400 :
       (error as { type?: string }).type === "entity.too.large" ? 413 :
       error instanceof SyntaxError ? 400 : 500;
     // Never log request/response content, filenames, transcripts, or recording bytes.
-    const message = error instanceof JournalError ? error.message : error instanceof z.ZodError ? error.issues[0].message :
+    const message = error instanceof JournalError || error instanceof SummaryError ? error.message : error instanceof z.ZodError ? error.issues[0].message :
       status === 413 ? "File or request exceeds the size limit." : status === 400 ? "Invalid request." :
       "The journal operation failed. Your original text was not replaced. Retry or reload before continuing.";
     res.status(status).json({ message });
