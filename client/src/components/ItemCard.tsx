@@ -1,3 +1,4 @@
+import { Sourcebook } from "@/components/Sourcebook";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { ItemResponse } from "@shared/routes";
@@ -148,7 +149,7 @@ export function ItemCard({ item, index }: ItemCardProps) {
         {item.linkedSource && <p className="text-xs text-primary/80">Linked from {item.linkedSource.campaignName}</p>}
         {item.source && (
           <p className="text-xs text-muted-foreground/60 font-mono text-right tracking-wide pt-1">
-            {item.source}
+            <Sourcebook source={item.source} />
           </p>
         )}
       </div>

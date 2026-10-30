@@ -52,6 +52,20 @@ test("real-screen public demo supports desktop/mobile tools without private API 
       // Feature tabs retain the very same mounted combat screen.
       await nav.getByRole("link", { name: "Loot", exact: true }).click();
       await expect(page.getByText("Deck of Loot", { exact: true }).first()).toBeVisible();
+      await expect(page.getByTestId("checkbox-source-PHB")).toBeVisible();
+      await page.getByTestId("input-source-search").fill("Player");
+      const phb = page.locator('[data-sourcebook="PHB"]').first();
+      await expect(phb).toBeVisible();
+      if (viewport.width >= 768) await phb.hover();
+      else await phb.focus();
+      await expect(page.getByRole("tooltip")).toContainText("Player's Handbook");
+      await phb.press("Escape");
+      await page.getByTestId("input-source-search").fill("DMG");
+      await page.getByTestId("button-clear-all-sources").click();
+      await page.getByTestId("checkbox-source-DMG").click();
+      await page.getByTestId("input-search").fill("Bag of Holding");
+      await page.getByTestId("button-draw-cards").click();
+      await expect(page.getByText("Bag of Holding", { exact: true }).first()).toBeVisible();
       await nav.getByRole("link", { name: "Initiative", exact: true }).click();
       await expect(page.getByTestId("button-next-turn")).toBeVisible();
       await nav.getByRole("link", { name: "Roll Tables", exact: true }).click();
@@ -87,6 +101,20 @@ test("real-screen public demo supports desktop/mobile tools without private API 
       assert.deepEqual(errors, [], "Shared screens should render without errors");
       const realApi = await page.request.get(`${origin}/api/campaigns`);
       assert.equal(realApi.status(), 401, "Real APIs still require authentication");
+      const stockItems = await (await page.request.get(`${origin}/demo-library/items/5e`)).json();
+      const stockSources = await (await page.request.get(`${origin}/demo-library/items/5e/sources`)).json();
+      const monsterSources = await (await page.request.get(`${origin}/demo-library/bestiary/sources`)).json();
+      assert.ok(stockItems.length > 1000, "Full stock deck, not a demo-sized substitute");
+      assert.ok(stockSources.length > 20 && stockSources.includes("PHB"));
+      assert.ok(monsterSources.length > 10 && monsterSources.includes("Monster Manual"));
+      const stockMonster = await (await page.request.get(`${origin}/demo-library/bestiary/monsters?search=aboleth`)).json();
+      assert.ok(stockMonster.length > 0);
+      const detail = await (await page.request.get(`${origin}/demo-library/bestiary/monsters/${stockMonster[0].index}`)).json();
+      assert.ok(detail.detailedActions.length > 0, "Real monster statblock retains its actions");
+      for (const method of ["POST", "DELETE"])
+        assert.equal((await page.request.fetch(`${origin}/demo-library/items/5e`, { method })).status(), 405);
+      assert.equal((await page.request.get(`${origin}/demo-library/campaigns/1`)).status(), 404);
+      console.log(`Stock library: ${stockItems.length} items, ${stockSources.length} item sources, ${monsterSources.length} monster sources`);
       const response = await page.request.get(`${origin}/dev/sessions`);
       assert.match(response.headers()["x-robots-tag"], /noindex/);
       await context.close();

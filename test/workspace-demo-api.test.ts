@@ -8,12 +8,22 @@ function setup() {
   const map = new Map<string, string>();
   const storage: DemoStorage = { getItem: k => map.get(k) ?? null,
     setItem: (k, v) => { map.set(k, v); }, removeItem: k => { map.delete(k); } };
-  const api = new WorkspaceDemoApi(storage);
+  const stockCalls: string[] = [];
+  const api = new WorkspaceDemoApi(storage, () => {}, async path => {
+    stockCalls.push(path);
+    if (path === "/api/items/5e") return [
+      { id: 9001, name: "Stock potion", category: "Potion", rarity: "Common", edition: "5e", source: "DMG" },
+      { id: 9002, name: "Stock scroll", category: "Scroll", rarity: "Very rare", edition: "5e", source: "PHB" },
+    ];
+    if (path === "/api/items/5e/sources") return ["DMG", "PHB"];
+    if (path.includes("/bestiary/")) return [];
+    throw new Error(`Unexpected stock read: ${path}`);
+  });
   const send = async (path: string, method = "GET", body?: unknown) => {
     const response = await api.request(new URL(path, "https://demo.test"), method, body);
     return { status: response.status, data: response.status === 204 ? null : await response.json() };
   };
-  return { api, send, storage, map };
+  return { api, send, storage, map, stockCalls };
 }
 
 test("real-screen demo API keeps campaign CRUD, party, saves, prepared groups and appearance browser-only", async () => {
@@ -52,12 +62,12 @@ test("linked resources reference originals and never link encounters; loot and b
   assert.equal((await send("/api/campaigns/1/resources/links", "POST", { sourceCampaignId: 2, itemIds: [301], npcIds: [] })).data.existingItems, 1);
   const items = await send("/api/items/draw", "POST", { source: "campaign", campaignId: 1,
     categories: ["Wondrous Item"], rarities: ["Common"], count: 3 });
-  assert.equal(items.data.length, 3);
+  assert.equal(items.data.length, 1);
   assert.ok(items.data.every((i: any) => i.name === "Star Chart Compass"));
   const links = (await send("/api/campaigns/1/resources")).data.links;
   await send(`/api/campaigns/1/resources/links/${links[0].id}`, "DELETE");
   assert.equal((await send("/api/campaigns/2/items")).data.length, 1);
-  assert.equal((await send("/api/bestiary/monsters?search=guardian")).data.length, 1);
+  assert.equal((await send("/api/bestiary/monsters?search=guardian")).data.length, 0);
   assert.equal((await send("/api/bestiary/monsters?cr=20")).data.length, 0);
   assert.equal((await send("/api/bestiary/monsters?types=dragon")).data.length, 0);
 });
@@ -72,6 +82,29 @@ test("shared table schema validation and campaign scoping are preserved", async 
   assert.ok(!(await send("/api/roll-tables?campaignId=2")).data.some((t: any) => t.id === created.data.id));
   assert.equal((await send("/api/roll-tables", "POST", { ...body, entries: [{ text: "", weight: 0 }] })).status, 400);
   assert.equal((await send(`/api/roll-tables/${created.data.id}?campaignId=2`, "DELETE")).status, 404);
+});
+
+test("demo reads the full shared library, keeps its filters, and never rewrites stock", async () => {
+  const { send, stockCalls } = setup();
+  assert.deepEqual((await send("/api/items/5e/sources")).data, ["DMG", "PHB"]);
+  assert.equal((await send("/api/items/5e")).data.length, 2);
+  const draw = (options: object) => send("/api/items/draw", "POST", {
+    source: "5e", categories: ["Potion", "Scroll"], rarities: ["Common", "Very Rare"],
+    editions: ["5e"], count: 100, ...options,
+  });
+  assert.deepEqual((await draw({ sources: ["PHB"] })).data.map((i: any) => i.name), ["Stock scroll"]);
+  assert.equal((await draw({ editions: ["4e"] })).data.length, 0);
+  assert.equal((await draw({ sources: [] })).data.length, 0);
+  assert.equal((await draw({ search: "potion" })).data.length, 1);
+  assert.equal(stockCalls.filter(p => p === "/api/items/5e").length, 1, "Read-only stock deck is fetched once, not per draw");
+  const path = "/api/bestiary/monsters?search=dragon&types=Dragon&sources=Monster%20Manual&cr=5";
+  await send(path);
+  assert.ok(stockCalls.includes(path), "All bestiary filters must reach the stock-only reader");
+  const before = stockCalls.length;
+  assert.equal((await send("/api/items/5e", "DELETE")).status, 403);
+  assert.equal((await send("/api/bestiary/monsters/secret", "POST")).status, 403);
+  assert.equal((await send("/api/bestiary/campaigns/1")).status, 404);
+  assert.equal(stockCalls.length, before);
 });
 
 test("journal uses real name-review helpers, immutable originals, revision conflicts, summary approval and restore", async () => {

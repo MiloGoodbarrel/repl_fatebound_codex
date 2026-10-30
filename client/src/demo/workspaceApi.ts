@@ -8,13 +8,24 @@ import type { ItemResponse } from "@shared/routes";
 
 const MAX_SAVE_BYTES = 1024 * 1024;
 export interface DemoStorage { getItem(key: string): string | null; setItem(key: string, value: string): void; removeItem(key: string): void }
+export type StockRead = (path: string) => Promise<any>;
+export const readPublicStock: StockRead = async path => {
+  const response = await fetch(`/demo-library${path.slice("/api".length)}`, { credentials: "omit" });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new DemoApiError(response.status, error.message ?? "Could not load the shared stock library. Please retry.");
+  }
+  return response.json();
+};
 
 /** Fail closed: unimplemented API paths never fall through to authenticated services. */
 export class WorkspaceDemoApi {
   private data = createWorkspaceDemo();
   private failure = "";
   private queue: Promise<unknown> = Promise.resolve();
-  constructor(private storage: DemoStorage, private notify: (message: string) => void = () => {}) {
+  private stockItems?: Promise<ItemResponse[]>;
+  constructor(private storage: DemoStorage, private notify: (message: string) => void = () => {},
+    private readStock: StockRead = readPublicStock) {
     try { this.reload(); } catch (error) { this.report(error); }
   }
   get error() { return this.failure; }
@@ -196,50 +207,37 @@ export class WorkspaceDemoApi {
       } else return missing();
       return table;
     }
-    if (path === "/api/items/5e/sources" && method === "GET") return ["Fictional demo"];
+    if (path === "/api/items/5e/sources" && method === "GET") return this.readStock(path);
     if (path === "/api/items/5e" && method === "GET") return this.lootItems();
     if (path === "/api/items/draw" && method === "POST") {
       const options = drawOptionsSchema.parse(body);
       const opts = options;
-      let rows = opts.source === "campaign" ? [] : this.lootItems();
-      if (opts.source === "campaign" && opts.campaignId) rows.push(...d.items.filter(i => i.campaignId === opts.campaignId ||
+      const includeHomebrew = !opts.sources || opts.sources.includes("Homebrew");
+      const stockSources = opts.sources?.filter(s => s !== "Homebrew");
+      let rows: ItemResponse[] = !stockSources || stockSources.length ? [...await this.lootItems()] : [];
+      if (stockSources) rows = rows.filter(i => stockSources.includes(i.source ?? ""));
+      if (opts.editions?.length) rows = rows.filter(i => opts.editions!.includes(i.edition ?? ""));
+      if (includeHomebrew && opts.campaignId) rows.push(...d.items.filter(i => i.campaignId === opts.campaignId ||
         d.links.some(l => l.campaignId === opts.campaignId && l.kind === "items" && l.resourceId === i.id))
-        .map(i => ({ ...i, edition: "homebrew", source: "Fictional demo" })));
+        .map(i => ({ ...i, edition: "homebrew", source: "Homebrew" })));
       if (opts.categories?.length) rows = rows.filter(i => opts.categories.includes(i.category));
-      if (opts.rarities?.length) rows = rows.filter(i => opts.rarities.includes(i.rarity));
-      if (opts.sources?.length) rows = rows.filter(i => opts.sources!.includes(i.source ?? ""));
+      if (opts.rarities?.length) rows = rows.filter(i => opts.rarities.some(r => r.toLowerCase() === i.rarity.toLowerCase()));
       if (opts.search) rows = rows.filter(i => i.name.toLowerCase().includes(opts.search!.toLowerCase()));
-      if (opts.source === "5e" && opts.editions?.length && !opts.editions.includes("5e")) rows = [];
-      return rows.length ? Array.from({ length: opts.count ?? 1 }, () => rows[Math.floor(Math.random() * rows.length)]) : [];
+      // Like the live deck: sample without replacement, not duplicate cards.
+      return rows.map(item => ({ item, order: Math.random() })).sort((a, b) => a.order - b.order)
+        .slice(0, opts.count).map(row => row.item);
     }
     if (path.startsWith("/api/bestiary/") && method === "GET") {
-      let monsters = createWorkspaceDemo().homebrew.map((h, i) => ({
-        ...h.profileData, index: `demo-library-${i}`, name: i ? "Tide Cave Guardian" : "Lantern Moth",
-        description: "An original fictional creature in the demo's shared bestiary.",
-      }));
-      if (path.endsWith("/types")) return Array.from(new Set(monsters.map(m => m.type)));
-      if (path.endsWith("/cr-values")) return ["1"];
-      if (path.endsWith("/sources")) return ["Fictional demo"];
-      if (q.get("search")) monsters = monsters.filter(m => m.name.toLowerCase().includes(q.get("search")!.toLowerCase()));
-      if (q.get("types")) monsters = monsters.filter(m => q.get("types")!.split(",").includes(m.type ?? ""));
-      if (q.get("cr")) monsters = monsters.filter(m => m.cr === q.get("cr"));
-      if (q.get("sources")) monsters = monsters.filter(m => q.get("sources")!.split("|").includes(m.source ?? ""));
-      if (path.endsWith("/encounter")) return monsters.length ? monsters : missing();
-      if (path.endsWith("/random")) return monsters[Math.floor(Math.random() * monsters.length)] ?? missing();
-      if (path === "/api/bestiary/monsters") return monsters.slice(0, Math.min(Number(q.get("limit")) || 20, 100));
-      return monsters.find(m => m.index === decodeURIComponent(path.split("/").pop()!)) ?? missing();
+      if (!/^\/api\/bestiary\/(?:types|cr-values|sources|monsters(?:\/[^/]+)?)$/.test(path)) return missing();
+      return this.readStock(`${path}${url.search}`);
     }
     throw new DemoApiError(403, "This server operation is unavailable in the browser-only demo. No request was sent to a real account.");
   }
-  private lootItems(): ItemResponse[] {
-    return [
-      ...["Common", "Uncommon", "Rare", "Very Rare", "Legendary"].flatMap((rarity, r) =>
-        ["Weapon", "Armor", "Potion", "Wondrous Item", "Ring", "Scroll", "Wand", "Rod", "Staff"].map((category, c) => ({
-          id: 10000 + r * 10 + c, name: `${rarity} Lantern ${category}`, category, itemType: null, rarity,
-          description: "An original fictional demo item. A faint silver glow reveals its maker's coastal insignia.",
-          damage: null, weight: null, cost: null, properties: null, attunement: null, edition: "5e", source: "Fictional demo",
-        }))),
-    ];
+  private lootItems(): Promise<ItemResponse[]> {
+    if (!this.stockItems) this.stockItems = this.readStock("/api/items/5e").catch(error => {
+      this.stockItems = undefined; throw error;
+    });
+    return this.stockItems;
   }
 }
 

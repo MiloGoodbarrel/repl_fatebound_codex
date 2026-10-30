@@ -151,19 +151,33 @@ Do not create separate demo page implementations: changes to the actual screens
 must appear here automatically.
 
 The only alternate layer is the browser-local data adapter in
-`client/src/demo/workspaceApi.ts`, with original fictional fixtures. It intercepts
+`client/src/demo/workspaceApi.ts`, with original fictional campaign fixtures. It intercepts
 all `/api/` fetches before screens mount, rejects unknown operations, and never
-falls back to real APIs. No Clerk provider or privileged test identity is installed.
+falls back to private APIs. Stock-only reads use `/demo-library`, a dedicated
+anonymous GET/HEAD router backed by the same shared stock tables as the app.
+It exposes items, source lists and bestiary search/details, never campaign-owned
+items/NPCs, accounts, journals, uploads, links, or writes. Unknown paths return
+404 and writes return 405; they never fall through to authentication or the SPA.
+No Clerk provider or privileged test identity is installed.
 The normal server API authorization remains unchanged. Each visitor has their own
 demo edits; the demo cannot read campaign data from an account.
 
 Campaigns, party rosters, links, encounter saves and prepared rosters, tables,
 loot draws, journal text imports/name review, summary revisions, and skins use
 the real controls. File/audio uploads, server downloads, paid AI, administration,
-and actual identity/account deletion are explicitly blocked. The sample content
-library is smaller than the live library. The demo tests the UI, not production
+and actual identity/account deletion are explicitly blocked. Shared stock items,
+sourcebooks and monsters are the full catalog, not fictional substitutes;
+only the campaign-owned sample content is fictional. Stock draws are filtered
+locally, while bestiary searches/details use the read-only stock router.
+The demo tests the UI, not production
 identity, network latency, database durability, upload extraction, or multi-user
 security.
+
+Source codes in loot filters/cards and bestiary/statblock displays share
+`Sourcebook`, a portal-rendered hover/keyboard-focus tooltip. Display names live
+in `shared/sourcebooks.ts`; source search accepts codes and expanded names.
+The original source IDs remain unchanged for API filters. Unknown names are
+shown unchanged rather than guessed.
 
 Demo saves use only `fatebound:workspace-demo:v2` (1 MiB maximum). Reset removes
 only that key and restores fictional fixtures; unrelated browser/account data

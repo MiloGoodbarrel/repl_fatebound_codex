@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from "react";
+import { Sourcebook } from "@/components/Sourcebook";
+import { sourcebookMatches } from "@shared/sourcebooks";
 import { useQuery } from "@tanstack/react-query";
 import { type DrawOptions } from "@shared/schema";
 import { Button } from "@/components/ui/button";
@@ -95,7 +97,7 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
   }, [officialSources, sourcesReady]);
 
   const filteredOfficialSources = officialSources.filter(s =>
-    s.toLowerCase().includes(sourceSearch.toLowerCase())
+    sourcebookMatches(s, sourceSearch)
   );
   const showHomebrew = HOMEBREW_SOURCE.toLowerCase().includes(sourceSearch.toLowerCase());
 
@@ -413,9 +415,8 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
                       <label
                         htmlFor={`src-${src}`}
                         className="text-xs font-mono font-medium leading-none cursor-pointer text-muted-foreground hover:text-foreground"
-                        title={src}
                       >
-                        {src}
+                        <Sourcebook source={src} />
                       </label>
                     </div>
                   ))}

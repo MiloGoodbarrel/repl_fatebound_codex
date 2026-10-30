@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { Sourcebook } from "@/components/Sourcebook";
 import { DiceRoller, DiceText, useDiceRoller } from "@/components/DiceRoller";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -373,7 +374,7 @@ function MonsterStatblock({ monster, onRoll }: { monster: Monster; onRoll: (nota
           {[monster.size, monster.type, monster.alignment].filter(Boolean).join(" · ")}
         </span>
         {monster.source && (
-          <Badge variant="secondary" className="text-[10px] h-4 px-1">{monster.source}</Badge>
+          <Badge variant="secondary" className="text-[10px] h-4 px-1"><Sourcebook source={monster.source} /></Badge>
         )}
       </div>
 
@@ -2928,7 +2929,7 @@ export default function InitiativeTracker() {
                       className="h-3 w-3"
                       data-testid={`checkbox-source-${source}`}
                     />
-                    <span className="truncate">{source}</span>
+                    <span className="truncate"><Sourcebook source={source} /></span>
                   </label>
                 ))}
               </div>
@@ -3050,7 +3051,7 @@ export default function InitiativeTracker() {
                       <Badge variant="secondary" className="text-[10px]">CR {selectedMonster.cr}</Badge>
                     )}
                     {selectedMonster.source && (
-                      <Badge variant="outline" className="text-[10px]">{selectedMonster.source}</Badge>
+                      <Badge variant="outline" className="text-[10px]"><Sourcebook source={selectedMonster.source} /></Badge>
                     )}
                   </div>
                 </div>
@@ -4114,7 +4115,7 @@ export default function InitiativeTracker() {
                                               {combatant.monsterData.size} {combatant.monsterData.type}, CR {combatant.monsterData.cr}
                                             </p>
                                             {combatant.monsterData.source && (
-                                              <Badge variant="outline" className="text-xs mt-1">{combatant.monsterData.source}</Badge>
+                                              <Badge variant="outline" className="text-xs mt-1"><Sourcebook source={combatant.monsterData.source} /></Badge>
                                             )}
                                           </div>
 

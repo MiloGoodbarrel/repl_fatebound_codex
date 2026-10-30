@@ -1,7 +1,5 @@
 import type { Express } from "express";
 import type { Server } from "http";
-import fs from "node:fs";
-import path from "node:path";
 import { storage } from "./storage";
 import { registerCampaignResourceRoutes } from "./campaignResources";
 import { api } from "@shared/routes";
@@ -9,14 +7,9 @@ import { z } from "zod";
 import { insertCampaignSchema, insertCampaignCharacterSchema, rollTableInputSchema, type InsertItem, type InsertHomebrewItem } from "@shared/schema";
 import { STOCK_ROLL_TABLES } from "@shared/rollTables";
 import { seedLootTable } from "./seedLoot";
-import { mapBestiaryActions } from "./bestiaryActions";
 import { creatureProfileSchema, profileLibraryColumns } from "@shared/creatureProfiles";
+import { stockMonster, stockMonsterDetail, stockLore } from "./publicStockLibrary";
 
-const grimHollowLorePath = path.resolve(process.cwd(), "server/data/bestiary/grim_hollow_lore.json");
-const grimHollowLore: Record<string, { description?: string; sourcePage?: number; imageUrl?: string }> =
-  fs.existsSync(grimHollowLorePath)
-    ? JSON.parse(fs.readFileSync(grimHollowLorePath, "utf8"))
-    : {};
 
 function parseCSV(csvText: string): Omit<InsertItem, never>[] {
   const lines = csvText.trim().split('\n');
@@ -311,29 +304,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // ── Monster Bestiary ──────────────────────────────────────────────────────
 
   function mapMonsterRow(m: any) {
-    const sourceContent = grimHollowLore[m.monsterId];
-    return {
-      index: m.monsterId,
-      name: m.name,
-      hp: m.printedAverageHp || 0,
-      hit_dice: m.hitDiceCount && m.hitDieSize ? `${m.hitDiceCount}d${m.hitDieSize}` : undefined,
-      hitDiceCount: m.hitDiceCount,
-      hitDieSize: m.hitDieSize,
-      ac: m.armorClass || 10,
-      cr: m.challengeRating || "--",
-      type: m.creatureType || "",
-      size: m.size || "",
-      str: m.strScore, dex: m.dexScore, con: m.conScore,
-      int: m.intScore, wis: m.wisScore, cha: m.chaScore,
-      strMod: m.strMod, dexMod: m.dexMod, conMod: m.conMod,
-      intMod: m.intMod, wisMod: m.wisMod, chaMod: m.chaMod,
-      alignment: m.alignment,
-      creatureTags: m.creatureTags,
-      source: m.sourceBook || m.sourceKey || "",
-      description: sourceContent?.description || undefined,
-      sourcePage: sourceContent?.sourcePage || m.sourcePage || undefined,
-      imageUrl: sourceContent?.imageUrl || undefined,
-    };
+    return stockMonster(m, stockLore);
   }
 
   app.get("/api/bestiary/types", async (_req, res) => {
@@ -691,19 +662,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const detail = await storage.getBestiaryMonsterDetail(req.params.id);
       if (!detail) return res.status(404).json({ message: "Monster not found" });
-      const base = mapMonsterRow(detail);
-      const result = {
-        ...base,
-        traits: (detail.traits || []).map((t: any) => ({
-          name: t.traitName || "",
-          description: t.traitDescription || "",
-          type: t.traitType || "passive",
-        })),
-        ...mapBestiaryActions(detail.actions || []),
-        special_abilities: (detail.traits || [])
-          .map((t: any) => ({ name: t.traitName || "", desc: t.traitDescription || "" })),
-      };
-      res.json(result);
+      res.json(stockMonsterDetail(detail, stockLore));
     } catch (err) {
       res.status(500).json({ message: "Failed to fetch monster detail" });
     }

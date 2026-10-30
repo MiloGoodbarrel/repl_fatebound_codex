@@ -14,11 +14,16 @@ import { requestActors } from "./auth/context";
 import { migrateAccounts } from "./auth/migrate";
 import { importUntilFirstLight } from "./importUntilFirstLight";
 import { isDemoDocument } from "../shared/demoPath";
+import { publicStockLibrary } from "./publicStockLibrary";
+import { storage } from "./storage";
 
 const app = express();
 const httpServer = createServer(app);
 
 app.disable("x-powered-by");
+// The only anonymous server data is the explicitly shared stock catalog.
+// This router terminates all paths/methods and never reaches private APIs.
+app.use("/demo-library", publicStockLibrary(storage));
 // A public demo document is not a test principal or an exception to API policy.
 app.use("/dev", (_req, res, next) => {
   res.set({ "X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store" });

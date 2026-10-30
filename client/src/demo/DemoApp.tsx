@@ -38,10 +38,10 @@ function DemoWorkspace({ api, error }: { api: WorkspaceDemoApi; error: string })
       <CampaignProvider>
         <WorkspaceRouter banner={<aside aria-label="Public demo notice" className="shrink-0 border-b border-primary/30 bg-card px-3 py-2 text-xs text-foreground">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p><strong>Public demo · real app screens</strong> — fictional data saved only in this browser. Uploads, account changes and paid AI are blocked. Sign out exits the demo.</p>
+            <p><strong>Public demo · real app screens</strong> — full shared stock library, with fictional campaigns saved only in this browser. Uploads, account changes and paid AI are blocked. Sign out exits the demo.</p>
             <Button size="sm" variant="outline" onClick={() => void reset()}>Reset demo</Button>
           </div>
-          <p className="text-muted-foreground">Tests UI interactions, not production authentication, server persistence, or the full live content library. Use fictional text only.</p>
+          <p className="text-muted-foreground">Stock sources are read-only. Real campaigns stay private. Tests UI interactions, not production authentication or server persistence. Use fictional text only.</p>
           {(error || resetError) && <p role="alert" className="mt-1 text-destructive">{resetError || error} Changes cannot be saved until storage is restored or reset.</p>}
         </aside>} />
       </CampaignProvider>
