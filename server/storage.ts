@@ -16,6 +16,7 @@ import { eq, inArray, sql, and, or, ilike, asc, desc } from "drizzle-orm";
 import { getEncounterSaveRevision } from "@shared/encounterRecovery";
 import { encounterRevisionConflictPredicate } from "./encounterPersistence";
 import { currentActor } from "./auth/context";
+import { hydrateHomebrewLibrary } from "./homebrewLibrary";
 
 // SQL boundary for directly linked records: a link never grants access by itself.
 const ownedSource = () => eq(campaigns.ownerUserId, currentActor().userId);
@@ -480,18 +481,13 @@ export class DatabaseStorage implements IStorage {
         sql`${campaignHomebrewMonsters.id} IN (SELECT npc_id FROM ${campaignResourceLinks} WHERE campaign_id = ${campaignId})`,
       )))
       .orderBy(asc(campaignHomebrewMonsters.name));
-    const results: any[] = [];
-    for (const { monster: m, owner } of monsters) {
-      const actions = await db
+    return hydrateHomebrewLibrary(monsters, campaignId, ids =>
+      db
         .select()
         .from(campaignHomebrewActions)
-        .where(eq(campaignHomebrewActions.monsterRefId, m.id))
-        .orderBy(asc(campaignHomebrewActions.actionOrder));
-      results.push({ ...m, actions, ...(m.campaignId !== campaignId && owner ? {
-        linkedSource: { campaignId: owner.id, campaignName: owner.name },
-      } : {}) });
-    }
-    return results;
+        .where(inArray(campaignHomebrewActions.monsterRefId, ids))
+        .orderBy(asc(campaignHomebrewActions.actionOrder), asc(campaignHomebrewActions.id)),
+    );
   }
 
   async importCampaignHomebrew(

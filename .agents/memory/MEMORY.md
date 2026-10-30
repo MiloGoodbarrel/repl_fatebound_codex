@@ -15,3 +15,4 @@
 - [Appearance direction](appearance-direction.md) — retain the current look; add light/dark, class skins, and original setting tributes without disrupting live DM use.
 - [Isolated browser video capture](video-capture.md) — film private GUI screens with fictional data and no auth bypass; Playwright recording needs its own FFmpeg binary.
 - [Public QA demo](public-qa-demo.md) — /dev is an accountless fictional browser simulation, never a privileged login or access to real campaigns.
+- [Latency evidence boundaries](latency-evidence.md) — handler timing and end-to-end latency cover different work; validate batching without claiming upstream delays are fixed.
