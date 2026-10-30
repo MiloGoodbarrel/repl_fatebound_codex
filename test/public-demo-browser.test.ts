@@ -29,7 +29,7 @@ test("real-screen public demo supports desktop/mobile tools without private API 
       await page.getByTestId("button-select-campaign-1").click();
       await page.getByTestId("button-link-resources-1").click();
       const dialog = page.getByRole("dialog");
-      await expect(dialog.getByRole("heading", { name: "Linked resources for The Lantern Coast" })).toBeVisible();
+      await expect(dialog.getByRole("heading", { name: "Linked resources for Lost Mine of Phandelver" })).toBeVisible();
       await page.getByTestId("select-resource-source").click();
       await page.getByRole("option", { name: "The Ashen Observatory" }).click();
       await dialog.locator("label").filter({ hasText: "Star Chart Compass" }).click();
@@ -42,7 +42,8 @@ test("real-screen public demo supports desktop/mobile tools without private API 
       await page.getByRole("button", { name: "Start Combat Setup", exact: true }).click();
       await expect(page.getByTestId("button-load-prepared-400")).toBeVisible();
       await page.getByTestId("button-load-prepared-400").click();
-      await expect(page.getByTestId("text-combatant-name-demo-combat-guardians")).toContainText("Shorebound Sentinels");
+      await expect(page.getByTestId("text-combatant-name-demo-lmop-ambush-goblin")).toContainText("Goblin");
+      await expect(page.getByTestId("text-combatant-name-demo-lmop-pc-100")).toContainText("Human Fighter (Noble)");
       if (viewport.width < 768) await page.getByRole("button", { name: "Controls", exact: true }).click();
       await page.getByTestId("button-start-combat").click();
       await expect(page.getByTestId("button-next-turn")).toBeVisible();
@@ -72,6 +73,8 @@ test("real-screen public demo supports desktop/mobile tools without private API 
       await expect(page.getByRole("heading", { name: "Roll Tables", exact: true })).toBeVisible();
 
       await nav.getByRole("link", { name: "Sessions", exact: true }).click();
+      await page.getByRole("button").filter({ hasText: "00 — Campaign briefing & demo guide" }).click();
+      await expect(page.getByRole("textbox", { name: "Session notes", exact: true })).toHaveValue(/DEMO \/ DM PREP — NOT PLAYED/);
       await page.getByLabel("Session name", { exact: true }).fill(`QA session ${viewport.width}`);
       await page.getByRole("button", { name: "Create session", exact: true }).click();
       const notes = page.getByRole("textbox", { name: "Session notes", exact: true });
@@ -90,7 +93,7 @@ test("real-screen public demo supports desktop/mobile tools without private API 
       await expect(page.locator("html")).toHaveAttribute("data-mode", "light");
       assert.ok((await snapshot()).sessions.some(s => s.session.notes.includes("Fictional notes written")));
       await page.getByRole("button", { name: "Reset demo", exact: true }).click();
-      await expect.poll(async () => (await snapshot()).sessions.length).toBe(1);
+      await expect.poll(async () => (await snapshot()).sessions.length).toBe(12);
       assert.equal(await page.evaluate(() => localStorage.getItem("activeCampaign")), "PRIVATE_SENTINEL");
       await page.evaluate(key => localStorage.setItem(key, "{broken"), WORKSPACE_DEMO_KEY);
       await page.reload();

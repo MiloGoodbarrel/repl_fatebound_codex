@@ -151,7 +151,7 @@ Do not create separate demo page implementations: changes to the actual screens
 must appear here automatically.
 
 The only alternate layer is the browser-local data adapter in
-`client/src/demo/workspaceApi.ts`, with original fictional campaign fixtures. It intercepts
+`client/src/demo/workspaceApi.ts`, with curated sample campaign fixtures. It intercepts
 all `/api/` fetches before screens mount, rejects unknown operations, and never
 falls back to private APIs. Stock-only reads use `/demo-library`, a dedicated
 anonymous GET/HEAD router backed by the same shared stock tables as the app.
@@ -167,7 +167,8 @@ loot draws, journal text imports/name review, summary revisions, and skins use
 the real controls. File/audio uploads, server downloads, paid AI, administration,
 and actual identity/account deletion are explicitly blocked. Shared stock items,
 sourcebooks and monsters are the full catalog, not fictional substitutes;
-only the campaign-owned sample content is fictional. Stock draws are filtered
+campaign-owned sample content comes from the supplied Starter Set adventure
+and a separate, explicitly fictional resource-linking sandbox. Stock draws are filtered
 locally, while bestiary searches/details use the read-only stock router.
 The demo tests the UI, not production
 identity, network latency, database durability, upload extraction, or multi-user
@@ -179,10 +180,27 @@ in `shared/sourcebooks.ts`; source search accepts codes and expanded names.
 The original source IDs remain unchanged for API filters. Unknown names are
 shown unchanged rather than guessed.
 
-Demo saves use only `fatebound:workspace-demo:v2` (1 MiB maximum). Reset removes
-only that key and restores fictional fixtures; unrelated browser/account data
-is untouched. Old simplified-demo saves are not migrated into the new format.
+Demo saves use only `fatebound:workspace-demo:v3` (1 MiB maximum). Reset removes
+only that key and restores sample fixtures; unrelated browser/account data
+is untouched. Previous demo saves (including v2) are left untouched, not migrated
+or overwritten, so existing visitors get the new example without losing old work.
 Storage failures are shown explicitly rather than reporting a successful save.
+
+### Lost Mine of Phandelver sample
+
+`client/src/demo/phandelver/` supplies the main demo campaign: five unnamed
+level-one Starter Set pregens, 66 prepared rosters (including optional branches
+and deterministic wandering examples), module-specific creature profiles, and
+12 source-cited DM-preparation journal entries. These are summaries and
+initiative data, not the original adventure PDF, maps, or full character sheets.
+Original uploads are excluded from Git and application publishing.
+
+Every roster includes the original level-one party; later encounters are not
+silently rebalanced or leveled. Journal notes explicitly distinguish preparation
+from played events and flag source conflicts, variable counts and optional
+reinforcements. Named HP variants and adventure-specific monster statistics
+must not be replaced with generic Monster Manual defaults. The extra fictional
+campaign exists only to exercise cross-campaign resource linking.
 
 Validation:
 `npm test` includes local adapter regressions.

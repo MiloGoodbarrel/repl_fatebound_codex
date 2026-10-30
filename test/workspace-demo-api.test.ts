@@ -39,10 +39,11 @@ test("real-screen demo API keeps campaign CRUD, party, saves, prepared groups an
   assert.deepEqual((await send(`/api/campaigns/${cid}/encounter`)).data.data, saved);
   const prepared = (await send("/api/campaigns/1/prepared-encounters")).data[0];
   const group = prepared.data.combatants.find((c: any) => c.isGroup);
-  assert.deepEqual(group.memberHp, [18, 18, 18]);
-  group.memberHp.push(18);
+  assert.deepEqual(group.memberHp, [7, 7, 7, 7]);
+  group.memberHp.push(7);
+  group.memberConditions.push([]);
   await send(`/api/campaigns/1/prepared-encounters/${prepared.id}`, "PUT", { data: prepared.data });
-  assert.equal((await send("/api/campaigns/1/prepared-encounters")).data[0].data.combatants.find((c: any) => c.isGroup).memberHp.length, 4);
+  assert.equal((await send("/api/campaigns/1/prepared-encounters")).data[0].data.combatants.find((c: any) => c.isGroup).memberHp.length, 5);
   const appearance = { skin: "illuskian", mode: "light" };
   await send("/api/account/appearance", "PUT", appearance);
   const reloaded = new WorkspaceDemoApi(storage);
@@ -115,14 +116,14 @@ test("journal uses real name-review helpers, immutable originals, revision confl
   assert.equal((await send(`${path}/notes`, "PUT", { revision: 0, notes: "Mira reached the lighthouse." })).data.revision, 1);
   assert.equal((await send(`${path}/notes`, "PUT", { revision: 0, notes: "Stale draft" })).status, 409);
   const refs = (await send(`${base}/references`)).data;
-  const mira = refs.find((r: any) => r.name === "Mira Flint");
-  await send(`${base}/aliases`, "POST", { phrase: "Meera Flint", referenceKey: mira.key });
-  const imported = (await send(`${path}/imports`, "POST", { title: "Fictional text", kind: "transcript", format: "text", text: "Meera Flint met Keeper Vela." })).data;
+  const mira = refs.find((r: any) => r.name === "Sildar Hallwinter");
+  await send(`${base}/aliases`, "POST", { phrase: "Sildarr Hallwinter", referenceKey: mira.key });
+  const imported = (await send(`${path}/imports`, "POST", { title: "Fictional text", kind: "transcript", format: "text", text: "Sildarr Hallwinter reached Phandalin." })).data;
   assert.equal(imported.suggestions.length, 1);
   const reviewed = (await send(`${path}/imports/${imported.id}/decisions`, "POST",
     { revision: 0, suggestionId: imported.suggestions[0].id, referenceKey: mira.key })).data;
-  assert.equal(reviewed.reviewed, "Mira Flint met Keeper Vela.");
-  assert.equal(reviewed.original, "Meera Flint met Keeper Vela.");
+  assert.equal(reviewed.reviewed, "Sildar Hallwinter reached Phandalin.");
+  assert.equal(reviewed.original, "Sildarr Hallwinter reached Phandalin.");
   const state = (await send(`${path}/summary`)).data;
   const sections = emptySummarySections();
   sections[0].text = "The party reached the lighthouse.";
@@ -147,8 +148,8 @@ test("unknown APIs, provider calls, uploads and admin actions fail closed withou
   for (const [path, method] of [
     ["/api/unknown", "GET"], ["/api/__clerk/v1/client", "GET"],
     ["/api/admin/seed-loot/5e", "POST"], ["/api/account/data", "DELETE"],
-    ["/api/campaigns/1/journal/sessions/demo-session-lighthouse/recordings", "POST"],
-    ["/api/campaigns/1/journal/sessions/demo-session-lighthouse/imports/file", "POST"],
+    ["/api/campaigns/1/journal/sessions/demo-lmop-overview/recordings", "POST"],
+    ["/api/campaigns/1/journal/sessions/demo-lmop-overview/imports/file", "POST"],
   ]) assert.equal((await send(path, method)).status, 403, path);
 });
 

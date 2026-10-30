@@ -7,7 +7,7 @@ The user wants `/dev` to allow test browsing, including evaluation by a GPT brow
 
 **Why:** Their goal is low-friction evaluation, not a second authentication system or a privileged production account.
 
-**How to apply:** Keep campaign records fictional, edits browser-only, and reset controls available. Never populate campaign fixtures from real campaigns, install a test identity, or weaken private API authorization. Disable uploads, AI charges, and administration. Explain that demo results do not validate real login, authorization, database persistence, or exact behavior of every signed-in tool.
+**How to apply:** Keep sample campaigns independent of real account data, edits browser-only, and reset controls available. Never populate campaign fixtures from real campaigns, install a test identity, or weaken private API authorization. Disable uploads, AI charges, and administration. Explain that demo results do not validate real login, authorization, database persistence, or exact behavior of every signed-in tool.
 
 Use the actual workspace screens in the demo, not separately maintained simplified pages.
 
@@ -26,3 +26,9 @@ The full shared stock library may be browsed without signing in, but campaign-ow
 **Why:** The user explicitly selected “Full shared stock library” for an accurate public demo after being told that this makes stock content anonymously browsable.
 
 **How to apply:** Keep stock-only public reads separate from authenticated APIs. Use the same stock tables and statblock presentation as the signed-in app; do not export private campaign repositories or allow anonymous mutations.
+
+The main demo example is Lost Mine of Phandelver, using encounters from the supplied adventure, campaign context as journal notes, and the supplied Starter Set characters as the PC party.
+
+**Why:** The user explicitly chose this adventure to make the demo concrete and requested those three content roles.
+
+**How to apply:** Keep this content demo-only, not imported into a real owner's campaigns. Treat campaign notes as spoiler-filled DM preparation rather than fabricated played sessions. The unnamed pregens need descriptive labels, not invented player identities; later encounters must not imply the original level-one PCs are already leveled.

@@ -9,8 +9,9 @@ import { z } from "zod";
 import { appearanceSchema } from "@shared/appearance";
 import { creatureProfileSchema } from "@shared/creatureProfiles";
 import { sectionsSchema } from "@shared/sessionSummary";
+import { seedPhandelverDemo } from "./phandelver";
 
-export const WORKSPACE_DEMO_KEY = "fatebound:workspace-demo:v2";
+export const WORKSPACE_DEMO_KEY = "fatebound:workspace-demo:v3";
 export interface DemoHomebrew {
   id: number; campaignId: number; name: string; creatureType: string; size: string;
   armorClass: number; printedAverageHp: number; dexScore: number; challengeRating: string;
@@ -25,7 +26,7 @@ export interface PreparedDemo {
   createdAt: string; updatedAt: string;
 }
 export interface WorkspaceDemoData {
-  version: 2; nextId: number; appearance: Appearance;
+  version: 3; nextId: number; appearance: Appearance;
   campaigns: Campaign[]; characters: CampaignCharacter[]; items: CampaignItem[];
   homebrew: DemoHomebrew[]; links: DemoLink[]; tables: RollTable[];
   encounters: Record<string, { data: unknown; savedAt: string }>;
@@ -33,7 +34,7 @@ export interface WorkspaceDemoData {
   aliases: Record<string, Alias[]>; summaries: Record<string, SummaryVersion[]>;
 }
 
-/** Only original fictional fixtures, never fetched or exported from a real account. */
+/** Curated demo fixtures, never fetched or exported from a real account. */
 export function createWorkspaceDemo(): WorkspaceDemoData {
   const old = createDemoState();
   const campaigns = old.campaigns.map((c, i) => ({
@@ -73,8 +74,8 @@ export function createWorkspaceDemo(): WorkspaceDemoData {
       suggestions: [], decisions: [], editedText: null, revision: 0 })),
     recordings: [],
   }));
-  return {
-    version: 2, nextId: 1000, appearance: old.appearance, campaigns, characters, items, homebrew,
+  const data: WorkspaceDemoData = {
+    version: 3, nextId: 1000, appearance: old.appearance, campaigns, characters, items, homebrew,
     links: [], tables: [], encounters: {}, aliases: {}, summaries: {}, sessions,
     prepared: old.encounters.map((e, i) => ({
       id: 400 + i, campaignId: campaignId(e.campaignId), name: e.name,
@@ -93,6 +94,7 @@ export function createWorkspaceDemo(): WorkspaceDemoData {
       },
     })),
   };
+  return seedPhandelverDemo(data);
 }
 
 const numericId = z.number().int().positive();
@@ -103,7 +105,7 @@ const version = z.object({ sessionId: z.string(), revision: numericId, status: z
   action: z.enum(["save", "approve", "restore"]), sections: sectionsSchema, sources: z.array(source),
   sourceFingerprint: z.string(), createdAt: z.string(), restoredFrom: z.number().nullable() });
 const demoSaveSchema = z.object({
-  version: z.literal(2), nextId: numericId, appearance: appearanceSchema,
+  version: z.literal(3), nextId: numericId, appearance: appearanceSchema,
   campaigns: z.array(z.object({ id: numericId, name: z.string(), edition: z.string(), description: z.string().nullable(), ownerUserId: z.null() })),
   characters: z.array(z.object({ id: numericId, campaignId: numericId, name: z.string(), maxHp: z.number(), ac: z.number() })),
   items: z.array(z.object({ id: numericId, campaignId: numericId, name: z.string(), category: z.string(), rarity: z.string(), description: z.string() })),
