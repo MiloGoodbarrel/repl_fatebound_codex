@@ -378,6 +378,7 @@ function MonsterStatblock({ monster, onRoll }: { monster: Monster; onRoll: (nota
       </div>
 
       {/* Stats: AC, HP */}
+      {monster.description && <p className="text-xs text-muted-foreground leading-relaxed">{monster.description}</p>}
       <div className="flex flex-wrap gap-3">
         <span className="flex items-center gap-1">
           <Shield className="w-3 h-3 text-muted-foreground" />
@@ -385,7 +386,7 @@ function MonsterStatblock({ monster, onRoll }: { monster: Monster; onRoll: (nota
         </span>
         <span className="flex items-center gap-1">
           <Heart className="w-3 h-3 text-muted-foreground" />
-          <span className="font-semibold">HP</span> avg {monster.hp}
+          {monster.hpLabel ? <span>{monster.hpLabel}</span> : <><span className="font-semibold">HP</span> avg {monster.hp}</>}
           {monster.hit_dice && <span className="text-muted-foreground ml-1">({monster.hit_dice})</span>}
         </span>
       </div>
@@ -3213,7 +3214,7 @@ export default function InitiativeTracker() {
                               <div className="flex gap-2 text-[11px] text-muted-foreground shrink-0">
                                 {m.challengeRating && <span className="font-semibold text-primary/70">CR {m.challengeRating}</span>}
                                 {m.armorClass && <span className="flex items-center gap-0.5"><Shield className="w-3 h-3" />{m.armorClass}</span>}
-                                {m.printedAverageHp && <span className="flex items-center gap-0.5"><Heart className="w-3 h-3" />{m.printedAverageHp}</span>}
+                                {(m.profileData?.hpLabel || m.printedAverageHp) && <span className="flex items-center gap-0.5"><Heart className="w-3 h-3" />{m.profileData?.hpLabel ?? m.printedAverageHp}</span>}
                               </div>
                             </div>
                             <div className="text-[11px] text-muted-foreground mt-0.5">
@@ -3249,8 +3250,8 @@ export default function InitiativeTracker() {
                               <div className="text-muted-foreground flex items-center justify-center gap-0.5"><Shield className="w-3 h-3" />AC</div>
                             </div>
                             <div className="text-center bg-background/60 rounded p-1.5">
-                              <div className="font-bold text-base">{hm.printedAverageHp ?? "—"}</div>
-                              <div className="text-muted-foreground flex items-center justify-center gap-0.5"><Heart className="w-3 h-3" />HP avg</div>
+                              <div className="font-bold text-base">{hm.profileData?.hpLabel ?? hm.printedAverageHp ?? "—"}</div>
+                              <div className="text-muted-foreground flex items-center justify-center gap-0.5"><Heart className="w-3 h-3" />{hm.profileData?.hpLabel ? "Manual tracking" : "HP avg"}</div>
                             </div>
                             <div className="text-center bg-background/60 rounded p-1.5">
                               <div className="font-bold text-base">{hm.hitDice ?? "—"}</div>

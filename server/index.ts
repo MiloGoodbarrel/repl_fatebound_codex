@@ -12,6 +12,7 @@ import { CLERK_PROXY_PATH, clerkProxyMiddleware, getClerkProxyHost } from "./mid
 import { registerAccountPolicy, accessRepository } from "./auth/access";
 import { requestActors } from "./auth/context";
 import { migrateAccounts } from "./auth/migrate";
+import { importUntilFirstLight } from "./importUntilFirstLight";
 import { isDemoDocument } from "../shared/demoPath";
 
 const app = express();
@@ -83,6 +84,7 @@ app.use((req, res, next) => {
 
 (async () => {
   await migrateAccounts();
+  await importUntilFirstLight();
   // Auto-seed loot table on first run (skips if table already has rows)
   await seedLootTable("5e", false);
 

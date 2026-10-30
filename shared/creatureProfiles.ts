@@ -13,6 +13,7 @@ const detailedActionSchema = z.object({
 
 export const creatureProfileSchema = z.object({
   index: z.string(), name: z.string().trim().min(1), hp: z.number().finite(),
+  hpLabel: z.string().max(160).optional(),
   ac: z.number().finite(), cr: z.string(), type: z.string(), size: z.string(),
   hit_dice: z.string().optional(), hitDiceCount: z.number().optional(), hitDieSize: z.number().optional(),
   str: z.number().optional(), dex: z.number().optional(), con: z.number().optional(),
@@ -78,7 +79,7 @@ export function profileLibraryColumns(profile: CreatureProfile) {
     name: profile.name, creatureType: profile.type, size: profile.size,
     alignment: profile.alignment ?? null,
     armorClass: referenceOnly ? null : profile.ac,
-    printedAverageHp: referenceOnly ? null : profile.hp,
+    printedAverageHp: referenceOnly || profile.hpLabel ? null : profile.hp,
     hitDice: profile.hit_dice ?? null, dexScore: profile.dex ?? null,
     challengeRating: profile.cr, profileData: profile,
   };
