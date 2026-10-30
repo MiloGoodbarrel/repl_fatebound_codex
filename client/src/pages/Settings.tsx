@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { useClerk } from "@clerk/react";
+import { useWorkspaceAccount } from "@/lib/workspaceAccount";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -9,12 +9,13 @@ import { useCheckNavigation } from "@/lib/navigationGuard";
 import AppearanceSettings from "@/components/AppearanceSettings";
 
 export default function Settings() {
-  const clerk = useClerk();
+  const identity = useWorkspaceAccount();
   const check = useCheckNavigation();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const account = useQuery<{ environment: string; legacyOwnershipStatus: string }>({ queryKey: ["/api/account"] });
   const ownershipMessages: Record<string, string> = {
+    demo: "Fictional browser-only workspace. Account pairing and deletion cannot affect real accounts here.",
     setup_completed: "The original campaign ownership setup has completed. This is not a sign-in pairing failure.",
     already_claimed: "The original campaigns have already been claimed. This account has no administrator role; ownership cannot be reassigned automatically.",
     not_configured: "The running server has no owner email configured. Save CREATOR_GOOGLE_EMAIL for production and republish.",
@@ -23,6 +24,7 @@ export default function Settings() {
     eligible: "This account passes the owner check. Check again to retry the automatic ownership setup.",
   };
   async function erase(deleteLogin: boolean) {
+    if (identity.demo) return;
     if (!await check()) return;
     if (!window.confirm(deleteLogin ?
       "Permanently delete ALL your campaigns, encounters, notes, transcripts, recordings and private homebrew, then delete your login account? This cannot be undone." :
@@ -32,8 +34,7 @@ export default function Settings() {
       await apiRequest("DELETE", "/api/account/data");
       if (deleteLogin) {
         // User deletion is executed only after server-side workspace erasure succeeds.
-        if (!clerk.user) throw new Error("Sign in again before deleting your account.");
-        await clerk.user.delete();
+        await identity.deleteLogin();
         closeWorkspace();
         queryClient.clear();
         window.location.replace("/");
@@ -50,7 +51,7 @@ export default function Settings() {
     <AppearanceSettings />
     <section className="space-y-3 rounded-lg border p-5">
       <h2 className="font-display text-xl">Campaign account pairing</h2>
-      <p>Signed in as: {clerk.user?.primaryEmailAddress?.emailAddress ?? "Loading account…"}</p>
+      <p>Signed in as: {identity.email || "Loading account…"}</p>
       {account.data && <p>Environment: {account.data.environment}. Preview and published accounts are separate.</p>}
       <p role="status">{account.isError ? "Could not check pairing. Try again." : account.data ?
         ownershipMessages[account.data.legacyOwnershipStatus] ?? "Pairing status unavailable. Refresh to load the latest version." : "Checking campaign ownership…"}</p>
@@ -64,8 +65,9 @@ export default function Settings() {
       <h2 className="font-display text-xl">Delete your data</h2>
       <p>Deletes campaigns, linked-resource selections, encounters, characters, private items, notes, imports, aliases and uploaded recordings. This does not delete Google's account or Google's own data. There is no full-session backup feature.</p>
       <div className="flex flex-wrap gap-3">
-        <Button variant="destructive" disabled={busy} onClick={() => void erase(false)}>Delete workspace data</Button>
-        <Button variant="outline" disabled={busy} onClick={() => void erase(true)}>Delete data and login account</Button>
+        {identity.demo && <p className="text-sm text-muted-foreground">Account deletion is disabled in the demo. Use Reset demo to remove only fictional browser data.</p>}
+        <Button variant="destructive" disabled={busy || identity.demo} onClick={() => void erase(false)}>Delete workspace data</Button>
+        <Button variant="outline" disabled={busy || identity.demo} onClick={() => void erase(true)}>Delete data and login account</Button>
       </div>
       {error && <p role="alert">{error}</p>}
     </section>

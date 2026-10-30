@@ -1,94 +1,94 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { chromium, expect, type Page } from "@playwright/test";
-import { DEMO_STORAGE_KEY, type DemoState } from "../client/src/demo/model";
+import { chromium, expect } from "@playwright/test";
+import { WORKSPACE_DEMO_KEY, type WorkspaceDemoData } from "../client/src/demo/workspaceData";
 
-test("public demo is accountless, local-only, persistent, resettable and usable on desktop/mobile", {
-  skip: process.env.PUBLIC_DEMO_BROWSER_TEST !== "1", timeout: 180000,
+test("real-screen public demo supports desktop/mobile tools without private API or Clerk requests", {
+  skip: process.env.PUBLIC_DEMO_BROWSER_TEST !== "1", timeout: 240000,
 }, async () => {
   const origin = process.env.PUBLIC_DEMO_ORIGIN ?? `https://${process.env.REPLIT_DEV_DOMAIN}`;
   const browser = await chromium.launch({ executablePath: "/repl/tools/bin/chromium", args: ["--no-sandbox"] });
-  const snapshot = (page: Page) => page.evaluate(key => JSON.parse(localStorage.getItem(key)!) as DemoState, DEMO_STORAGE_KEY);
   try {
     for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
       const context = await browser.newContext({ viewport });
+      context.setDefaultTimeout(10000);
       const page = await context.newPage(), errors: string[] = [], privateRequests: string[] = [];
       page.on("pageerror", e => errors.push(e.message));
       page.on("request", req => {
-        const url = new URL(req.url());
-        if (url.pathname.startsWith("/api/") || url.pathname.includes("/__clerk") || /clerk\.(accounts|com)/.test(url.hostname)) privateRequests.push(url.pathname);
+        const u = new URL(req.url());
+        if (u.pathname.startsWith("/api/") || u.pathname.includes("/__clerk") || /clerk\.(accounts|com)/.test(u.hostname)) privateRequests.push(u.pathname);
       });
+      page.on("dialog", dialog => void dialog.accept());
+      const snapshot = () => page.evaluate(key => JSON.parse(localStorage.getItem(key)!) as WorkspaceDemoData, WORKSPACE_DEMO_KEY);
+      const nav = page.getByRole("navigation", { name: "Campaign tools" });
       await page.goto(`${origin}/dev`);
-      await expect(page.getByRole("heading", { name: "Campaign workspace" })).toBeVisible();
-      await expect(page.getByText("PUBLIC DEMO · FICTIONAL DATA", { exact: true })).toBeVisible();
-      await page.evaluate(() => localStorage.setItem("activeCampaign", "PRIVATE_WORKSPACE_SENTINEL"));
-      const campaignName = `QA Coast ${viewport.width}`;
-      await page.getByRole("button", { name: "New campaign" }).click();
+      await expect(page.getByRole("heading", { name: "D&D DM Toolkit" })).toBeVisible();
+      await expect(page.getByLabel("Public demo notice")).toBeVisible();
+      await page.evaluate(() => localStorage.setItem("activeCampaign", "PRIVATE_SENTINEL"));
+      await page.getByTestId("button-toggle-campaigns").click();
+      await page.getByTestId("button-select-campaign-1").click();
+      await page.getByTestId("button-link-resources-1").click();
       const dialog = page.getByRole("dialog");
-      await expect(dialog).toBeVisible();
-      await page.getByLabel("Campaign name", { exact: true }).fill(campaignName);
-      for (let n = 0; n < 8; n++) await page.keyboard.press("Tab");
-      assert.equal(await dialog.evaluate(node => node.contains(document.activeElement)), true);
-      await page.getByRole("button", { name: "Save campaign", exact: true }).click();
-      await expect(dialog).toHaveCount(0);
-      await expect(page.getByLabel("Active campaign")).toHaveValue(/demo-/);
-      assert.equal((await snapshot(page)).campaigns.some(c => c.name === campaignName), true);
-      await page.getByRole("button", { name: "Add person" }).click();
-      await page.getByLabel("Name", { exact: true }).fill("Fictional QA scout");
-      await page.getByRole("button", { name: "Save person" }).click();
-      await expect(page.getByText("Fictional QA scout")).toBeVisible();
-      await page.getByLabel("Active campaign").selectOption("demo-lantern");
-      await expect(page.getByText("Fictional QA scout")).toHaveCount(0);
-      await page.getByRole("link", { name: "Initiative", exact: true }).click();
-      await page.getByLabel("Shorebound Sentinels group count").fill("5");
-      await page.getByLabel("Shorebound Sentinels shared HP", { exact: true }).fill("12");
-      await page.getByLabel("Shorebound Sentinels conditions").fill("prone, restrained");
-      await page.getByRole("button", { name: "Start", exact: true }).click();
-      await page.getByRole("button", { name: "Next turn", exact: true }).click();
-      const combat = (await snapshot(page)).encounters.find(e => e.id === "demo-caves")!;
-      assert.equal(combat.members.find(m => m.name === "Shorebound Sentinels")?.count, 5);
-      assert.equal(combat.members.find(m => m.name === "Shorebound Sentinels")?.hp, 12);
-      assert.deepEqual(combat.members.find(m => m.name === "Shorebound Sentinels")?.conditions, ["prone", "restrained"]);
-      assert.equal(combat.running, true);
-      assert.equal(combat.turn, 1);
-      await page.getByRole("link", { name: "Loot", exact: true }).click();
-      await page.getByRole("button", { name: "Draw item" }).click();
-      await page.getByRole("button", { name: "Save to campaign loot" }).click();
-      assert.equal((await snapshot(page)).loot.reduce((n, item) => n + item.quantity, 0), 2);
-      await page.getByRole("link", { name: "Roll tables", exact: true }).click();
-      await page.getByRole("button", { name: "Roll", exact: true }).click();
-      assert.equal((await snapshot(page)).lastRoll?.tableId, "demo-coast-table");
-      await page.getByRole("link", { name: "Sessions", exact: true }).click();
-      const notes = page.getByLabel("Fictional session notes");
-      await notes.fill("Fictional QA notes survived a reload.");
-      await page.getByRole("button", { name: "Save snapshot", exact: true }).click();
-      await page.getByRole("button", { name: "Approve snapshot", exact: true }).click();
-      await page.getByRole("button", { name: "Restore as new draft", exact: true }).last().click();
-      await page.getByRole("button", { name: "Restore as new snapshot", exact: true }).click();
-      assert.deepEqual((await snapshot(page)).sessions[0].versions.map(v => v.status), ["approved", "draft", "approved", "draft"]);
-      await page.reload();
-      await expect(notes).toHaveValue("Fictional QA notes survived a reload.");
+      await expect(dialog.getByRole("heading", { name: "Linked resources for The Lantern Coast" })).toBeVisible();
+      await page.getByTestId("select-resource-source").click();
+      await page.getByRole("option", { name: "The Ashen Observatory" }).click();
+      await dialog.locator("label").filter({ hasText: "Star Chart Compass" }).click();
+      await page.getByTestId("button-confirm-link-resources").click();
+      await expect(dialog.getByText("Currently linked (1)")).toBeVisible();
+      await dialog.getByRole("button", { name: "Close", exact: true }).first().click();
+
+      await nav.getByRole("link", { name: "Initiative", exact: true }).click();
+      await page.getByRole("dialog").getByLabel("D&D 5e (2014)", { exact: true }).click();
+      await page.getByRole("button", { name: "Start Combat Setup", exact: true }).click();
+      await expect(page.getByTestId("button-load-prepared-400")).toBeVisible();
+      await page.getByTestId("button-load-prepared-400").click();
+      await expect(page.getByTestId("text-combatant-name-demo-combat-guardians")).toContainText("Shorebound Sentinels");
+      if (viewport.width < 768) await page.getByRole("button", { name: "Controls", exact: true }).click();
+      await page.getByTestId("button-start-combat").click();
+      await expect(page.getByTestId("button-next-turn")).toBeVisible();
+      await page.getByTestId("button-next-turn").click();
+      await page.getByTestId("button-save-encounter").click();
+      await expect.poll(async () => !!(await snapshot()).encounters["1"]).toBe(true);
+      // Feature tabs retain the very same mounted combat screen.
+      await nav.getByRole("link", { name: "Loot", exact: true }).click();
+      await expect(page.getByText("Deck of Loot", { exact: true }).first()).toBeVisible();
+      await nav.getByRole("link", { name: "Initiative", exact: true }).click();
+      await expect(page.getByTestId("button-next-turn")).toBeVisible();
+      await nav.getByRole("link", { name: "Roll Tables", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "Roll Tables", exact: true })).toBeVisible();
+
+      await nav.getByRole("link", { name: "Sessions", exact: true }).click();
+      await page.getByLabel("Session name", { exact: true }).fill(`QA session ${viewport.width}`);
+      await page.getByRole("button", { name: "Create session", exact: true }).click();
+      const notes = page.getByRole("textbox", { name: "Session notes", exact: true });
+      await notes.fill("Fictional notes written with the real journal screen.");
+      await expect.poll(async () => (await snapshot()).sessions[0].session.notes).toBe("Fictional notes written with the real journal screen.");
+      // A brand-new session starts directly in the real summary editor.
+      await page.getByLabel("Session Overview editable summary", { exact: true }).fill("The party found a lens.");
+      await page.getByRole("button", { name: "Save draft", exact: true }).click();
+      await expect.poll(async () => Object.values((await snapshot()).summaries).flat().length).toBe(1);
+      await nav.getByRole("link", { name: "Settings", exact: true }).click();
+      await page.getByRole("button", { name: "Light", exact: true }).click();
+      await expect(page.locator("html")).toHaveAttribute("data-mode", "light");
+      await expect(page.getByRole("button", { name: "Delete workspace data", exact: true })).toBeDisabled();
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
-      await page.getByRole("link", { name: "Settings", exact: true }).click();
-      await page.getByRole("button", { name: "Reset Demo", exact: true }).click();
-      await page.getByRole("dialog").getByRole("button", { name: "Reset Demo", exact: true }).click();
-      assert.equal((await snapshot(page)).campaigns.length, 2);
-      assert.equal((await snapshot(page)).sessions[0].versions.length, 1);
-      assert.equal(await page.evaluate(() => localStorage.getItem("activeCampaign")), "PRIVATE_WORKSPACE_SENTINEL");
-      await page.evaluate(key => localStorage.setItem(key, "{broken demo data"), DEMO_STORAGE_KEY);
       await page.reload();
-      await expect(page.getByRole("alert")).toContainText("Stored demo data could not be read");
-      await page.getByRole("button", { name: "Reset Demo", exact: true }).click();
-      await page.getByRole("dialog").getByRole("button", { name: "Reset Demo", exact: true }).click();
-      await expect(page.getByRole("alert")).toHaveCount(0);
-      await page.goto(`${origin}/dev/initiative`);
-      await expect(page.getByRole("heading", { name: "Initiative", exact: true })).toBeVisible();
-      assert.deepEqual(privateRequests, [], "Demo UI must never contact real account/API services");
-      assert.deepEqual(errors, []);
-      const privateAPI = await page.request.get(`${origin}/api/campaigns`);
-      assert.equal(privateAPI.status(), 401, "Demo mode does not bypass real API authorization");
-      const headers = await page.request.get(`${origin}/dev/sessions`);
-      assert.match(headers.headers()["x-robots-tag"], /noindex/);
+      await expect(page.locator("html")).toHaveAttribute("data-mode", "light");
+      assert.ok((await snapshot()).sessions.some(s => s.session.notes.includes("Fictional notes written")));
+      await page.getByRole("button", { name: "Reset demo", exact: true }).click();
+      await expect.poll(async () => (await snapshot()).sessions.length).toBe(1);
+      assert.equal(await page.evaluate(() => localStorage.getItem("activeCampaign")), "PRIVATE_SENTINEL");
+      await page.evaluate(key => localStorage.setItem(key, "{broken"), WORKSPACE_DEMO_KEY);
+      await page.reload();
+      await expect(page.getByRole("heading", { name: "Demo storage needs attention" })).toBeVisible();
+      await page.getByRole("button", { name: "Reset demo", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "Account & privacy" })).toBeVisible();
+      assert.deepEqual(privateRequests, [], "Demo UI must never contact real APIs or identity services");
+      assert.deepEqual(errors, [], "Shared screens should render without errors");
+      const realApi = await page.request.get(`${origin}/api/campaigns`);
+      assert.equal(realApi.status(), 401, "Real APIs still require authentication");
+      const response = await page.request.get(`${origin}/dev/sessions`);
+      assert.match(response.headers()["x-robots-tag"], /noindex/);
       await context.close();
     }
   } finally { await browser.close(); }

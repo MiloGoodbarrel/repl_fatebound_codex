@@ -142,6 +142,40 @@ npm start
 
 ---
 
+## Public demo and UI parity
+
+`/dev` (and `/dev/campaigns`, `/dev/loot`, `/dev/tables`, `/dev/initiative`,
+`/dev/sessions`, `/dev/settings`) renders the **same workspace router, pages,
+dialogs, appearance provider, and feature navigation** as the signed-in app.
+Do not create separate demo page implementations: changes to the actual screens
+must appear here automatically.
+
+The only alternate layer is the browser-local data adapter in
+`client/src/demo/workspaceApi.ts`, with original fictional fixtures. It intercepts
+all `/api/` fetches before screens mount, rejects unknown operations, and never
+falls back to real APIs. No Clerk provider or privileged test identity is installed.
+The normal server API authorization remains unchanged. Each visitor has their own
+demo edits; the demo cannot read campaign data from an account.
+
+Campaigns, party rosters, links, encounter saves and prepared rosters, tables,
+loot draws, journal text imports/name review, summary revisions, and skins use
+the real controls. File/audio uploads, server downloads, paid AI, administration,
+and actual identity/account deletion are explicitly blocked. The sample content
+library is smaller than the live library. The demo tests the UI, not production
+identity, network latency, database durability, upload extraction, or multi-user
+security.
+
+Demo saves use only `fatebound:workspace-demo:v2` (1 MiB maximum). Reset removes
+only that key and restores fictional fixtures; unrelated browser/account data
+is untouched. Old simplified-demo saves are not migrated into the new format.
+Storage failures are shown explicitly rather than reporting a successful save.
+
+Validation:
+`npm test` includes local adapter regressions.
+`PUBLIC_DEMO_BROWSER_TEST=1 npx tsx --test test/public-demo-browser.test.ts`
+checks desktop/mobile real-screen interactions, persistence/reset, zero private
+API/identity requests, and continued authentication on real APIs.
+
 ## License
 
 MIT

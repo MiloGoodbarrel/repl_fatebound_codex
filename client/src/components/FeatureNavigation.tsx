@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { BookOpen, Compass, Dices, Package, Swords } from "lucide-react";
 import { useCampaign } from "@/lib/campaignContext";
 import { AccountControls } from "@/components/AccountControls";
-import { useClerk } from "@clerk/react";
+import { useWorkspaceAccount } from "@/lib/workspaceAccount";
 import { useCheckNavigation } from "@/lib/navigationGuard";
 import { closeWorkspace } from "@/lib/workspaceRequests";
 import { queryClient } from "@/lib/queryClient";
@@ -19,14 +19,15 @@ export default function FeatureNavigation() {
   const [location] = useLocation();
   const { activeCampaign } = useCampaign();
   const currentPath = location.split("?")[0];
-  const clerk = useClerk();
+  const account = useWorkspaceAccount();
   const check = useCheckNavigation();
   const signOut = async () => {
     if (!await check()) return;
+    if (account.demo) return account.signOut();
     closeWorkspace();
     await queryClient.cancelQueries();
     queryClient.clear();
-    try { await clerk.signOut({ redirectUrl: "/" }); }
+    try { await account.signOut(); }
     catch { window.location.replace("/"); }
   };
 

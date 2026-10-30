@@ -21,6 +21,7 @@ import { AuthPage, PrivacyPage, PublicLanding, clerkAppearance, clerkLocalizatio
 import Settings from "@/pages/Settings";
 import { activateWorkspace, closeWorkspace } from "@/lib/workspaceRequests";
 import { isDemoPath } from "@/demo/model";
+import { WorkspaceAccountContext } from "@/lib/workspaceAccount";
 
 const DemoApp = lazy(() => import("@/demo/DemoApp"));
 
@@ -40,7 +41,7 @@ const persistentFeatures = [
   { path: "/initiative", Component: InitiativeTracker },
 ];
 
-function Router() {
+export function WorkspaceRouter({ banner }: { banner?: React.ReactNode }) {
   const [location] = useLocation();
   const [visited, setVisited] = useState<string[]>([]);
   const persistent = persistentFeatures.some(feature => feature.path === location);
@@ -50,6 +51,7 @@ function Router() {
 
   return (
     <div className="dm-workspace h-dvh flex flex-col overflow-hidden bg-background">
+      {banner}
       <FeatureNavigation />
       <div className="min-h-0 flex-1 overflow-auto">
         {persistentFeatures.map(({ path, Component }) => (visited.includes(path) || location === path) && (
@@ -104,7 +106,15 @@ function AuthenticatedApp() {
     <Route path="/sign-up/*?"><AuthPage mode="sign-up" /></Route>
     <Route path="/privacy"><PrivacyPage /></Route>
     <Route>
-      {userId ? <AppearanceProvider key={userId} userId={userId}><CampaignProvider><Router /></CampaignProvider></AppearanceProvider> : <PublicLanding />}
+      {userId ? <WorkspaceAccountContext.Provider value={{
+        demo: false,
+        email: clerk.user?.primaryEmailAddress?.emailAddress ?? "",
+        signOut: () => clerk.signOut({ redirectUrl: "/" }),
+        deleteLogin: async () => {
+          if (!clerk.user) throw new Error("Sign in again before deleting your account.");
+          await clerk.user.delete();
+        },
+      }}><AppearanceProvider key={userId} userId={userId}><CampaignProvider><WorkspaceRouter /></CampaignProvider></AppearanceProvider></WorkspaceAccountContext.Provider> : <PublicLanding />}
     </Route>
   </Switch>;
 }
@@ -124,8 +134,7 @@ function ClerkApp() {
 }
 
 function App() {
-  // This is a separate, local-only simulation, not an authenticated workspace
-  // with a different identity. Never install workspace transport or fetch data.
+  // Reuse workspace screens with a local-only data adapter, never a test login.
   if (isDemoPath(window.location.pathname, basePath)) {
     return <TooltipProvider>
       <Suspense fallback={<div className="p-8" role="status">Opening the fictional demo…</div>}>
