@@ -35,7 +35,7 @@ function DemoWorkspace({ api, error }: { api: WorkspaceDemoApi; error: string })
     deleteLogin: async () => { throw new Error("Real account deletion is unavailable in the demo."); },
   }}>
     <AppearanceProvider key={generation} userId="browser-only-demo">
-      <CampaignProvider>
+      <CampaignProvider scope="demo:v3">
         <WorkspaceRouter banner={<aside aria-label="Public demo notice" className="shrink-0 border-b border-primary/30 bg-card px-3 py-2 text-xs text-foreground">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p><strong>Public demo · real app screens</strong> — Lost Mine of Phandelver sample, level-one pregens and the full shared stock library. Demo changes save only in this browser. Uploads, account changes and paid AI are blocked.</p>

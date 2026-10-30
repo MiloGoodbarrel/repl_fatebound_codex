@@ -4,6 +4,7 @@ import { AlertTriangle, ArrowLeft, BookOpen, ChevronRight, Clock3, FileAudio, Fi
 import type { Alias, JournalImport, JournalSession, Reference, Recording, SessionDetail, Suggestion } from "@shared/journal";
 import { MAX_AUDIO_BYTES, MAX_TEXT_BYTES, MAX_DOCUMENT_BYTES } from "@shared/journal";
 import { useCampaign } from "@/lib/campaignContext";
+import { useWorkspaceAccount } from "@/lib/workspaceAccount";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -64,6 +65,7 @@ function OccurrenceCard({ suggestion, item, onDecision, disabled }: { suggestion
 
 function JournalWorkspace({ embedded = false, onClose, registerCloseRequest }: { embedded?: boolean; onClose?: () => void; registerCloseRequest?: (request: (() => void) | null) => void }) {
   const { activeCampaign } = useCampaign();
+  const { demo } = useWorkspaceAccount();
   const campaignId = activeCampaign?.id;
   const base = campaignId ? baseFor(campaignId) : "";
   const [capability, setCapability] = useState<Capability | null>(null);
@@ -587,13 +589,14 @@ function JournalWorkspace({ embedded = false, onClose, registerCloseRequest }: {
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-2 rounded-lg border border-border/70 p-4">
                   <div className="flex gap-2"><Input placeholder="Import title" aria-label="Import title" value={importTitle} onChange={e => setImportTitle(e.target.value)} /><select aria-label="Import kind" className="rounded-md border border-border bg-background px-2" value={importKind} onChange={e => setImportKind(e.target.value as "transcript" | "summary")}><option value="transcript">Transcript</option><option value="summary">Summary</option></select></div>
-                  <div className="flex flex-wrap gap-2"><select aria-label="Text format" className="rounded-md border border-border bg-background px-2" value={importFormat} onChange={e => setImportFormat(e.target.value as "text" | "markdown")}><option value="text">Plain text</option><option value="markdown">Markdown</option></select><label className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm"><Upload className="h-4 w-4" />Import document<input className="sr-only" type="file" aria-label="Import journal document" accept=".pdf,.docx,.txt,.md,.markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown" disabled={busy} onChange={e => { uploadTextFile(e.target.files?.[0]); e.target.value = ""; }} /></label></div>
+                  <div className="flex flex-wrap gap-2"><select aria-label="Text format" className="rounded-md border border-border bg-background px-2" value={importFormat} onChange={e => setImportFormat(e.target.value as "text" | "markdown")}><option value="text">Plain text</option><option value="markdown">Markdown</option></select><label aria-disabled={demo} className={`flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm ${demo ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}><Upload className="h-4 w-4" />Import document<input className="sr-only" type="file" aria-label="Import journal document" accept=".pdf,.docx,.txt,.md,.markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown" disabled={busy || demo} onChange={e => { uploadTextFile(e.target.files?.[0]); e.target.value = ""; }} /></label></div>
+                  {demo && <p className="text-xs text-muted-foreground">Document and audio uploads are disabled in the public demo. Paste fictional text below to test source review and citations.</p>}
                   <textarea className="min-h-28 w-full rounded-md border border-border bg-background/60 p-3 text-sm" placeholder="Paste UTF-8 notes or an exported summary…" value={importText} onChange={e => setImportText(e.target.value)} />
                   <Button disabled={busy || !importTitle.trim() || !importText.trim()} onClick={saveImport}><FileText className="mr-2 h-4 w-4" />Add immutable source</Button>
                 </div>
                 <div className="space-y-3 rounded-lg border border-border/70 p-4">
                   <h3 className="font-display">Private audio archive</h3><p className="text-xs text-muted-foreground">MP3, M4A/MP4, WAV, Ogg, or WebM · 20 MiB max. Upload retries use a stable request ID.</p>
-                  <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-primary/40 p-4 text-sm hover:bg-primary/5"><FileAudio className="h-4 w-4 text-primary" />Choose recording<input className="sr-only" type="file" accept="audio/*" onChange={e => uploadAudio(e.target.files?.[0])} /></label>
+                  <label aria-disabled={demo} className={`flex items-center justify-center gap-2 rounded-md border border-dashed border-primary/40 p-4 text-sm ${demo ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-primary/5"}`}><FileAudio className="h-4 w-4 text-primary" />Choose recording<input className="sr-only" type="file" aria-label="Upload session recording" accept="audio/*" disabled={busy || demo} onChange={e => uploadAudio(e.target.files?.[0])} /></label>
                   {detail.recordings.map(recording => <div key={recording.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-border/60 p-2 text-sm"><span className="truncate">{recording.name} <small className="text-muted-foreground">· {(recording.size / 1024 / 1024).toFixed(1)} MiB</small></span><div className="flex items-center gap-2"><audio controls preload="none" className="h-8 max-w-40" src={`${base}/sessions/${encodeURIComponent(recording.sessionId)}/recordings/${encodeURIComponent(recording.id)}`} onError={() => setToastError(`Could not play private recording “${recording.name}”.`)} /><Button size="icon" variant="ghost" aria-label={`Delete ${recording.name}`} onClick={() => deleteRecording(recording)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></div>)}
                 </div>
               </div>

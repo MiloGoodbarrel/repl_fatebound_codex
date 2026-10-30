@@ -12,12 +12,14 @@ import { Button } from "@/components/ui/button";
 export default function Home() {
   const [items, setItems] = useState<ItemResponse[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [lastDraw, setLastDraw] = useState<DrawOptions | null>(null);
   const drawItemsMutation = useDrawItems();
 
   const handleDraw = async (options: DrawOptions) => {
     try {
       const drawnItems = await drawItemsMutation.mutateAsync(options);
       setItems(drawnItems);
+      setLastDraw(options);
     } catch {
       // Error handled in hook via toast
     }
@@ -62,10 +64,10 @@ export default function Home() {
                 </div>
                 <div className="max-w-md space-y-2">
                   <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground">
-                    Awaiting Destiny
+                    {lastDraw ? "No matching items" : "Awaiting Destiny"}
                   </h1>
                   <p className="text-muted-foreground font-serif text-lg">
-                    Select your criteria and draw your fate.
+                    {lastDraw ? `No items matched${lastDraw.search ? ` “${lastDraw.search}”` : " these filters"}. Try a broader keyword, category, rarity or source selection. Campaign and linked items use the Homebrew source.` : "Select your criteria and draw your fate."}
                     <br />
                     <span className="text-sm italic opacity-70">
                       "What you seek is seeking you."

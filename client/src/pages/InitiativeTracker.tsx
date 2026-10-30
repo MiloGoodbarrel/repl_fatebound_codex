@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Sourcebook } from "@/components/Sourcebook";
+import { PreparedEncounterNameDialog } from "@/components/PreparedEncounterNameDialog";
+import { memberMaximums, healGroupMember } from "@shared/groupHitPoints";
+import { statblockBody } from "@shared/statblockText";
 import { DiceRoller, DiceText, useDiceRoller } from "@/components/DiceRoller";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -328,7 +331,8 @@ interface Combatant {
   joiningNextRound?: boolean;
   // Group combatant (e.g. goblin horde)
   isGroup?: boolean;
-  memberHp?: number[];  // current HP for each member; maxHp is shared across all
+  memberHp?: number[];  // Current HP for each member; maxHp is the default for additions.
+  memberMaxHp?: number[]; // Actual rolled maxima, separate from the default for new members.
   memberConditions?: string[][];  // conditions for each group member
   memberConditionDurations?: Array<Record<string, number>>;
   // PC-specific
@@ -450,7 +454,7 @@ function MonsterStatblock({ monster, onRoll }: { monster: Monster; onRoll: (nota
           {traits.map((trait, i) => (
             <p key={i} className="text-muted-foreground leading-snug">
               <span className="font-semibold text-foreground/90 italic">{trait.name}. </span>
-              <DiceText text={trait.description ?? ""} onRoll={onRoll} />
+              <DiceText text={statblockBody(trait.name, trait.description ?? "")} onRoll={onRoll} />
             </p>
           ))}
         </div>
@@ -463,7 +467,7 @@ function MonsterStatblock({ monster, onRoll }: { monster: Monster; onRoll: (nota
           {visibleActions.map((action, i) => (
             <p key={i} className="text-muted-foreground leading-snug">
               <span className="font-semibold text-foreground/90 italic">{action.name}. </span>
-              <DiceText text={action.description ?? ""} onRoll={(n) => onRoll(n, action.name ?? undefined)} />
+              <DiceText text={statblockBody(action.name, action.description ?? "")} onRoll={(n) => onRoll(n, action.name ?? undefined)} />
               {action.attackBonus != null && (
                 <button className="text-primary/80 ml-1 hover:text-primary"
                   onClick={() => onRoll(`1d20${action.attackBonus! >= 0 ? "+" : ""}${action.attackBonus}`, `${monster.name}: ${action.name}`)}>
@@ -699,6 +703,7 @@ function monsterWithOverrides(combatant: Combatant, rescuedCaptives = 0): Monste
 export default function InitiativeTracker() {
   const { open: diceOpen, setOpen: setDiceOpen, requestRoll } = useDiceRoller();
   const [journalOpen, setJournalOpen] = useState(false);
+  const [preparedNameRequest, setPreparedNameRequest] = useState<{ mode: "rename" | "duplicate"; encounter: PreparedEncounter } | null>(null);
   const journalCloseRequestRef = useRef<(() => void) | null>(null);
   const registerJournalCloseRequest = useCallback((request: (() => void) | null) => {
     journalCloseRequestRef.current = request;
@@ -1285,6 +1290,7 @@ export default function InitiativeTracker() {
       joiningNextRound: combatState === "active",
       isGroup: true,
       memberHp: memberHps,
+      memberMaxHp: [...memberHps],
       memberConditions: Array.from({ length: count }, () => []),
       memberConditionDurations: Array.from({ length: count }, () => ({})),
     };
@@ -1393,11 +1399,12 @@ export default function InitiativeTracker() {
     const heal = getHpInput(id);
     if (heal <= 0) return;
     const focIdx = groupFocused[id] ?? 0;
-    const newMemberHp = [...combatant.memberHp];
-    newMemberHp[focIdx] = Math.min(combatant.maxHp, newMemberHp[focIdx] + heal);
+    const healed = healGroupMember({ ...combatant, memberHp: combatant.memberHp }, focIdx, heal);
+    const newMemberHp = healed.memberHp;
     const allDead = newMemberHp.every(h => h <= 0);
     updateCombatant(id, {
       memberHp: newMemberHp,
+      memberMaxHp: healed.memberMaxHp,
       isDown: allDead || groupIsDown({ ...combatant, memberHp: newMemberHp }, newMemberHp),
       isDead: allDead,
     });
@@ -1410,6 +1417,7 @@ export default function InitiativeTracker() {
     const hp = combatant.maxHp;
     updateCombatant(id, {
       memberHp: [...combatant.memberHp, hp],
+      memberMaxHp: [...memberMaximums(combatant), hp],
       memberConditions: [...(combatant.memberConditions ?? combatant.memberHp.map(() => [...combatant.conditions])), []],
       memberConditionDurations: [
         ...(combatant.memberConditionDurations ?? combatant.memberHp.map(() => ({ ...(combatant.conditionDurations ?? {}) }))),
@@ -1424,6 +1432,7 @@ export default function InitiativeTracker() {
     const combatant = combatants.find(c => c.id === id);
     if (!combatant?.isGroup || !combatant.memberHp || combatant.memberHp.length <= 1) return;
     const newMemberHp = combatant.memberHp.slice(0, -1);
+    const newMemberMaxHp = memberMaximums(combatant).slice(0, -1);
     const newMemberConditions = combatant.memberConditions?.slice(0, -1);
     const newMemberConditionDurations = combatant.memberConditionDurations?.slice(0, -1);
     const allDead = newMemberHp.every(h => h <= 0);
@@ -1433,6 +1442,7 @@ export default function InitiativeTracker() {
     }
     updateCombatant(id, {
       memberHp: newMemberHp,
+      memberMaxHp: newMemberMaxHp,
       memberConditions: newMemberConditions,
       memberConditionDurations: newMemberConditionDurations,
       isDown: allDead || groupIsDown({
@@ -1542,7 +1552,7 @@ export default function InitiativeTracker() {
       id: combatant.id,
       name: combatant.name,
       hp: String(currentHp),
-      maxHp: String(combatant.maxHp),
+      maxHp: String(combatant.isGroup ? memberMaximums(combatant)[focusedMember] : combatant.maxHp),
       initiative: String(combatant.initiative),
       ac: String(combatant.ac),
       modifiers: {
@@ -1593,7 +1603,9 @@ export default function InitiativeTracker() {
     let corrected: Combatant;
 
     if (combatant.isGroup && combatant.memberHp) {
-      const memberHp = combatant.memberHp.map(value => Math.min(value, maxHp));
+      const memberHp = [...combatant.memberHp];
+      const memberMaxHp = memberMaximums(combatant);
+      memberMaxHp[focusedMember] = maxHp;
       memberHp[focusedMember] = Math.min(hp, maxHp);
       const allDead = memberHp.every(value => value <= 0);
       corrected = {
@@ -1604,6 +1616,7 @@ export default function InitiativeTracker() {
         maxHp,
         hp: allDead ? 0 : Math.max(...memberHp),
         memberHp,
+        memberMaxHp,
         isDown: allDead || groupIsDown({ ...combatant, memberHp }),
         isDead: allDead,
         abilityModifierOverrides: modifiers,
@@ -2362,27 +2375,25 @@ export default function InitiativeTracker() {
   };
 
   const renamePreparedEncounter = async (encounter: PreparedEncounter) => {
-    const name = window.prompt("Rename prepared encounter", encounter.name)?.trim();
-    if (!name || name === encounter.name) return;
-    setPreparedEncounterBusy(encounter.id);
-    try {
-      await preparedEncounterRequest("PUT", encounter.id, { name });
-    } catch (error) {
-      toast({ title: "Could not rename encounter", description: error instanceof Error ? error.message : "Rename failed", variant: "destructive" });
-    } finally {
-      setPreparedEncounterBusy(null);
-    }
+    setPreparedNameRequest({ mode: "rename", encounter });
   };
 
   const duplicatePreparedEncounter = async (encounter: PreparedEncounter) => {
-    const name = window.prompt("Name the duplicate encounter", `${encounter.name} Copy`)?.trim();
-    if (!name) return;
+    setPreparedNameRequest({ mode: "duplicate", encounter });
+  };
+
+  const confirmPreparedName = async (name: string): Promise<boolean> => {
+    if (!preparedNameRequest) return false;
+    const { encounter, mode } = preparedNameRequest;
     setPreparedEncounterBusy(encounter.id);
     try {
-      await preparedEncounterRequest("POST", undefined, { name, data: encounter.data });
-      toast({ title: "Encounter duplicated", description: `${name} is ready to edit or load.` });
+      await preparedEncounterRequest(mode === "duplicate" ? "POST" : "PUT", mode === "duplicate" ? undefined : encounter.id,
+        mode === "duplicate" ? { name, data: encounter.data } : { name });
+      toast({ title: mode === "duplicate" ? "Encounter duplicated" : "Encounter renamed", description: name });
+      return true;
     } catch (error) {
-      toast({ title: "Could not duplicate encounter", description: error instanceof Error ? error.message : "Duplicate failed", variant: "destructive" });
+      toast({ title: "Could not save encounter name", description: error instanceof Error ? error.message : "Save failed", variant: "destructive" });
+      return false;
     } finally {
       setPreparedEncounterBusy(null);
     }
@@ -2601,7 +2612,7 @@ export default function InitiativeTracker() {
     : undefined;
 
   return (
-    <div className={`${journalOpen ? "min-h-full h-auto overflow-visible md:h-full md:overflow-hidden" : "h-full overflow-hidden"} bg-background flex flex-col`}>
+    <div className={`${journalOpen ? "min-h-full h-auto overflow-visible md:h-full md:overflow-hidden" : "h-full overflow-hidden"} relative bg-background flex flex-col`}>
       {/* Version Selection Dialog */}
       <Dialog open={showVersionDialog} onOpenChange={setShowVersionDialog}>
         <DialogContent className="sm:max-w-md">
@@ -2669,6 +2680,7 @@ export default function InitiativeTracker() {
                   <Input
                     id="correct-hp"
                     type="number"
+                    aria-label={correctionCombatant?.isGroup ? "Focused creature HP" : "Current creature HP"}
                     value={correctionDraft.hp}
                     onChange={e => setCorrectionDraft(d => d ? { ...d, hp: e.target.value } : d)}
                     data-testid="input-correction-hp"
@@ -2679,6 +2691,7 @@ export default function InitiativeTracker() {
                   <Input
                     id="correct-max-hp"
                     type="number"
+                    aria-label="Maximum creature HP"
                     min="1"
                     value={correctionDraft.maxHp}
                     onChange={e => setCorrectionDraft(d => d ? { ...d, maxHp: e.target.value } : d)}
@@ -2690,6 +2703,7 @@ export default function InitiativeTracker() {
                   <Input
                     id="correct-initiative"
                     type="number"
+                    aria-label="Combatant initiative"
                     value={correctionDraft.initiative}
                     onChange={e => setCorrectionDraft(d => d ? { ...d, initiative: e.target.value } : d)}
                     data-testid="input-correction-initiative"
@@ -2700,6 +2714,7 @@ export default function InitiativeTracker() {
                   <Input
                     id="correct-ac"
                     type="number"
+                    aria-label="Combatant armor class"
                     min="0"
                     value={correctionDraft.ac}
                     onChange={e => setCorrectionDraft(d => d ? { ...d, ac: e.target.value } : d)}
@@ -2716,6 +2731,7 @@ export default function InitiativeTracker() {
                       <Input
                         id={`correct-${key}`}
                         type="number"
+                        aria-label={`${label} ability modifier`}
                         value={correctionDraft.modifiers[key]}
                         onChange={e => setCorrectionDraft(d => d ? {
                           ...d,
@@ -3009,6 +3025,7 @@ export default function InitiativeTracker() {
                           <span className="text-[11px] text-muted-foreground">Initiative:</span>
                           <Input
                             type="number"
+                            aria-label={`Initiative for ${monster.name} in encounter group`}
                             value={encounterGroupInitiatives[i] ?? 10}
                             onChange={e => {
                               const v = parseInt(e.target.value);
@@ -3079,6 +3096,7 @@ export default function InitiativeTracker() {
                     <span className="text-xs text-muted-foreground">Initiative:</span>
                     <Input
                       type="number"
+                      aria-label={`Initiative for ${selectedMonster.name}`}
                       value={midCombatInitiative}
                       onChange={e => { const v = parseInt(e.target.value); if (!isNaN(v)) setMidCombatInitiative(v); }}
                       className="h-7 w-16 text-sm text-center px-1"
@@ -3102,12 +3120,14 @@ export default function InitiativeTracker() {
                   <button
                     className="w-6 h-6 rounded border border-border flex items-center justify-center text-sm hover:bg-muted disabled:opacity-40"
                     onClick={() => setMonsterGroupCount(c => Math.max(1, c - 1))}
+                    aria-label="Decrease monster count"
                     disabled={monsterGroupCount <= 1}
                   >−</button>
                   <span className="w-6 text-center font-mono text-sm font-bold">{monsterGroupCount}</span>
                   <button
                     className="w-6 h-6 rounded border border-border flex items-center justify-center text-sm hover:bg-muted disabled:opacity-40"
                     onClick={() => setMonsterGroupCount(c => Math.min(20, c + 1))}
+                    aria-label="Increase monster count"
                     disabled={monsterGroupCount >= 20}
                   >+</button>
                 </div>
@@ -3281,6 +3301,7 @@ export default function InitiativeTracker() {
                               <span className="text-xs text-muted-foreground">Initiative:</span>
                               <Input
                                 type="number"
+                                aria-label={`Initiative for ${hm.name}`}
                                 value={homebrewMidCombatInit}
                                 onChange={e => { const v = parseInt(e.target.value); if (!isNaN(v)) setHomebrewMidCombatInit(v); }}
                                 className="h-7 w-16 text-sm text-center px-1"
@@ -3496,6 +3517,7 @@ export default function InitiativeTracker() {
                             variant="ghost"
                             className="h-7 w-7 text-muted-foreground hover:text-destructive"
                             onClick={() => removePartyMemberMutation.mutate(char.id)}
+                            aria-label={`Remove ${char.name} from party roster`}
                             data-testid={`button-remove-party-member-${char.id}`}
                           >
                             <Trash2 className="w-3 h-3" />
@@ -3518,6 +3540,7 @@ export default function InitiativeTracker() {
               value={pcName}
               onChange={e => setPcName(e.target.value)}
               placeholder="Character Name"
+              aria-label="Player character name"
               data-testid="input-pc-name"
             />
             <div className="grid grid-cols-4 gap-2">
@@ -3525,6 +3548,7 @@ export default function InitiativeTracker() {
                 <Label className="text-xs">Initiative</Label>
                 <Input
                   type="number"
+                  aria-label="Player character initiative"
                   value={pcInitiative}
                   onChange={e => setPcInitiative(e.target.value)}
                   placeholder="0"
@@ -3535,6 +3559,7 @@ export default function InitiativeTracker() {
                 <Label className="text-xs">HP</Label>
                 <Input
                   type="number"
+                  aria-label="Player character hit points"
                   value={pcHp}
                   onChange={e => setPcHp(e.target.value)}
                   placeholder="0"
@@ -3545,6 +3570,7 @@ export default function InitiativeTracker() {
                 <Label className="text-xs">AC</Label>
                 <Input
                   type="number"
+                  aria-label="Player character armor class"
                   value={pcAc}
                   onChange={e => setPcAc(e.target.value)}
                   placeholder="10"
@@ -3555,6 +3581,7 @@ export default function InitiativeTracker() {
                 <Label className="text-xs">Level</Label>
                 <Input
                   type="number"
+                  aria-label="Player character level"
                   value={pcLevel}
                   onChange={e => setPcLevel(e.target.value)}
                   placeholder="1"
@@ -3608,6 +3635,7 @@ export default function InitiativeTracker() {
               value={npcName}
               onChange={e => setNpcName(e.target.value)}
               placeholder="NPC Name"
+              aria-label="NPC name"
               data-testid="input-npc-name"
             />
             <div className="grid grid-cols-2 gap-2">
@@ -3615,6 +3643,7 @@ export default function InitiativeTracker() {
                 <Label className="text-xs">HP</Label>
                 <Input
                   type="number"
+                  aria-label="NPC hit points"
                   value={npcHp}
                   onChange={e => setNpcHp(e.target.value)}
                   placeholder="10"
@@ -3625,6 +3654,7 @@ export default function InitiativeTracker() {
                 <Label className="text-xs">AC</Label>
                 <Input
                   type="number"
+                  aria-label="NPC armor class"
                   value={npcAc}
                   onChange={e => setNpcAc(e.target.value)}
                   placeholder="10"
@@ -3680,6 +3710,7 @@ export default function InitiativeTracker() {
                   </Button>
                   <Input id="rescued-captives" type="number" min={0} max={1000} step={1}
                     value={rescuedCaptives} className="text-center"
+                    aria-label="Number of rescued captives"
                     onChange={event => setRescuedCaptives(normalizeRescuedCaptives(event.target.valueAsNumber))}
                     data-testid="input-rescued-captives" />
                   <Button size="icon" variant="outline" aria-label="Increase rescued captives"
@@ -3831,6 +3862,7 @@ export default function InitiativeTracker() {
                   value={preparedEncounterName}
                   onChange={event => setPreparedEncounterName(event.target.value)}
                   placeholder="Encounter name"
+                  aria-label="Prepared encounter name"
                   maxLength={100}
                   disabled={combatState !== "setup"}
                   data-testid="input-prepared-encounter-name"
@@ -3844,6 +3876,7 @@ export default function InitiativeTracker() {
                     || !combatants.some(combatant => combatant.combatantType !== "pc")
                     || preparedEncounterBusy !== null
                   }
+                  aria-label="Save prepared encounter"
                   data-testid="button-save-prepared-encounter"
                 >
                   {preparedEncounterBusy === "save"
@@ -3904,16 +3937,16 @@ export default function InitiativeTracker() {
                       >
                         <Play className="w-3 h-3 mr-1" /> Load
                       </Button>
-                      <Button size="icon" variant="outline" className="w-7 h-7" title="Replace with current roster" onClick={() => updatePreparedEncounterRoster(encounter)} disabled={combatState !== "setup" || preparedEncounterBusy !== null || !combatants.some(c => c.combatantType !== "pc")}>
+                      <Button size="icon" variant="outline" className="w-7 h-7" aria-label={`Replace ${encounter.name} with current roster`} title="Replace with current roster" onClick={() => updatePreparedEncounterRoster(encounter)} disabled={combatState !== "setup" || preparedEncounterBusy !== null || !combatants.some(c => c.combatantType !== "pc")}>
                         <Save className="w-3 h-3" />
                       </Button>
-                      <Button size="icon" variant="outline" className="w-7 h-7" title="Rename" onClick={() => renamePreparedEncounter(encounter)} disabled={preparedEncounterBusy !== null}>
+                      <Button size="icon" variant="outline" className="w-7 h-7" aria-label={`Rename ${encounter.name}`} title="Rename" onClick={() => renamePreparedEncounter(encounter)} disabled={preparedEncounterBusy !== null}>
                         <Pencil className="w-3 h-3" />
                       </Button>
-                      <Button size="icon" variant="outline" className="w-7 h-7" title="Duplicate" onClick={() => duplicatePreparedEncounter(encounter)} disabled={preparedEncounterBusy !== null}>
+                      <Button size="icon" variant="outline" className="w-7 h-7" aria-label={`Duplicate ${encounter.name}`} title="Duplicate" onClick={() => duplicatePreparedEncounter(encounter)} disabled={preparedEncounterBusy !== null}>
                         <BookOpen className="w-3 h-3" />
                       </Button>
-                      <Button size="icon" variant="ghost" className="w-7 h-7 text-destructive" title="Delete" onClick={() => deletePreparedEncounter(encounter)} disabled={preparedEncounterBusy !== null}>
+                      <Button size="icon" variant="ghost" className="w-7 h-7 text-destructive" aria-label={`Delete ${encounter.name}`} title="Delete" onClick={() => deletePreparedEncounter(encounter)} disabled={preparedEncounterBusy !== null}>
                         <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
@@ -3947,6 +3980,14 @@ export default function InitiativeTracker() {
           </div>
         </div>
       </div>
+
+      {preparedNameRequest && <PreparedEncounterNameDialog
+        key={`${preparedNameRequest.mode}:${preparedNameRequest.encounter.id}`}
+        mode={preparedNameRequest.mode}
+        initialName={preparedNameRequest.mode === "duplicate" ? `${preparedNameRequest.encounter.name} Copy` : preparedNameRequest.encounter.name}
+        onConfirm={confirmPreparedName}
+        onClose={() => setPreparedNameRequest(null)}
+      />}
 
       {/* Main Area - Combat List */}
       <main className={`min-w-0 flex-1 overflow-y-auto p-4 md:p-8 relative bg-background/50 scrollbar-fantasy${mobileTab === "controls" ? " hidden md:block" : ""}`}>
@@ -4020,7 +4061,8 @@ export default function InitiativeTracker() {
                       combatant.isMonster && (combatant.stance === "enemy" || !combatant.stance) && "bg-red-500/5"
                     )}>
                       <CardContent className="p-4">
-                        <div className="flex items-center gap-4">
+                        <div className="space-y-3">
+                        <div className="flex flex-wrap items-center gap-3">
                           {/* Initiative */}
                           <div className="w-16 flex-shrink-0">
                             <Input
@@ -4029,6 +4071,7 @@ export default function InitiativeTracker() {
                               onChange={e => updateInitiative(combatant.id, e.target.value)}
                               className="text-center text-xl font-mono font-bold h-12"
                               disabled={combatState === "active"}
+                              aria-label={`Initiative for ${combatant.name}`}
                               data-testid={`input-initiative-${combatant.id}`}
                             />
                           </div>
@@ -4046,7 +4089,7 @@ export default function InitiativeTracker() {
                           </div>
 
                           {/* Name & Type */}
-                          <div className="flex-1 min-w-0">
+                          <div className="flex-[1_1_240px] min-w-0">
                             <div className="flex items-center gap-2">
                               {combatant.isMonster ? (
                                 <Button
@@ -4055,6 +4098,7 @@ export default function InitiativeTracker() {
                                   className="w-7 h-7 flex-shrink-0"
                                   onClick={() => cycleStance(combatant.id)}
                                   title={`Click to change stance (${combatant.stance || "enemy"})`}
+                                  aria-label={`Change stance for ${combatant.name}`}
                                   data-testid={`button-stance-${combatant.id}`}
                                 >
                                   <Shield 
@@ -4067,9 +4111,9 @@ export default function InitiativeTracker() {
                               )}
                               <HoverCard openDelay={200} closeDelay={100}>
                                 <HoverCardTrigger asChild>
-                                  <h3 className="text-xl font-bold flex items-center gap-2 cursor-help" data-testid={`text-combatant-name-${combatant.id}`}>
+                                  <h3 className="text-lg sm:text-xl font-bold flex flex-wrap items-center gap-2 min-w-0 cursor-help" data-testid={`text-combatant-name-${combatant.id}`}>
                                     {combatant.isDown && <Skull className="w-5 h-5 text-destructive" />}
-                                    <span style={{ 
+                                    <span className="break-words" style={{
                                       color: combatant.isMonster 
                                         ? STANCE_COLORS[combatant.stance || "enemy"] 
                                         : "#60A5FA" 
@@ -4258,7 +4302,7 @@ export default function InitiativeTracker() {
                                 </Button>
                               )}
                             </div>
-                            <div className="text-xs text-muted-foreground ml-8 flex items-center gap-1.5 flex-wrap">
+                            <div className="text-xs text-muted-foreground ml-8 flex items-center gap-x-1.5 gap-y-1 flex-wrap leading-relaxed">
                               {/* Group count */}
                               {combatant.isGroup && combatant.memberHp && (
                                 <>
@@ -4305,6 +4349,7 @@ export default function InitiativeTracker() {
                                             autoFocus
                                             className="w-8 text-center bg-muted border border-primary rounded px-0.5 outline-none font-mono"
                                             value={editingStat.value}
+                                            aria-label={`Level for ${combatant.name}`}
                                             onChange={e => setEditingStat(s => s ? { ...s, value: e.target.value } : s)}
                                             onBlur={commitStatEdit}
                                             onKeyDown={e => { if (e.key === "Enter") commitStatEdit(); if (e.key === "Escape") setEditingStat(null); }}
@@ -4357,7 +4402,9 @@ export default function InitiativeTracker() {
                           </div>
 
                           {/* Conditions Column */}
-                          <div className="flex flex-col gap-1 min-w-[160px]">
+                        </div>
+
+                          <div className="flex flex-col gap-1 w-full min-w-0">
                             {combatant.isGroup && (
                               <span className="text-[10px] font-semibold text-primary">
                                 G{(groupFocused[combatant.id] ?? 0) + 1} conditions
@@ -4423,7 +4470,7 @@ export default function InitiativeTracker() {
 
                           {/* HP Display — group shows member tokens; single shows inline-editable HP */}
                           {combatant.isGroup && combatant.memberHp ? (
-                            <div className="flex flex-col gap-1.5 min-w-[200px] max-w-[260px]">
+                            <div className="flex flex-col gap-1.5 w-full min-w-0">
                               <div className="flex flex-wrap gap-1">
                                 {combatant.memberHp.map((mhp, i) => {
                                   const alive = mhp > 0;
@@ -4440,7 +4487,7 @@ export default function InitiativeTracker() {
                                         !focused && alive && "border-border bg-background/60 hover:border-primary/50 cursor-pointer",
                                       )}
                                       title={alive
-                                        ? `G${i+1}: ${mhp}/${combatant.maxHp} HP${memberConditions.length ? ` — ${memberConditions.join(", ")}` : ""} — click to focus`
+                                        ? `G${i+1}: ${mhp}/${memberMaximums(combatant)[i]} HP${memberConditions.length ? ` — ${memberConditions.join(", ")}` : ""} — click to focus`
                                         : `G${i+1}: Dead`}
                                     >
                                       {alive ? (
@@ -4458,7 +4505,7 @@ export default function InitiativeTracker() {
                               <div className="text-[11px] text-muted-foreground flex items-center gap-1">
                                 <Heart className="w-3 h-3" />
                                 Focus: G{(groupFocused[combatant.id] ?? 0) + 1}
-                                ({combatant.memberHp[groupFocused[combatant.id] ?? 0] ?? 0}/{combatant.maxHp})
+                                ({combatant.memberHp[groupFocused[combatant.id] ?? 0] ?? 0}/{memberMaximums(combatant)[groupFocused[combatant.id] ?? 0]})
                               </div>
                             </div>
                           ) : (
@@ -4470,6 +4517,7 @@ export default function InitiativeTracker() {
                                   autoFocus
                                   className="w-14 text-center font-mono font-bold text-lg bg-muted border border-primary rounded px-1 outline-none"
                                   value={editingStat.value}
+                                  aria-label={`Current HP for ${combatant.name}`}
                                   onChange={e => setEditingStat(s => s ? { ...s, value: e.target.value } : s)}
                                   onBlur={commitStatEdit}
                                   onKeyDown={e => { if (e.key === "Enter") commitStatEdit(); if (e.key === "Escape") setEditingStat(null); }}
@@ -4490,6 +4538,7 @@ export default function InitiativeTracker() {
                                   autoFocus
                                   className="w-14 text-center font-mono text-sm bg-muted border border-primary rounded px-1 outline-none"
                                   value={editingStat.value}
+                                  aria-label={`Maximum HP for ${combatant.name}`}
                                   onChange={e => setEditingStat(s => s ? { ...s, value: e.target.value } : s)}
                                   onBlur={commitStatEdit}
                                   onKeyDown={e => { if (e.key === "Enter") commitStatEdit(); if (e.key === "Escape") setEditingStat(null); }}
@@ -4714,13 +4763,14 @@ export default function InitiativeTracker() {
                           )}
 
                           {/* HP Controls */}
-                          <div className="flex items-center gap-1 flex-wrap">
+                          <div className="flex w-full flex-wrap items-center gap-1.5 rounded-md border border-border/50 bg-background/30 p-2">
                             <Input
                               type="number"
                               placeholder="0"
                               className="w-16 h-8 text-center text-sm"
                               value={hpInputs[combatant.id] || ""}
                               onChange={(e) => setHpInputs(prev => ({ ...prev, [combatant.id]: e.target.value }))}
+                              aria-label={`Damage or healing amount for ${combatant.name}`}
                               data-testid={`input-hp-${combatant.id}`}
                             />
                             <Button 
@@ -4815,6 +4865,7 @@ export default function InitiativeTracker() {
                                 autoFocus
                                 className="w-12 text-center font-mono font-bold text-lg bg-muted border border-primary rounded px-1 outline-none"
                                 value={editingStat.value}
+                                aria-label={`Armor class for ${combatant.name}`}
                                 onChange={e => setEditingStat(s => s ? { ...s, value: e.target.value } : s)}
                                 onBlur={commitStatEdit}
                                 onKeyDown={e => { if (e.key === "Enter") commitStatEdit(); if (e.key === "Escape") setEditingStat(null); }}
@@ -4839,6 +4890,7 @@ export default function InitiativeTracker() {
                             className="text-primary border-primary/40 hover:bg-primary/10"
                             onClick={() => openCorrectionEditor(combatant)}
                             title="Edit encounter name and stats"
+                            aria-label={`Edit ${combatant.name} name and stats`}
                             data-testid={`button-correct-stats-${combatant.id}`}
                           >
                             <Pencil className="w-4 h-4" />
@@ -4851,6 +4903,7 @@ export default function InitiativeTracker() {
                             className="text-destructive hover:bg-destructive/10"
                             onClick={() => removeCombatant(combatant.id)}
                             disabled={combatState === "active"}
+                            aria-label={`Remove ${combatant.name} from encounter`}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -4869,7 +4922,7 @@ export default function InitiativeTracker() {
           )}
         </div>
       </main>
-      {journalOpen && <section aria-label="Campaign session journal" className="w-full flex-shrink-0 border-t border-primary/30 bg-background md:w-[min(50%,720px)] md:max-w-[50vw] md:overflow-y-auto md:border-l md:border-t-0">
+      {journalOpen && <section aria-label="Campaign session journal" className="fixed inset-0 z-40 w-full overflow-y-auto border-l border-primary/40 bg-background/95 shadow-2xl backdrop-blur-sm md:inset-y-0 md:left-auto md:right-0 md:w-[min(48vw,720px)] md:max-w-[calc(100vw-2rem)]">
         <EmbeddedJournal onClose={() => setJournalOpen(false)} onRegisterCloseRequest={registerJournalCloseRequest} />
       </section>}
       </div>

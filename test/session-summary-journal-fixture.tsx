@@ -23,6 +23,6 @@ function Shell() {
 }
 createRoot(document.getElementById("root")!).render(
   <QueryClientProvider client={queryClient}><TooltipProvider>
-    <CampaignProvider><NavigationGuardProvider><Shell /></NavigationGuardProvider></CampaignProvider>
+    <CampaignProvider scope="journal-test"><NavigationGuardProvider><Shell /></NavigationGuardProvider></CampaignProvider>
   </TooltipProvider></QueryClientProvider>,
 );

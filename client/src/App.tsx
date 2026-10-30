@@ -114,7 +114,7 @@ function AuthenticatedApp() {
           if (!clerk.user) throw new Error("Sign in again before deleting your account.");
           await clerk.user.delete();
         },
-      }}><AppearanceProvider key={userId} userId={userId}><CampaignProvider><WorkspaceRouter /></CampaignProvider></AppearanceProvider></WorkspaceAccountContext.Provider> : <PublicLanding />}
+      }}><AppearanceProvider key={userId} userId={userId}><CampaignProvider scope={`account:${userId}`}><WorkspaceRouter /></CampaignProvider></AppearanceProvider></WorkspaceAccountContext.Provider> : <PublicLanding />}
     </Route>
   </Switch>;
 }

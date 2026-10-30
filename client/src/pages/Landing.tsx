@@ -263,8 +263,9 @@ export default function Landing() {
                           <h3 className="font-display font-semibold text-primary">New Campaign</h3>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1">
-                              <Label>Campaign Name</Label>
+                              <Label htmlFor="campaign-create-name">Campaign Name</Label>
                               <Input
+                                id="campaign-create-name"
                                 value={newName}
                                 onChange={e => setNewName(e.target.value)}
                                 placeholder="e.g. Curse of Strahd"
@@ -275,7 +276,7 @@ export default function Landing() {
                             <div className="space-y-1">
                               <Label>Edition</Label>
                               <Select value={newEdition} onValueChange={setNewEdition}>
-                                <SelectTrigger data-testid="select-campaign-edition">
+                                <SelectTrigger aria-label="Campaign edition" data-testid="select-campaign-edition">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -289,6 +290,7 @@ export default function Landing() {
                           <div className="space-y-1">
                             <Label>Description <span className="text-muted-foreground text-xs">(optional)</span></Label>
                             <Input
+                              aria-label="Campaign description"
                               value={newDescription}
                               onChange={e => setNewDescription(e.target.value)}
                               placeholder="A short description of this campaign..."
@@ -367,6 +369,7 @@ export default function Landing() {
                                 size="icon"
                                 variant="ghost"
                                 className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                aria-label={`Delete campaign ${campaign.name}`}
                                 onClick={() => deleteMutation.mutate(campaign.id)}
                                 data-testid={`button-delete-campaign-${campaign.id}`}
                               >

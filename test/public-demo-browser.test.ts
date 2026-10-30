@@ -44,6 +44,7 @@ test("real-screen public demo supports desktop/mobile tools without private API 
       await page.getByTestId("button-load-prepared-400").click();
       await expect(page.getByTestId("text-combatant-name-demo-lmop-ambush-goblin")).toContainText("Goblin");
       await expect(page.getByTestId("text-combatant-name-demo-lmop-pc-100")).toContainText("Human Fighter (Noble)");
+      await page.screenshot({ path: `/tmp/fatebound-combat-${viewport.width}.png` });
       if (viewport.width < 768) await page.getByRole("button", { name: "Controls", exact: true }).click();
       await page.getByTestId("button-start-combat").click();
       await expect(page.getByTestId("button-next-turn")).toBeVisible();

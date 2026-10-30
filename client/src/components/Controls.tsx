@@ -11,6 +11,7 @@ import { Sparkles, Dices, Layers, Upload, Search, X, Scroll, RefreshCw, BookOpen
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useCampaign } from "@/lib/campaignContext";
+import { useWorkspaceAccount } from "@/lib/workspaceAccount";
 
 const EDITIONS = [
   { value: "odnd",   label: "OD&D" },
@@ -63,6 +64,7 @@ interface ControlsProps {
 
 export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }: ControlsProps) {
   const { activeCampaign } = useCampaign();
+  const { demo } = useWorkspaceAccount();
   const { data: account } = useQuery<{ admin: boolean }>({ queryKey: ["/api/account"] });
   const [editions, setEditions] = useState<string[]>(["5e"]);
   const [categories, setCategories] = useState<string[]>([...CATEGORIES]);
@@ -441,8 +443,9 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
             Required: <span className="font-mono">name, category, rarity</span><br />
             Optional: <span className="font-mono">description, item_type, damage, weight, cost, properties, attunement</span>
           </p>
-          <input ref={fileInputRef} type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" disabled={uploading} data-testid="input-csv-upload" />
-          <Button onClick={() => fileInputRef.current?.click()} disabled={uploading} variant="outline" size="sm" className="w-full" data-testid="button-upload-csv">
+          {demo && <p className="text-xs text-muted-foreground">File uploads are disabled in the public demo. Use a signed-in campaign to import CSV items.</p>}
+          <input ref={fileInputRef} type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" disabled={uploading || demo} data-testid="input-csv-upload" />
+          <Button onClick={() => fileInputRef.current?.click()} disabled={uploading || demo} variant="outline" size="sm" className="w-full" data-testid="button-upload-csv">
             <Upload className="w-4 h-4 mr-2" />
             {uploading ? "Importing..." : "Choose CSV File"}
           </Button>

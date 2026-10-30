@@ -1,4 +1,5 @@
 import { normalizeRescuedCaptives } from "./freedomWeakening";
+import { memberMaximums } from "./groupHitPoints";
 
 export type EncounterState = "setup" | "active" | "ended";
 
@@ -44,7 +45,9 @@ export function normalizeEncounterSnapshot<TCombatant = unknown>(
   if (!isRecord(candidate) || !Array.isArray(candidate.combatants)) return null;
 
   return {
-    combatants: candidate.combatants as TCombatant[],
+    combatants: candidate.combatants.map(c => isRecord(c) && c.isGroup && Array.isArray(c.memberHp)
+      ? { ...c, memberMaxHp: memberMaximums(c as { memberHp: number[]; memberMaxHp?: number[]; maxHp?: number }) }
+      : c) as TCombatant[],
     round: typeof candidate.round === "number" ? candidate.round : 1,
     activeIndex: typeof candidate.activeIndex === "number" ? candidate.activeIndex : 0,
     combatState: candidate.combatState === "setup"
@@ -98,6 +101,7 @@ type PreparedCombatant = {
   deathSaveFailures?: number;
   joiningNextRound?: boolean;
   memberHp?: number[];
+  memberMaxHp?: number[];
   memberConditions?: string[][];
   memberConditionDurations?: Array<Record<string, number>>;
 };
@@ -131,7 +135,8 @@ export function createPreparedEncounterSnapshot<TCombatant extends PreparedComba
         deathSaveSuccesses: 0,
         deathSaveFailures: 0,
         joiningNextRound: false,
-        memberHp: memberCount > 0 ? Array(memberCount).fill(cloned.maxHp ?? cloned.hp ?? 0) : cloned.memberHp,
+        memberHp: memberCount > 0 ? memberMaximums(cloned) : cloned.memberHp,
+        memberMaxHp: memberCount > 0 ? memberMaximums(cloned) : cloned.memberMaxHp,
         memberConditions: memberCount > 0 ? Array.from({ length: memberCount }, () => []) : cloned.memberConditions,
         memberConditionDurations: memberCount > 0 ? Array.from({ length: memberCount }, () => ({})) : cloned.memberConditionDurations,
       } as TCombatant;
@@ -162,7 +167,8 @@ export function resizePreparedGroup<TCombatant extends PreparedCombatant & {
     ...snapshot,
     combatants: snapshot.combatants.map(combatant => combatant.id === groupId ? {
       ...combatant,
-      memberHp: Array(count).fill(hp),
+      memberHp: Array.from({ length: count }, (_, i) => group.memberMaxHp?.[i] ?? hp),
+      memberMaxHp: Array.from({ length: count }, (_, i) => group.memberMaxHp?.[i] ?? hp),
       memberConditions: Array.from({ length: count }, () => []),
       memberConditionDurations: Array.from({ length: count }, () => ({})),
     } as TCombatant : combatant),

@@ -186,6 +186,18 @@ is untouched. Previous demo saves (including v2) are left untouched, not migrate
 or overwritten, so existing visitors get the new example without losing old work.
 Storage failures are shown explicitly rather than reporting a successful save.
 
+Campaign selection is restored from a tab-local, account/demo-scoped ID and
+validated against the accessible campaign list; no private campaign object is
+cached for another account. Unsaved roll-table forms are recoverable in the
+same tab after refresh or campaign switching. Saving or explicitly discarding
+removes the draft. Signing out clears signed-in table drafts. These conveniences
+are not campaign backups or cross-device synchronization.
+
+Groups retain each creature's rolled maximum HP through save, resume and
+prepared-roster operations. Old saves without individual maxima use conservative
+current/shared-HP estimates; the original pre-damage roll cannot be reconstructed,
+so review older groups' maxima with the correction controls when needed.
+
 ### Lost Mine of Phandelver sample
 
 `client/src/demo/phandelver/` supplies the main demo campaign: five unnamed

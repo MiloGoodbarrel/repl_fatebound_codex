@@ -32,6 +32,13 @@ export function activateWorkspace(userId: string | null) {
   };
 }
 export function closeWorkspace() {
+  if (user && typeof sessionStorage !== "undefined") {
+    try {
+      const prefix = `fatebound:table-draft:account:${user}:`;
+      for (const key of Object.keys(sessionStorage)) if (key.startsWith(prefix)) sessionStorage.removeItem(key);
+      sessionStorage.removeItem(`fatebound:campaign-selection:account:${user}`);
+    } catch { /* Sign-out must still abort requests when browser storage is unavailable. */ }
+  }
   stopped = true;
   user = null;
   pending.forEach(request => request.abort());

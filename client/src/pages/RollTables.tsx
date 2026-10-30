@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { RollTable, RollTableEntry, RollTableMode } from "@shared/rollTables";
 import { selectRollTableEntry } from "@shared/rollTableDraw";
+import { parseTableDraft } from "@/lib/tableDraft";
 
 interface DrawnResult {
   id: string;
@@ -87,7 +88,13 @@ function drawResult(table: RollTable): DrawnResult {
 }
 
 export default function RollTables() {
-  const { activeCampaign } = useCampaign();
+  const { activeCampaign, storageScope } = useCampaign();
+  return <RollTablesWorkspace key={`${storageScope}:${activeCampaign?.id ?? "none"}`} />;
+}
+
+function RollTablesWorkspace() {
+  const { activeCampaign, storageScope } = useCampaign();
+  const draftKey = `fatebound:table-draft:${storageScope}:${activeCampaign?.id ?? "none"}`;
   const { toast } = useToast();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
@@ -96,7 +103,28 @@ export default function RollTables() {
   const [count, setCount] = useState(1);
   const [results, setResults] = useState<DrawnResult[]>([]);
   const [history, setHistory] = useState<DrawnResult[]>([]);
-  const [editor, setEditor] = useState<EditorState | null>(null);
+  const [editor, setEditorState] = useState<EditorState | null>(() => {
+    try { return activeCampaign ? parseTableDraft(sessionStorage.getItem(draftKey)) : null; } catch { return null; }
+  });
+  const [draftStorageError, setDraftStorageError] = useState("");
+  const setEditor = (next: EditorState | null | ((previous: EditorState | null) => EditorState | null)) => {
+    setEditorState(previous => {
+      const value = typeof next === "function" ? next(previous) : next;
+      try {
+        if (value) sessionStorage.setItem(draftKey, JSON.stringify(value));
+        else sessionStorage.removeItem(draftKey);
+      } catch { /* Report through the form, rather than claiming durable recovery. */ }
+      return value;
+    });
+  };
+  useEffect(() => {
+    if (!editor) return;
+    try { sessionStorage.setItem(draftKey, JSON.stringify(editor)); setDraftStorageError(""); }
+    catch { setDraftStorageError("Browser draft recovery is unavailable. Save this table before leaving or refreshing."); }
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [editor, draftKey]);
   const [tablePendingDelete, setTablePendingDelete] = useState<RollTable | null>(null);
 
   const { data: tables = [], isLoading, isError } = useQuery<RollTable[]>({
@@ -113,7 +141,6 @@ export default function RollTables() {
     setCategory("All");
     setResults([]);
     setHistory([]);
-    setEditor(null);
   }, [activeCampaign?.id]);
 
   const categories = useMemo(
@@ -199,13 +226,19 @@ export default function RollTables() {
     setHistory(previous => [replacement, ...previous].slice(0, 20));
   };
 
+  const beginEditor = (value: EditorState) => {
+    let recovered: EditorState | null = null;
+    try { recovered = parseTableDraft(sessionStorage.getItem(draftKey)); } catch { /* Form works without storage. */ }
+    setEditor(recovered ?? value);
+    if (recovered) toast({ title: "Unsaved draft recovered", description: "Save or discard this draft before starting another table." });
+  };
   const openEditor = (table?: RollTable) => {
     if (!table) {
-      setEditor(emptyEditor());
+      beginEditor(emptyEditor());
       return;
     }
     if (table.source !== "campaign") return;
-    setEditor({
+    beginEditor({
       id: Number(table.id),
       name: table.name,
       description: table.description,
@@ -217,7 +250,7 @@ export default function RollTables() {
 
   const duplicateTable = (table: RollTable) => {
     if (table.source !== "campaign") return;
-    setEditor({ ...emptyEditor(), name: `${table.name} Copy`, description: table.description, category: table.category, mode: table.mode, entries: table.entries.map((entry, index) => editorEntry(entry, index, table.mode)) });
+    beginEditor({ ...emptyEditor(), name: `${table.name} Copy`, description: table.description, category: table.category, mode: table.mode, entries: table.entries.map((entry, index) => editorEntry(entry, index, table.mode)) });
   };
 
   const updateEditor = (updates: Partial<EditorState>) => setEditor(previous => previous ? { ...previous, ...updates } : previous);
@@ -410,7 +443,10 @@ export default function RollTables() {
         </div>
       </main>
 
-      <Dialog open={!!editor} onOpenChange={open => { if (!open) setEditor(null); }}>
+      <Dialog open={!!editor} onOpenChange={open => { if (!open) {
+        // Closing the form retains a recoverable draft; only Save or Discard removes it.
+        setEditorState(null);
+      } }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto scrollbar-fantasy">
           <DialogHeader>
             <DialogTitle className="font-display flex items-center gap-2"><Edit3 className="w-5 h-5 text-primary" /> {editor?.id ? "Edit Roll Table" : "New Campaign Table"}</DialogTitle>
@@ -418,6 +454,9 @@ export default function RollTables() {
           </DialogHeader>
           {editor && (
             <div className="space-y-5">
+              <p role={draftStorageError ? "alert" : "status"} className="text-sm text-muted-foreground">
+                {draftStorageError || "Unsaved draft is recoverable in this browser tab after refresh or returning to this campaign. Save commits it; Discard removes it."}
+              </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1"><Label htmlFor="roll-table-name">Table Name</Label><Input id="roll-table-name" value={editor.name} onChange={event => updateEditor({ name: event.target.value })} placeholder="e.g. Harbor District NPCs" data-testid="input-roll-table-name" /></div>
                 <div className="space-y-1"><Label htmlFor="roll-table-category">Category</Label><Input id="roll-table-category" value={editor.category} onChange={event => updateEditor({ category: event.target.value })} placeholder="NPCs, Settlements, Events..." data-testid="input-roll-table-category" /></div>
@@ -443,7 +482,7 @@ export default function RollTables() {
                   ))}
                 </div>
               </div>
-              <div className="flex justify-end gap-2 pt-2 border-t border-border/60"><Button variant="ghost" onClick={() => setEditor(null)}><X className="w-4 h-4 mr-1" /> Cancel</Button><Button onClick={() => editor && saveMutation.mutate(editor)} disabled={!canSave || saveMutation.isPending} className="gap-2" data-testid="button-save-roll-table"><Save className="w-4 h-4" /> {saveMutation.isPending ? "Saving..." : "Save Table"}</Button></div>
+              <div className="flex justify-end gap-2 pt-2 border-t border-border/60"><Button variant="ghost" onClick={() => setEditor(null)}><X className="w-4 h-4 mr-1" /> Discard draft</Button><Button onClick={() => editor && saveMutation.mutate(editor)} disabled={!canSave || saveMutation.isPending} className="gap-2" data-testid="button-save-roll-table"><Save className="w-4 h-4" /> {saveMutation.isPending ? "Saving..." : "Save Table"}</Button></div>
             </div>
           )}
         </DialogContent>

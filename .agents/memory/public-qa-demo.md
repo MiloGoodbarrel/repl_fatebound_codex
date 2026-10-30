@@ -32,3 +32,9 @@ The main demo example is Lost Mine of Phandelver, using encounters from the supp
 **Why:** The user explicitly chose this adventure to make the demo concrete and requested those three content roles.
 
 **How to apply:** Keep this content demo-only, not imported into a real owner's campaigns. Treat campaign notes as spoiler-filled DM preparation rather than fabricated played sessions. The unnamed pregens need descriptive labels, not invented player identities; later encounters must not imply the original level-one PCs are already leveled.
+
+Ordinary naming/editing workflows must use accessible in-app dialogs rather than native browser prompts.
+
+**Why:** The user's external Claude playtest became blocked by the native encounter-duplication prompt; the agent could neither dismiss it nor continue. This is a compatibility requirement for the public audit workflow, not proof of a failed save.
+
+**How to apply:** Preserve keyboard submission, cancel, validation and retry on failure in DOM dialogs. Never claim to have interacted with an external auditor's browser.

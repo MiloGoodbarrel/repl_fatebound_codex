@@ -5,6 +5,7 @@ import { DemoApiError, journalApi, missing } from "./journalApi";
 import { createWorkspaceDemo, validateWorkspaceDemo, WORKSPACE_DEMO_KEY, type WorkspaceDemoData } from "./workspaceData";
 import { z } from "zod";
 import type { ItemResponse } from "@shared/routes";
+import { normalizeItemCategory } from "@shared/itemCategories";
 
 const MAX_SAVE_BYTES = 1024 * 1024;
 export interface DemoStorage { getItem(key: string): string | null; setItem(key: string, value: string): void; removeItem(key: string): void }
@@ -220,7 +221,7 @@ export class WorkspaceDemoApi {
       if (includeHomebrew && opts.campaignId) rows.push(...d.items.filter(i => i.campaignId === opts.campaignId ||
         d.links.some(l => l.campaignId === opts.campaignId && l.kind === "items" && l.resourceId === i.id))
         .map(i => ({ ...i, edition: "homebrew", source: "Homebrew" })));
-      if (opts.categories?.length) rows = rows.filter(i => opts.categories.includes(i.category));
+      if (opts.categories?.length) rows = rows.filter(i => opts.categories.some(c => normalizeItemCategory(c) === normalizeItemCategory(i.category)));
       if (opts.rarities?.length) rows = rows.filter(i => opts.rarities.some(r => r.toLowerCase() === i.rarity.toLowerCase()));
       if (opts.search) rows = rows.filter(i => i.name.toLowerCase().includes(opts.search!.toLowerCase()));
       // Like the live deck: sample without replacement, not duplicate cards.

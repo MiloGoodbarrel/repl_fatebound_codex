@@ -1,4 +1,5 @@
 import { db } from "./db";
+import { itemCategoryFilterValues } from "@shared/itemCategories";
 import {
   items5e, homebrewItems, campaignItems, campaigns, campaignCharacters,
   bestiaryMonsters, bestiaryMonsterTraits, bestiaryMonsterActions,
@@ -416,6 +417,9 @@ export class DatabaseStorage implements IStorage {
     const homebrewRarityFilter = raritiesLower.length > 0
       ? sql`lower(${homebrewItems.rarity}) IN (${sql.join(raritiesLower.map(r => sql`${r}`), sql`, `)})`
       : undefined;
+    const categoryValues = itemCategoryFilterValues(categories);
+    const customCategoryFilter = (column: typeof homebrewItems.category | typeof campaignItems.category) => categoryValues.length
+      ? sql`lower(${column}) IN (${sql.join(categoryValues.map(c => sql`${c}`), sql`, `)})` : sql`false`;
     const campaignRarityFilter = raritiesLower.length > 0
       ? sql`lower(${campaignItems.rarity}) IN (${sql.join(raritiesLower.map(r => sql`${r}`), sql`, `)})`
       : undefined;
@@ -434,13 +438,13 @@ export class DatabaseStorage implements IStorage {
       ? await db
           .select()
           .from(homebrewItems)
-          .where(and(eq(homebrewItems.ownerUserId, currentActor().userId), homebrewNameFilter, inArray(homebrewItems.category, categories), homebrewRarityFilter))
+          .where(and(eq(homebrewItems.ownerUserId, currentActor().userId), homebrewNameFilter, customCategoryFilter(homebrewItems.category), homebrewRarityFilter))
           .orderBy(sql`RANDOM()`)
           .limit(count)
       : [];
 
     const campaignNameFilter = searchTerm ? ilike(campaignItems.name, `%${searchTerm}%`) : undefined;
-    const campaignRows = campaignId != null
+    const campaignRows = campaignId != null && includeHomebrew
       ? await db
           .select({ item: campaignItems, owner: campaigns })
           .from(campaignItems)
@@ -452,7 +456,7 @@ export class DatabaseStorage implements IStorage {
               sql`${campaignItems.id} IN (SELECT item_id FROM ${campaignResourceLinks} WHERE campaign_id = ${campaignId})`,
             ),
             campaignNameFilter,
-            inArray(campaignItems.category, categories),
+            customCategoryFilter(campaignItems.category),
             campaignRarityFilter,
           ))
           .orderBy(sql`RANDOM()`)
