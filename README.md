@@ -230,4 +230,4 @@ API/identity requests, and continued authentication on real APIs.
 
 ## License
 
-MIT
+The original `main` branch contains a GNU GPL v3 `LICENSE` file, while the application package metadata declares MIT. Both declarations have been preserved during the branch merge; the project owner should reconcile them before relying on either as a definitive licensing statement. Third-party game content retains its own rights.
