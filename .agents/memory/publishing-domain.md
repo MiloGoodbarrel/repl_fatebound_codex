@@ -1,10 +1,10 @@
 ---
 name: Publishing domain
-description: The user's requested custom domain for this project.
+description: The project's user-owned domain and the boundary between ownership and verified configuration.
 ---
 
-The intended custom domain is **fateboundcodex.app**.
+The user owns **fateboundcodex.com** and wants to use it for Fatebound Codex, including project-related email.
 
-**Why:** The user requested, “Let's publish as fateboundcodex.app”.
+**Why:** The user clarified, “I want to use the domain fateboundcodex.com I own it after all.”
 
-**How to apply:** Use that domain when guiding custom-domain setup. This request does not establish ownership, DNS verification, or a live deployment; check actual deployment status before claiming the site is published.
+**How to apply:** Prefer this domain over the earlier proposed .app domain. Ownership does not establish working email, verified DNS, or a live deployment; check the relevant configuration before claiming any of those are working.
