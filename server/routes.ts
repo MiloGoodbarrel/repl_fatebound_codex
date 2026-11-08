@@ -1,3 +1,4 @@
+import { parseEncounterRevision, nextEncounterRevision } from "@shared/encounterConcurrency";
 import type { Express } from "express";
 import type { Server } from "http";
 import { storage } from "./storage";
@@ -485,9 +486,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.put("/api/campaigns/:id/encounter", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ message: "Invalid campaign id" });
+    const expected = parseEncounterRevision(req.get("X-Encounter-Revision") ?? null);
+    if (expected === undefined) return res.status(428).json({ message: "Reload this encounter before saving; a base revision is required." });
+    if (!req.body || typeof req.body !== "object" || Array.isArray(req.body))
+      return res.status(400).json({ message: "Invalid encounter" });
     try {
-      await storage.saveEncounter(id, req.body);
-      res.json({ message: "Encounter saved" });
+      const revision = nextEncounterRevision(expected, req.body);
+      const saved = await storage.saveEncounter(id, { ...req.body, saveRevision: revision }, expected);
+      if (!saved) return res.status(409).json({ message: "This encounter changed in another tab or device. Reload the latest save before continuing." });
+      res.json({ message: "Encounter saved", revision });
     } catch (err) {
       res.status(500).json({ message: "Failed to save encounter" });
     }
@@ -496,8 +503,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.delete("/api/campaigns/:id/encounter", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ message: "Invalid campaign id" });
+    const expected = parseEncounterRevision(req.get("X-Encounter-Revision") ?? null);
+    if (expected === undefined) return res.status(428).json({ message: "Reload this encounter before clearing it." });
     try {
-      await storage.clearSavedEncounter(id);
+      if (!await storage.clearSavedEncounter(id, expected))
+        return res.status(409).json({ message: "This encounter changed elsewhere. Reload it before clearing." });
       res.json({ message: "Saved encounter cleared" });
     } catch (err) {
       res.status(500).json({ message: "Failed to clear saved encounter" });

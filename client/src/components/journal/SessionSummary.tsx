@@ -320,13 +320,14 @@ export default function SessionSummary({ campaignId, sessionId, sourceRevisionKe
               <h3 className="font-display text-lg">{title}</h3>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <input id={`summary-lock-${id}`} type="checkbox" aria-label={`Lock ${title} from future automatic updates`} checked={section.locked} disabled={saving || loading} onChange={event => updateSection(id, { locked: event.target.checked })} className="accent-primary" />
-                <label htmlFor={`summary-lock-${id}`} className="flex cursor-pointer items-center gap-1.5"><LockKeyhole className="h-3.5 w-3.5" />Locked</label>
+                <label htmlFor={`summary-lock-${id}`} className="flex cursor-pointer items-center gap-1.5"><LockKeyhole className="h-3.5 w-3.5" />Protect from automatic updates</label>
               </div>
             </div>
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1.35fr)_minmax(220px,.65fr)]">
               <div>
                 {savedSection && (savedSection.text.trim() || savedSection.annotation.trim()) && <div className="mb-2 rounded-md border border-primary/15 bg-primary/5 p-3 text-sm leading-6 whitespace-pre-wrap"><span className="mb-1 block text-[10px] uppercase tracking-wider text-primary">Saved copy</span>{savedSection.text || "(not recorded)"}{savedSection.annotation && <p className="mt-2 border-t border-primary/15 pt-2 text-xs text-muted-foreground">Annotation: {savedSection.annotation}</p>}</div>}
                 <label htmlFor={`summary-text-${id}`} className="mb-1 block text-xs text-muted-foreground">Editable summary</label>
+                {section.locked && <p className="mb-2 text-xs text-muted-foreground">Automatic updates will leave this section unchanged. You can still edit it manually.</p>}
                 <textarea id={`summary-text-${id}`} aria-label={`${title} editable summary`} disabled={saving || loading} maxLength={12000} value={section.text} onChange={event => updateSection(id, { text: event.target.value })} placeholder="Not recorded yet. Write the account you want to keep." className="min-h-24 w-full resize-y rounded-md border border-border bg-background/70 p-3 text-sm leading-6 outline-none focus:border-primary/60 disabled:opacity-60" />
               </div>
               <div>
@@ -364,7 +365,7 @@ export default function SessionSummary({ campaignId, sessionId, sourceRevisionKe
                 {section.annotation && <p className="mt-3 border-l-2 border-primary/40 pl-3 text-sm leading-6 text-muted-foreground">{section.annotation}</p>}
                 {!!citations.length && <div className="mt-3 flex flex-wrap gap-1.5">{citations.map(source => <span key={source.id} className="rounded bg-secondary px-2 py-1 text-[10px] text-secondary-foreground">{source.title}</span>)}</div>}
               </div>
-              <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground"><LockKeyhole className="h-3 w-3" />{section.locked ? "Locked" : "Editable"}</span>
+              <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground"><LockKeyhole className="h-3 w-3" />{section.locked ? "Protected from automatic updates" : "Editable"}</span>
             </div>
           </article>;
         })}

@@ -1,3 +1,4 @@
+import { encounterContent, encounterRevision } from "@shared/encounterConcurrency";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Sourcebook } from "@/components/Sourcebook";
 import { PreparedEncounterNameDialog } from "@/components/PreparedEncounterNameDialog";
@@ -734,6 +735,10 @@ export default function InitiativeTracker() {
   const persistenceQueueRef = useRef<Promise<void>>(Promise.resolve());
   const previousCampaignIdRef = useRef<number | null>(null);
   const saveRevisionRef = useRef(Date.now());
+  const encounterBasesRef = useRef(new Map<number, number | null>());
+  const savedEncounterContentsRef = useRef(new Map<number, string>());
+  const encounterConflictsRef = useRef(new Set<number>());
+  const [encounterConflict, setEncounterConflict] = useState<number | null>(null);
 
   // ── Cinematic death overlay ───────────────────────────────────────────────
   const [deathScene, setDeathScene] = useState<{ name: string; text: string } | null>(null);
@@ -834,7 +839,12 @@ export default function InitiativeTracker() {
       const campaignId = Number(queryKey[1]);
       try {
         const response = await fetch(`/api/campaigns/${campaignId}/encounter`);
+        if (!response.ok && response.status !== 404) throw new Error("Failed to read saved encounter");
         const result = response.ok ? await response.json() : null;
+        if (!encounterBasesRef.current.has(campaignId)) {
+          encounterBasesRef.current.set(campaignId, result ? encounterRevision(result.data) : null);
+          if (result) savedEncounterContentsRef.current.set(campaignId, encounterContent(result.data));
+        }
         return completeEncounterQuery(campaignId, activeCampaignIdRef.current, result);
       } catch {
         return null;
@@ -859,14 +869,38 @@ export default function InitiativeTracker() {
     campaignId: number,
     method: "PUT" | "DELETE",
     payload?: object,
+    keepalive = false,
   ): Promise<Response> => {
     const request = persistenceQueueRef.current
       .catch(() => undefined)
-      .then(() => fetch(`/api/campaigns/${campaignId}/encounter`, {
-        method,
-        headers: payload ? { "Content-Type": "application/json" } : undefined,
-        body: payload ? JSON.stringify(payload) : undefined,
-      }));
+      .then(async () => {
+        if (encounterConflictsRef.current.has(campaignId))
+          return Response.json({ message: "Reload the latest encounter before saving." }, { status: 409 });
+        const base = encounterBasesRef.current.get(campaignId);
+        if (base === undefined) return Response.json({ message: "Wait for the saved encounter to load." }, { status: 428 });
+        if (keepalive && savedEncounterContentsRef.current.get(campaignId) === encounterContent(payload))
+          return Response.json({ revision: base });
+        const response = await fetch(`/api/campaigns/${campaignId}/encounter`, {
+          method,
+          headers: { "Content-Type": "application/json", "X-Encounter-Revision": base === null ? "none" : String(base) },
+          body: payload ? JSON.stringify(payload) : undefined,
+          keepalive,
+        });
+        if (response.status === 409 || response.status === 428) {
+          encounterConflictsRef.current.add(campaignId);
+          latestEncounterRef.current = null;
+          setEncounterConflict(campaignId);
+          setAutoSaveStatus("error");
+        } else if (response.ok) {
+          const result = await response.clone().json();
+          encounterBasesRef.current.set(campaignId, method === "DELETE" ? null : result.revision);
+          if (method === "DELETE") savedEncounterContentsRef.current.delete(campaignId);
+          else savedEncounterContentsRef.current.set(campaignId, encounterContent(payload));
+          qc.setQueryData(["/api/campaigns", campaignId, "encounter"], method === "DELETE" ? null
+            : { data: { ...payload, saveRevision: result.revision }, savedAt: new Date().toISOString() });
+        }
+        return response;
+      });
     persistenceQueueRef.current = request.then(() => undefined, () => undefined);
     return request;
   };
@@ -878,6 +912,7 @@ export default function InitiativeTracker() {
       latestEncounterRef.current = null;
       setAutoSaveReady(false);
       setAutoSaveStatus("idle");
+      setEncounterConflict(encounterConflictsRef.current.has(campaignId!) ? campaignId : null);
       setEncounterOwnerCampaignId(campaignId);
       setShowRestoreBanner(false);
       setCombatants([]);
@@ -904,6 +939,10 @@ export default function InitiativeTracker() {
     ) {
       setAutoSaveReady(false);
       return;
+    }
+    if (!encounterBasesRef.current.has(campaignId)) {
+      encounterBasesRef.current.set(campaignId, savedEncounterResult ? encounterRevision(savedEncounterResult.data) : null);
+      if (savedEncounterResult) savedEncounterContentsRef.current.set(campaignId, encounterContent(savedEncounterResult.data));
     }
     if (savedEncounterResult?.data && combatants.length === 0 && combatState === "setup") {
       setShowRestoreBanner(true);
@@ -933,6 +972,7 @@ export default function InitiativeTracker() {
     && previousCampaignIdRef.current === activeCampaign.id
     && encounterOwnerCampaignId === activeCampaign.id
     && autoSaveReady
+    && !encounterConflictsRef.current.has(activeCampaign.id)
     && combatants.length > 0
   ) {
     latestEncounterRef.current = { campaignId: activeCampaign.id, payload: encounterPayload };
@@ -945,7 +985,9 @@ export default function InitiativeTracker() {
       !activeCampaign
       || encounterOwnerCampaignId !== activeCampaign.id
       || !autoSaveReady
+      || encounterConflictsRef.current.has(activeCampaign.id)
       || combatants.length === 0
+      || savedEncounterContentsRef.current.get(activeCampaign.id) === encounterContent(encounterPayload)
     ) return;
     setAutoSaveStatus("saving");
     const timer = window.setTimeout(async () => {
@@ -964,12 +1006,7 @@ export default function InitiativeTracker() {
     const flushLatestEncounter = () => {
       const latest = latestEncounterRef.current;
       if (!latest) return;
-      void fetch(`/api/campaigns/${latest.campaignId}/encounter`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(latest.payload),
-        keepalive: true,
-      }).catch(() => undefined);
+      void enqueueEncounterRequest(latest.campaignId, "PUT", latest.payload, true).catch(() => undefined);
     };
     window.addEventListener("pagehide", flushLatestEncounter);
     return () => {
@@ -2280,6 +2317,8 @@ export default function InitiativeTracker() {
 
   const restoreEncounter = () => {
     if (!savedEncounterResult?.data) return;
+    encounterBasesRef.current.set(activeCampaign!.id, encounterRevision(savedEncounterResult.data));
+    savedEncounterContentsRef.current.set(activeCampaign!.id, encounterContent(savedEncounterResult.data));
     const snapshot = createEncounterRestoreState<Combatant>(savedEncounterResult.data);
     if (!snapshot) return;
     setCombatants(snapshot.combatants);
@@ -2300,6 +2339,45 @@ export default function InitiativeTracker() {
   const dismissRestoreEncounter = () => {
     setShowRestoreBanner(false);
     setAutoSaveReady(true);
+  };
+
+  const reloadConflictingEncounter = async () => {
+    if (!activeCampaign) return;
+    const campaignId = activeCampaign.id;
+    try {
+      const response = await fetch(`/api/campaigns/${campaignId}/encounter`);
+      if (!response.ok && response.status !== 404) throw new Error("Could not read the latest save.");
+      const saved = response.ok ? await response.json() : null;
+      if (activeCampaignIdRef.current !== campaignId) return;
+      const snapshot = saved ? createEncounterRestoreState<Combatant>(saved.data) : null;
+      if (saved && !snapshot) throw new Error("The latest save could not be restored.");
+      encounterBasesRef.current.set(campaignId, saved ? encounterRevision(saved.data) : null);
+      if (saved) savedEncounterContentsRef.current.set(campaignId, encounterContent(saved.data));
+      else savedEncounterContentsRef.current.delete(campaignId);
+      encounterConflictsRef.current.delete(campaignId);
+      setEncounterConflict(null);
+      qc.setQueryData(["/api/campaigns", campaignId, "encounter"], saved);
+      setCombatants(snapshot?.combatants ?? []);
+      setRound(snapshot?.round ?? 1);
+      setActiveIndex(snapshot?.activeIndex ?? 0);
+      setCombatState(snapshot?.combatState ?? "setup");
+      setRescuedCaptives(normalizeRescuedCaptives(snapshot?.rescuedCaptives));
+      setSelectedVersions(snapshot?.selectedVersions ?? []);
+      setLoadedPreparedEncounter(saved?.data?.loadedPreparedEncounter === true);
+      setShowVersionDialog(!snapshot);
+      setShowRestoreBanner(false);
+      setAutoSaveReady(true);
+      setAutoSaveStatus("idle");
+    } catch {
+      toast({ title: "Reload failed", description: "Your local encounter is still here. Try reloading the latest save again.", variant: "destructive" });
+    }
+  };
+
+  const downloadLocalEncounter = () => {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(encounterPayload, null, 2)], { type: "application/json" }));
+    const anchor = document.createElement("a");
+    anchor.href = url; anchor.download = "fatebound-encounter-draft.json"; anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const preparedEncounterRequest = async (
@@ -2452,15 +2530,21 @@ export default function InitiativeTracker() {
     const campaignId = activeCampaign.id;
     latestEncounterRef.current = null;
     setAutoSaveReady(false);
-    await enqueueEncounterRequest(campaignId, "DELETE");
+    const response = await enqueueEncounterRequest(campaignId, "DELETE");
+    if (!response.ok) {
+      setAutoSaveReady(true);
+      toast({ title: "Reset not saved", description: "The stored encounter was not cleared. Reload the latest save before trying again.", variant: "destructive" });
+      return false;
+    }
     const completion = completeEncounterReset(campaignId, activeCampaignIdRef.current);
     if (!completion) return;
     setAutoSaveReady(completion.autoSaveReady);
     if (completion.shouldRefetch) refetchSavedEncounter();
+    return true;
   };
 
-  const resetCombat = () => {
-    clearSavedEncounterRemote();
+  const resetCombat = async () => {
+    if (activeCampaign && !await clearSavedEncounterRemote()) return;
     setCombatants([]);
     setLoadedPreparedEncounter(false);
     setRescuedCaptives(0);
@@ -2484,14 +2568,16 @@ export default function InitiativeTracker() {
   // Reset all: clear everything but keep version selection
   const [showResetAllDialog, setShowResetAllDialog] = useState(false);
 
-  const confirmResetAll = () => {
+  const confirmResetAll = async () => {
+    const cleared = activeCampaign ? await clearSavedEncounterRemote() : true;
+    setShowResetAllDialog(false);
+    if (!cleared) return;
     setCombatants([]);
     setLoadedPreparedEncounter(false);
     setRescuedCaptives(0);
     setCombatState("setup");
     setActiveIndex(0);
     setRound(1);
-    setShowResetAllDialog(false);
   };
 
   // Full heal a PC
@@ -2613,6 +2699,14 @@ export default function InitiativeTracker() {
 
   return (
     <div className={`${journalOpen ? "min-h-full h-auto overflow-visible md:h-full md:overflow-hidden" : "h-full overflow-hidden"} relative bg-background flex flex-col`}>
+      {encounterConflict === activeCampaign?.id && <aside role="alert" className="shrink-0 border-b border-destructive bg-card p-3 text-sm">
+        <strong>Encounter changed in another tab or device. Saving is paused.</strong>
+        <p>Your local edits are still here and have not overwritten the newer save. Download them first if needed; reloading replaces this tab's encounter.</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" onClick={downloadLocalEncounter}>Download this tab's draft</Button>
+          <Button size="sm" onClick={() => void reloadConflictingEncounter()}>Reload latest encounter</Button>
+        </div>
+      </aside>}
       {/* Version Selection Dialog */}
       <Dialog open={showVersionDialog} onOpenChange={setShowVersionDialog}>
         <DialogContent className="sm:max-w-md">
@@ -2819,7 +2913,9 @@ export default function InitiativeTracker() {
                     )}>
                       {autoSaveStatus === "saving" && "Saving encounter…"}
                       {autoSaveStatus === "saved" && "Encounter autosaved"}
-                      {autoSaveStatus === "error" && "Autosave failed — use Save Encounter"}
+                      {autoSaveStatus === "error" && (encounterConflict === activeCampaign?.id
+                        ? "Saving paused — resolve the conflict above"
+                        : "Autosave failed — use Save Encounter")}
                       {autoSaveStatus === "idle" && "Autosave ready"}
                     </p>
                   )}

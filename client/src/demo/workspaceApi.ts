@@ -1,3 +1,4 @@
+import { encounterRevision, nextEncounterRevision, parseEncounterRevision } from "@shared/encounterConcurrency";
 import { appearanceSchema } from "@shared/appearance";
 import { drawOptionsSchema, insertCampaignSchema, insertCampaignCharacterSchema, rollTableInputSchema } from "@shared/schema";
 import { STOCK_ROLL_TABLES } from "@shared/rollTables";
@@ -26,7 +27,8 @@ export class WorkspaceDemoApi {
   private queue: Promise<unknown> = Promise.resolve();
   private stockItems?: Promise<ItemResponse[]>;
   constructor(private storage: DemoStorage, private notify: (message: string) => void = () => {},
-    private readStock: StockRead = readPublicStock) {
+    private readStock: StockRead = readPublicStock,
+    private serialize: <T>(work: () => Promise<T>) => Promise<T> = work => work()) {
     try { this.reload(); } catch (error) { this.report(error); }
   }
   get error() { return this.failure; }
@@ -47,19 +49,19 @@ export class WorkspaceDemoApi {
     this.storage.setItem(WORKSPACE_DEMO_KEY, raw);
   }
   reset() {
-    return this.queue = this.queue.catch(() => {}).then(() => {
+    return this.queue = this.queue.catch(() => {}).then(() => this.serialize(async () => {
       this.storage.removeItem(WORKSPACE_DEMO_KEY);
       this.data = createWorkspaceDemo(); this.save(); this.failure = ""; this.notify("");
-    });
+    }));
   }
-  request(url: URL, method = "GET", body?: unknown): Promise<Response> {
-    const task = this.queue.catch(() => {}).then(async () => {
+  request(url: URL, method = "GET", body?: unknown, headers: HeadersInit = {}): Promise<Response> {
+    const task = this.queue.catch(() => {}).then(() => this.serialize(async () => {
       try {
         if (this.failure) throw new DemoApiError(507, this.failure);
         try { this.reload(); } catch (e) { this.report(e); throw new DemoApiError(507, this.failure); }
         const previous = structuredClone(this.data);
         try {
-          const result = await this.dispatch(url, method.toUpperCase(), body ?? {});
+          const result = await this.dispatch(url, method.toUpperCase(), body ?? {}, new Headers(headers));
           if (!["GET", "HEAD"].includes(method.toUpperCase())) {
             try { this.save(); } catch (e) { this.report(e); throw new DemoApiError(507, this.failure); }
           }
@@ -69,11 +71,11 @@ export class WorkspaceDemoApi {
         return Response.json({ message: e instanceof z.ZodError ? e.issues[0].message : e instanceof Error ? e.message : "Demo operation failed." },
           { status: e instanceof DemoApiError ? e.status : e instanceof z.ZodError ? 400 : 500 });
       }
-    });
+    })).catch(e => Response.json({ message: e instanceof Error ? e.message : "Demo storage could not be locked safely." }, { status: 503 }));
     this.queue = task;
     return task;
   }
-  private async dispatch(url: URL, method: string, body: any): Promise<unknown> {
+  private async dispatch(url: URL, method: string, body: any, headers: Headers): Promise<unknown> {
     const d = this.data, path = url.pathname, q = url.searchParams;
     const id = () => d.nextId++;
     const success = () => ({ message: "Saved in this browser only." });
@@ -170,8 +172,17 @@ export class WorkspaceDemoApi {
       }
       if (resource === "encounter") {
         if (method === "GET") return d.encounters[cid] ?? missing();
-        if (method === "PUT") { d.encounters[cid] = { data: body, savedAt: new Date().toISOString() }; return success(); }
-        if (method === "DELETE") { delete d.encounters[cid]; return success(); }
+        if (method === "PUT" || method === "DELETE") {
+          const expected = parseEncounterRevision(headers.get("X-Encounter-Revision"));
+          if (expected === undefined) throw new DemoApiError(428, "Reload this encounter before saving; a base revision is required.");
+          const current = d.encounters[cid];
+          if (expected !== (current ? encounterRevision(current.data) : null))
+            throw new DemoApiError(409, "This encounter changed in another tab. Reload the latest save before continuing.");
+          if (method === "DELETE") { delete d.encounters[cid]; return success(); }
+          const revision = nextEncounterRevision(expected, body);
+          d.encounters[cid] = { data: { ...body, saveRevision: revision }, savedAt: new Date().toISOString() };
+          return { ...success(), revision };
+        }
       }
       if (resource === "prepared-encounters") {
         if (method === "GET") return d.prepared.filter(e => e.campaignId === cid);
@@ -257,7 +268,8 @@ export function installDemoTransport(api: WorkspaceDemoApi) {
         const method = init?.method ?? (input instanceof Request ? input.method : "GET");
         let body = init?.body ?? (input instanceof Request ? await input.clone().text() : undefined);
         if (typeof body === "string") { try { body = JSON.parse(body); } catch { /* CSV/binary is explicitly rejected. */ } }
-        return holder.current.request(url, method, body);
+        return holder.current.request(url, method, body,
+          init?.headers ?? (input instanceof Request ? input.headers : {}));
       }
       return original(input, init);
     };

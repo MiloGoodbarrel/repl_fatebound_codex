@@ -22,6 +22,8 @@ import Settings from "@/pages/Settings";
 import { activateWorkspace, closeWorkspace } from "@/lib/workspaceRequests";
 import { isDemoPath } from "@/demo/model";
 import { WorkspaceAccountContext } from "@/lib/workspaceAccount";
+import PageTitle from "@/components/PageTitle";
+import { useWorkspaceAccount } from "@/lib/workspaceAccount";
 
 const DemoApp = lazy(() => import("@/demo/DemoApp"));
 
@@ -43,6 +45,7 @@ const persistentFeatures = [
 
 export function WorkspaceRouter({ banner }: { banner?: React.ReactNode }) {
   const [location] = useLocation();
+  const { demo } = useWorkspaceAccount();
   const [visited, setVisited] = useState<string[]>([]);
   const persistent = persistentFeatures.some(feature => feature.path === location);
   useEffect(() => {
@@ -51,6 +54,7 @@ export function WorkspaceRouter({ banner }: { banner?: React.ReactNode }) {
 
   return (
     <div className="dm-workspace h-dvh flex flex-col overflow-hidden bg-background">
+      <PageTitle demo={demo} />
       {banner}
       <FeatureNavigation />
       <div className="min-h-0 flex-1 overflow-auto">
@@ -148,6 +152,7 @@ function App() {
       <TooltipProvider>
           <NavigationGuardProvider>
             <BrowserRouter hook={useGuardedLocation} base={basePath}>
+              <PageTitle />
               <ClerkApp />
             </BrowserRouter>
           </NavigationGuardProvider>

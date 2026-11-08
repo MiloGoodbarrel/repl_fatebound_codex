@@ -14,8 +14,7 @@ import {
   type DrawOptions,
 } from "@shared/schema";
 import { eq, inArray, sql, and, or, ilike, asc, desc } from "drizzle-orm";
-import { getEncounterSaveRevision } from "@shared/encounterRecovery";
-import { encounterRevisionConflictPredicate } from "./encounterPersistence";
+import { encounterBaseRevisionPredicate } from "./encounterPersistence";
 import { currentActor } from "./auth/context";
 import { hydrateHomebrewLibrary } from "./homebrewLibrary";
 
@@ -67,8 +66,8 @@ export interface IStorage {
 
   // Campaign saved encounters
   getSavedEncounter(campaignId: number): Promise<{ data: any; savedAt: Date } | null>;
-  saveEncounter(campaignId: number, data: any): Promise<void>;
-  clearSavedEncounter(campaignId: number): Promise<void>;
+  saveEncounter(campaignId: number, data: any, expectedRevision: number | null): Promise<boolean>;
+  clearSavedEncounter(campaignId: number, expectedRevision: number | null): Promise<boolean>;
   getPreparedEncounters(campaignId: number): Promise<any[]>;
   createPreparedEncounter(campaignId: number, name: string, data: any): Promise<any>;
   updatePreparedEncounter(id: number, campaignId: number, values: { name?: string; data?: any }): Promise<any | null>;
@@ -554,23 +553,29 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async saveEncounter(campaignId: number, data: any): Promise<void> {
+  async saveEncounter(campaignId: number, data: any, expectedRevision: number | null): Promise<boolean> {
     const json = JSON.stringify(data);
-    const saveRevision = getEncounterSaveRevision(data);
-    await db
-      .insert(campaignSavedEncounters)
-      .values({ campaignId, encounterData: json })
-      .onConflictDoUpdate({
-        target: campaignSavedEncounters.campaignId,
-        set: { encounterData: json, savedAt: new Date() },
-        setWhere: encounterRevisionConflictPredicate(saveRevision),
-      });
+    if (expectedRevision === null) {
+      const rows = await db.insert(campaignSavedEncounters)
+        .values({ campaignId, encounterData: json })
+        .onConflictDoNothing().returning({ id: campaignSavedEncounters.campaignId });
+      return rows.length > 0;
+    }
+    const rows = await db.update(campaignSavedEncounters)
+      .set({ encounterData: json, savedAt: new Date() })
+      .where(and(eq(campaignSavedEncounters.campaignId, campaignId), encounterBaseRevisionPredicate(expectedRevision)))
+      .returning({ id: campaignSavedEncounters.campaignId });
+    return rows.length > 0;
   }
 
-  async clearSavedEncounter(campaignId: number): Promise<void> {
-    await db
+  async clearSavedEncounter(campaignId: number, expectedRevision: number | null): Promise<boolean> {
+    if (expectedRevision === null) return !(await this.getSavedEncounter(campaignId));
+    const rows = await db
       .delete(campaignSavedEncounters)
-      .where(eq(campaignSavedEncounters.campaignId, campaignId));
+      .where(and(eq(campaignSavedEncounters.campaignId, campaignId),
+        encounterBaseRevisionPredicate(expectedRevision)))
+      .returning({ id: campaignSavedEncounters.campaignId });
+    return rows.length > 0;
   }
 
   async getPreparedEncounters(campaignId: number): Promise<any[]> {

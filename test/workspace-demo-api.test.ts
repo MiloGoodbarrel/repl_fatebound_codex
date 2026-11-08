@@ -19,8 +19,8 @@ function setup() {
     if (path.includes("/bestiary/")) return [];
     throw new Error(`Unexpected stock read: ${path}`);
   });
-  const send = async (path: string, method = "GET", body?: unknown) => {
-    const response = await api.request(new URL(path, "https://demo.test"), method, body);
+  const send = async (path: string, method = "GET", body?: unknown, headers?: HeadersInit) => {
+    const response = await api.request(new URL(path, "https://demo.test"), method, body, headers);
     return { status: response.status, data: response.status === 204 ? null : await response.json() };
   };
   return { api, send, storage, map, stockCalls };
@@ -35,8 +35,9 @@ test("real-screen demo API keeps campaign CRUD, party, saves, prepared groups an
   assert.equal((await send(`/api/campaigns/${cid}/characters`, "POST", { name: "QA Hero", maxHp: 25, ac: 15 })).status, 200);
   assert.equal((await send(`/api/campaigns/${cid}/characters`)).data[0].name, "QA Hero");
   const saved = { combatants: [], round: 5, activeIndex: 0 };
-  await send(`/api/campaigns/${cid}/encounter`, "PUT", saved);
-  assert.deepEqual((await send(`/api/campaigns/${cid}/encounter`)).data.data, saved);
+  const result = await send(`/api/campaigns/${cid}/encounter`, "PUT", saved, { "X-Encounter-Revision": "none" });
+  assert.equal(result.status, 200);
+  assert.deepEqual((await send(`/api/campaigns/${cid}/encounter`)).data.data, { ...saved, saveRevision: result.data.revision });
   const prepared = (await send("/api/campaigns/1/prepared-encounters")).data[0];
   const group = prepared.data.combatants.find((c: any) => c.isGroup);
   assert.deepEqual(group.memberHp, [7, 7, 7, 7]);

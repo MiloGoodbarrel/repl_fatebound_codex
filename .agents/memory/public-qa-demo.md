@@ -38,3 +38,9 @@ Ordinary naming/editing workflows must use accessible in-app dialogs rather than
 **Why:** The user's external Claude playtest became blocked by the native encounter-duplication prompt; the agent could neither dismiss it nor continue. This is a compatibility requirement for the public audit workflow, not proof of a failed save.
 
 **How to apply:** Preserve keyboard submission, cancel, validation and retry on failure in DOM dialogs. Never claim to have interacted with an external auditor's browser.
+
+Browser test setup that touches storage must be restricted to the intended app origin.
+
+**Why:** Browser init scripts also run in blank and embedded documents; unguarded session-storage setup produced security exceptions that looked like application errors during the multi-tab audit.
+
+**How to apply:** Check the document origin before injecting browser-only fixture state, and continue capturing application errors rather than suppressing the error collector.

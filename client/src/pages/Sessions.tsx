@@ -1,3 +1,4 @@
+import { localDate } from "@shared/localDate";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { AlertTriangle, ArrowLeft, BookOpen, ChevronRight, Clock3, FileAudio, FileText, LockKeyhole, Plus, RefreshCw, Save, ShieldCheck, Trash2, Upload, X } from "lucide-react";
@@ -26,7 +27,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 const json = (method: string, body: unknown): RequestInit => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-const today = () => new Date().toISOString().slice(0, 10);
+const today = localDate;
 
 function CapabilityLock({ reason }: { reason: string }) {
   return <section className="mx-auto max-w-3xl rounded-xl border border-primary/30 bg-card/70 p-7 shadow-xl">

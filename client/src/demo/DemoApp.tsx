@@ -9,6 +9,7 @@ import { queryClient } from "@/lib/queryClient";
 import { WorkspaceAccountContext } from "@/lib/workspaceAccount";
 import { Button } from "@/components/ui/button";
 import { WorkspaceDemoApi, installDemoTransport } from "./workspaceApi";
+import { WORKSPACE_DEMO_KEY } from "./workspaceData";
 
 function DemoWorkspace({ api, error }: { api: WorkspaceDemoApi; error: string }) {
   const [generation, setGeneration] = useState(0);
@@ -56,7 +57,14 @@ export default function DemoApp({ basePath = "" }: { basePath?: string }) {
     getItem: key => window.localStorage.getItem(key),
     setItem: (key, value) => window.localStorage.setItem(key, value),
     removeItem: key => window.localStorage.removeItem(key),
-  }, setError));
+  }, setError, undefined, work => {
+    if (!navigator.locks) {
+      const message = "This browser cannot safely coordinate demo tabs. Use a browser with Web Locks support.";
+      setError(message);
+      return Promise.reject(new Error(message));
+    }
+    return navigator.locks.request(WORKSPACE_DEMO_KEY, work);
+  }));
   const [ready, setReady] = useState(false);
   useLayoutEffect(() => {
     queryClient.clear();
