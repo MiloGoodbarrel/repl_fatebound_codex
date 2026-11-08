@@ -2,7 +2,9 @@ import { useState, useRef, useEffect } from "react";
 import { Sourcebook } from "@/components/Sourcebook";
 import { sourcebookMatches } from "@shared/sourcebooks";
 import { useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { type DrawOptions } from "@shared/schema";
+import { PdfLibraryImport } from "@/components/PdfLibraryImport";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -65,6 +67,7 @@ interface ControlsProps {
 export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }: ControlsProps) {
   const { activeCampaign } = useCampaign();
   const { demo } = useWorkspaceAccount();
+  const queryClient = useQueryClient();
   const { data: account } = useQuery<{ admin: boolean }>({ queryKey: ["/api/account"] });
   const [editions, setEditions] = useState<string[]>(["5e"]);
   const [categories, setCategories] = useState<string[]>([...CATEGORIES]);
@@ -449,6 +452,18 @@ export function Controls({ onDraw, isDrawing, searchTerm = "", onSearchChange }:
             <Upload className="w-4 h-4 mr-2" />
             {uploading ? "Importing..." : "Choose CSV File"}
           </Button>
+          {activeCampaign && (
+            <PdfLibraryImport
+              campaignId={activeCampaign.id}
+              kind="items"
+              disabled={demo}
+              onImported={() => {
+                void queryClient.invalidateQueries({ queryKey: ["/api/campaigns", activeCampaign.id] });
+                void queryClient.invalidateQueries({ queryKey: ["/api/campaigns", activeCampaign.id, "items"] });
+                void queryClient.invalidateQueries({ queryKey: ["/api/campaigns", activeCampaign.id, "metadata"] });
+              }}
+            />
+          )}
           {!activeCampaign && account?.admin && (
             <Button
               onClick={handleReloadLootTable}

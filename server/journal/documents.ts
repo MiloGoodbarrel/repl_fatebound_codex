@@ -41,7 +41,7 @@ async function checkDocx(bytes: Buffer) {
   });
 }
 
-export async function extractJournalDocument(bytes: Buffer, filename: string) {
+export async function extractJournalDocument(bytes: Buffer, filename: string, options: { pageMarkers?: boolean } = {}) {
   if (bytes.length > MAX_DOCUMENT_BYTES) throw new Error("Documents must be at most 10 MiB.");
   if (/\.(txt|md|markdown)$/i.test(filename)) {
     return { text: decodeTextFile(bytes, filename), format: /\.txt$/i.test(filename) ? "text" as const : "markdown" as const };
@@ -56,7 +56,7 @@ export async function extractJournalDocument(bytes: Buffer, filename: string) {
         for (let n = 1; n <= pdf.numPages; n++) {
           const page = await pdf.getPage(n);
           const content = await page.getTextContent();
-          text += content.items.map(item => "str" in item ? item.str + (item.hasEOL ? "\n" : " ") : "").join("") + "\n\n";
+          text += (options.pageMarkers ? `\n[[Page ${n}]]\n` : "") + content.items.map(item => "str" in item ? item.str + (item.hasEOL ? "\n" : " ") : "").join("") + "\n\n";
           page.cleanup();
           if (Buffer.byteLength(text) > MAX_TEXT_BYTES) throw new Error("TEXT_LIMIT");
         }
@@ -66,7 +66,7 @@ export async function extractJournalDocument(bytes: Buffer, filename: string) {
       if (error instanceof Error && error.message === "TEXT_LIMIT") throw new Error("Extracted text must be at most 256 KiB. Split this document into smaller parts.");
       throw new Error("Could not read this PDF. Remove password protection or export it again as a text-based PDF.");
     }
-    if (!text.trim()) throw new Error("This PDF has no extractable text. Scanned PDFs need OCR first; upload a text-based PDF or paste the notes.");
+    if (!(options.pageMarkers ? text.replace(/\[\[Page \d+\]\]/g, "") : text).trim()) throw new Error("This PDF has no extractable text. Scanned PDFs need OCR first; upload a text-based PDF or paste the notes.");
   } else if (/\.docx$/i.test(filename)) {
     try {
       await checkDocx(bytes);

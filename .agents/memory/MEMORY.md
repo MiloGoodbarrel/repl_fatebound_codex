@@ -7,7 +7,7 @@
 - [Campaign content is additive](campaign-content-additive.md) — global libraries stay available; opt-in cross-campaign access links items/NPCs only, never copies them.
 - [Grim Hollow actionless creatures](grim-hollow-actionless-creatures.md) — two Grimoire creatures intentionally have no action rows; audits must not treat them as missing imports.
 - [Hollow Carnival source decisions](hollow-carnival-source-decisions.md) — separate campaign, no pregens; preserve source ambiguities and distinguish civilian baselines from printed stats.
-- [Publishing domain](publishing-domain.md) — intended custom domain is fateboundcodex.app; confirm publishing and DNS status before treating it as live.
+- [Publishing domain](publishing-domain.md) — user owns fateboundcodex.com through Replit; verify DNS, email, and publishing separately.
 - [Campaign privacy](campaign-privacy.md) — separate user access must protect campaigns and spoilers, including linked resources; collaboration roles still need a user decision.
 - [Session journal needs](session-journal.md) — separate originals/reviews; Echo export limits, private recording tradeoff, and import-time name snapshots.
 - [DM workspace navigation](dm-workspace-navigation.md) — user wants persistent feature tabs for live DM use, with working state retained between tools.
@@ -16,3 +16,4 @@
 - [Isolated browser video capture](video-capture.md) — film private GUI screens with fictional data and no auth bypass; Playwright recording needs its own FFmpeg binary.
 - [Public QA demo](public-qa-demo.md) — /dev is an accountless fictional browser simulation, never a privileged login or access to real campaigns.
 - [Latency evidence boundaries](latency-evidence.md) — handler timing and end-to-end latency cover different work; validate batching without claiming upstream delays are fixed.
+- [PDF import trust](pdf-import-trust.md) — use provider-free extraction until an AI provider is chosen; keep human review and setting-specific rules.

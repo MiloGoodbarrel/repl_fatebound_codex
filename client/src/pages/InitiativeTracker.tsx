@@ -41,6 +41,8 @@ import {
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 import { useCampaign } from "@/lib/campaignContext";
+import { useWorkspaceAccount } from "@/lib/workspaceAccount";
+import { PdfLibraryImport } from "@/components/PdfLibraryImport";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { CampaignCharacter } from "@shared/schema";
 import { homebrewDisposition } from "@shared/homebrewDisposition";
@@ -820,6 +822,7 @@ export default function InitiativeTracker() {
 
   // Campaign party
   const { activeCampaign } = useCampaign();
+  const { demo } = useWorkspaceAccount();
   const activeCampaignIdRef = useRef<number | null>(activeCampaign?.id ?? null);
   activeCampaignIdRef.current = activeCampaign?.id ?? null;
   const { toast } = useToast();
@@ -3298,6 +3301,14 @@ export default function InitiativeTracker() {
                     ? `${homebrewCampaign.name} — campaign NPCs and creatures`
                     : "Select a campaign to view its NPCs and creatures."}
                 </p>
+                {homebrewCampaign && (
+                  <PdfLibraryImport
+                    campaignId={homebrewCampaign.id}
+                    kind="creatures"
+                    disabled={demo}
+                    onImported={() => { void refetchHomebrew(); }}
+                  />
+                )}
                 {homebrewMonsters.length === 0 ? (
                   <p className="text-xs text-muted-foreground italic">
                     No homebrew monsters yet. Download the template, fill it in, then import.

@@ -14,6 +14,7 @@ Draw random magic items from a seeded 5e compendium with fine-grained filters:
 - Draw 1–100 items at a time
 - Each card shows name, rarity, category, type, description, damage/weight/cost, properties, attunement requirement, and **source book**
 - Import custom items via **CSV upload** (official or homebrew pools)
+- Import campaign items from **text-based PDFs**, review detected entries and source pages, correct fields, then append selected entries
 - **Campaign mode** — items drawn can be saved to a persistent campaign loot chest
 
 ### ⚔️ Initiative Tracker
@@ -27,12 +28,19 @@ Full combat manager for 5e sessions:
   - Expandable stat blocks: AC, HP, speed, ability scores, traits, actions, and multiattack
   - Random monster selection and **Encounter Group** builder
 - **Homebrew Bestiary** — import custom monsters per campaign via CSV (preview before confirming)
+- **PDF homebrew import** — detect conventional statblocks, review creatures/NPCs against extracted source text, and add missing entries manually without overwriting the library
 - Campaign party persistence — save PCs across sessions
 
 ### 🗂️ Campaign Manager
 - Create and switch between named campaigns (supports 5e, One D&D, 4e, 3.5e, 3e, AD&D)
 - Each campaign stores its own loot chest, party roster, and homebrew bestiary
-- Campaign context persists in `localStorage` — no login required
+- Private campaigns require sign-in and server-verified ownership; the public `/dev` simulation uses fictional, browser-local data
+
+### PDF library imports
+
+Select a campaign, then choose **Import PDF** in the Deck of Loot import area or the Initiative Tracker's Homebrew Bestiary. Review the extracted text and detected entries, correct fields, deselect unwanted entries, and save. Duplicate names require explicit acknowledgement. Existing entries are kept, and CSV remains available.
+
+Extraction runs on the application's server without an AI provider. PDFs are not retained or sent to an external AI service. Limits: 10 MiB, 100 pages, 256 KiB of extracted text, and 100 entries per save. Scanned or password-protected PDFs must be converted to readable text first. Recognition is conservative, not a complete adventure conversion: complex columns, cross-page statblocks, unusual mechanics, and prose-only NPCs may need manual entry. The extracted source text remains available during review; it is not a permanent PDF reference viewer.
 
 ---
 

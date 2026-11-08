@@ -10,6 +10,7 @@ import { STOCK_ROLL_TABLES } from "@shared/rollTables";
 import { seedLootTable } from "./seedLoot";
 import { creatureProfileSchema, profileLibraryColumns } from "@shared/creatureProfiles";
 import { stockMonster, stockMonsterDetail, stockLore } from "./publicStockLibrary";
+import { registerPdfLibraryRoutes } from "./pdfLibraryRoutes";
 
 
 function parseCSV(csvText: string): Omit<InsertItem, never>[] {
@@ -138,6 +139,7 @@ function readBody(req: any): Promise<string> {
 }
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
+  registerPdfLibraryRoutes(app);
   registerCampaignResourceRoutes(app, storage);
 
   // ── 5e Compendium ────────────────────────────────────────────────────────
