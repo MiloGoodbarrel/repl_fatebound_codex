@@ -13,6 +13,7 @@ import { registerAccountPolicy, accessRepository } from "./auth/access";
 import { requestActors } from "./auth/context";
 import { migrateAccounts } from "./auth/migrate";
 import { importUntilFirstLight } from "./importUntilFirstLight";
+import { importAetherfallSession5 } from "./importAetherfallSession5";
 import { isDemoDocument } from "../shared/demoPath";
 import { publicStockLibrary } from "./publicStockLibrary";
 import { storage } from "./storage";
@@ -90,6 +91,7 @@ app.use((req, res, next) => {
 (async () => {
   await migrateAccounts();
   await importUntilFirstLight();
+  await importAetherfallSession5();
   // Auto-seed loot table on first run (skips if table already has rows)
   await seedLootTable("5e", false);
 
