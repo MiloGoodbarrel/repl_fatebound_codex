@@ -29,6 +29,19 @@ can interrupt cleanup.
 The full authenticated browser test passed:
 
 - Uploading a real, generated text PDF previews entries without writing them.
+- Invalid signatures, corrupt PDFs, image-only scans, uploads over 10 MiB,
+  PDFs over 100 pages and extracted text over 256 KiB are rejected for both
+  item and creature imports. Each rejection preserves the exact database rows
+  (items, monsters, actions and receipts) in all three disposable campaigns.
+  Immediately afterward, both the uploader and the unrelated signed-in owner
+  can preview a valid document.
+- Twelve simultaneous real preview requests across the two signed-in accounts
+  exercise the shared processing slot. Only 200 and recoverable 429 responses
+  are allowed; at least one of each must occur. Both owners can retry afterward,
+  and neither successful previews nor 429 responses write library rows.
+- The real upload dialog displays invalid/scanned/oversized errors, keeps Save
+  disabled and can be dismissed. The unrelated account then reviews, saves and
+  reloads an import whose row is verified directly in PostgreSQL.
 - Human-corrected item descriptions and filename/page references survive reload
   and match the stored database rows.
 - Human-corrected NPC descriptions, source/page, and actions survive reload;
@@ -55,9 +68,15 @@ idempotent startup migration now creates that nullable field without changing
 existing library rows. It cannot recover references already discarded by older
 imports.
 
-Also passed: `npm run check`; standard `npm test` (110 passed, 19 opt-in tests
+Also passed: `npm run check`; standard `npm test` (117 passed, 19 opt-in tests
 skipped). The authenticated test runs separately; it is not counted as a standard
 suite pass when its flag is absent.
+
+The standard route tests separately hold a synthetic library read pending to
+make concurrency deterministic, assert a second campaign receives 429, fail the
+read and then confirm that both campaigns can preview again. This exercises
+the route's failure cleanup without a production-only test hook. Authenticated
+concurrency above uses only real extraction and real database reads.
 
 Retry transaction coverage can also run independently of browser authentication:
 

@@ -4,11 +4,12 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { chromium, expect, type Page } from "@playwright/test";
 import { clerkClient } from "@clerk/express";
 import { pdf } from "./document-fixtures";
+import { MAX_DOCUMENT_BYTES } from "../shared/journal";
 
 // Opt-in: creates two disposable Clerk development users and real database rows.
 // No auth injection, API mocks, saved sessions, or real campaign content.
 test("signed-in PDF imports persist and stay in their owner's campaign", {
-  skip: process.env.PDF_AUTH_BROWSER_TEST !== "1", timeout: 240_000,
+  skip: process.env.PDF_AUTH_BROWSER_TEST !== "1", timeout: 360_000,
 }, async t => {
   assert.ok(process.env.REPLIT_DEV_DOMAIN?.endsWith(".replit.dev"), "Development preview required");
   const origin = `https://${process.env.REPLIT_DEV_DOMAIN}`;
@@ -34,6 +35,19 @@ test("signed-in PDF imports persist and stay in their owner's campaign", {
     assert.equal(result.status, 200, `${method} ${path} failed (${result.status})`);
     return result.data;
   };
+  // Use normal same-origin browser fetch, including the app's identity guard.
+  // Base64 avoids serializing ten million individual numbers for the size test.
+  const preview = (page: Page, id: number, kind: "items" | "creatures", bytes: Buffer, count = 1) =>
+    page.evaluate(async ({ id, kind, encoded, count }) => {
+      const binary = atob(encoded);
+      const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+      return Promise.all(Array.from({ length: count }, async () => {
+        const response = await fetch(`/api/campaigns/${id}/pdf-import/preview?kind=${kind}&filename=fictional.pdf`, {
+          method: "POST", headers: { "Content-Type": "application/pdf" }, body: bytes,
+        });
+        return { status: response.status, data: await response.json() };
+      }));
+    }, { id, kind, encoded: bytes.toString("base64"), count });
   const signIn = async (page: Page, account: typeof accounts[number]) => {
     await page.goto(`${origin}/sign-in`);
     await page.getByLabel("Email address", { exact: true }).fill(account.email);
@@ -115,6 +129,104 @@ test("signed-in PDF imports persist and stay in their owner's campaign", {
     await ok(page, `/api/campaigns/${a.id}/pdf-import/commit`, "POST", { kind: "creatures", entries: [baselineNpc] });
     const initialItems = await ok(page, `/api/campaigns/${a.id}/items`);
     const initialNpcs = await ok(page, `/api/campaigns/${a.id}/homebrew-bestiary`);
+    // Snapshot actual rows, not just counts: failures must preserve originals,
+    // creature actions, other campaigns, and operation receipts as well.
+    const libraryRows = async () => {
+      const ids = created.map(entry => entry.id);
+      const [items, monsters, actions, receipts] = await Promise.all([
+        pool.query("SELECT * FROM campaign_items WHERE campaign_id = ANY($1::int[]) ORDER BY id", [ids]),
+        pool.query("SELECT * FROM campaign_homebrew_monsters WHERE campaign_id = ANY($1::int[]) ORDER BY id", [ids]),
+        pool.query("SELECT * FROM campaign_homebrew_actions WHERE monster_ref_id IN (SELECT id FROM campaign_homebrew_monsters WHERE campaign_id = ANY($1::int[])) ORDER BY id", [ids]),
+        pool.query("SELECT * FROM pdf_import_receipts WHERE campaign_id = ANY($1::int[]) ORDER BY campaign_id, idempotency_key", [ids]),
+      ]);
+      return { items: items.rows, monsters: monsters.rows, actions: actions.rows, receipts: receipts.rows };
+    };
+    const beforeFailures = await libraryRows();
+    await t.test("rejected authenticated uploads never write and release the extractor for either owner", async () => {
+      const failures = [
+        { bytes: Buffer.from("not a PDF"), status: 400, message: /not a valid PDF/ },
+        { bytes: Buffer.from("%PDF-1.4\nbroken"), status: 400, message: /Could not read this PDF/ },
+        { bytes: pdf(undefined, { imageOnly: true }), status: 400, message: /OCR/ },
+        { bytes: Buffer.alloc(MAX_DOCUMENT_BYTES + 1), status: 413, message: /too large/i },
+        { bytes: pdf("Fictional notes", { pages: 101 }), status: 400, message: /100 pages/ },
+        { bytes: pdf(Array(40).fill("x".repeat(90)).join("\n"), { pages: 80 }), status: 400, message: /256 KiB/ },
+      ];
+      for (const kind of ["items", "creatures"] as const) {
+        for (const failure of failures) {
+          const [rejected] = await preview(page, a.id, kind, failure.bytes);
+          assert.equal(rejected.status, failure.status, `${kind}: ${failure.message}`);
+          assert.match(rejected.data.message, failure.message);
+          assert.deepEqual(await libraryRows(), beforeFailures, "Rejected uploads must not write any library rows or receipts");
+          // Alternate owners immediately after each failure. A stuck global lock
+          // would reject the unrelated account as well as the uploader.
+          const [recovered] = await preview(second, other.id, kind, pdf(kind === "items" ? itemText : npcText));
+          assert.equal(recovered.status, 200, `Other owner's preview after ${failure.message}`);
+          assert.equal(recovered.data.candidates.length, 1);
+          const [sameOwner] = await preview(page, a.id, kind, pdf(kind === "items" ? itemText : npcText));
+          assert.equal(sameOwner.status, 200, "Uploader can also retry after rejection");
+          assert.deepEqual(await libraryRows(), beforeFailures, "Recovery previews must not save");
+        }
+      }
+    });
+
+    await t.test("real simultaneous previews return recoverable 429 across accounts", async () => {
+      // No held extractor, route mocks, or fake 429s. Real requests contend for
+      // the production route's shared slot, including its real library read.
+      const [ownerResults, otherResults] = await Promise.all([
+        preview(page, a.id, "items", pdf(itemText, { pages: 100 }), 6),
+        preview(second, other.id, "creatures", pdf(npcText, { pages: 100 }), 6),
+      ]);
+      const results = [...ownerResults, ...otherResults];
+      assert.ok(results.some(result => result.status === 200), "At least one real preview must succeed");
+      assert.ok(results.some(result => result.status === 429), "Concurrent requests must exercise the busy response");
+      for (const result of results) {
+        assert.ok([200, 429].includes(result.status), `Unexpected concurrent status ${result.status}`);
+        if (result.status === 429) assert.match(result.data.message, /retry shortly/i);
+      }
+      assert.deepEqual(await libraryRows(), beforeFailures, "Neither successful nor throttled previews write rows");
+      for (const [client, id] of [[page, a.id], [second, other.id]] as const) {
+        const [retry] = await preview(client, id, "items", pdf(itemText));
+        assert.equal(retry.status, 200, "Both owners can retry once concurrent work settles");
+      }
+      t.diagnostic(`Real simultaneous previews: ${results.filter(result => result.status === 200).length} succeeded, ${results.filter(result => result.status === 429).length} recoverable 429 responses.`);
+    });
+
+    await t.test("browser rejection messages recover and another signed-in user can save afterward", async () => {
+      await select(page, a.id);
+      await library(page, "items");
+      for (const failure of [
+        { bytes: Buffer.from("not a PDF"), message: /not a valid PDF/ },
+        { bytes: pdf(undefined, { imageOnly: true }), message: /OCR/ },
+        { bytes: Buffer.alloc(MAX_DOCUMENT_BYTES + 1), message: /10 MiB/ },
+      ]) {
+        await page.locator('input[type="file"][accept*=".pdf"]').setInputFiles({
+          name: "fictional-rejected.pdf", mimeType: "application/pdf", buffer: failure.bytes,
+        });
+        const review = page.getByRole("dialog");
+        await expect(review.getByRole("alert")).toContainText(failure.message);
+        await expect(review.getByRole("button", { name: /^Save / })).toBeDisabled();
+        await review.getByRole("button", { name: "Cancel", exact: true }).click();
+        await expect(review).not.toBeVisible();
+        assert.deepEqual(await libraryRows(), beforeFailures);
+      }
+      // Prove the unrelated account can finish a real import, not merely preview.
+      await select(second, other.id);
+      await library(second, "items");
+      const review = await upload(second, "items", itemText);
+      await review.getByLabel("Name", { exact: false }).first().fill("Other Owner Recovery Lantern");
+      await review.getByRole("button", { name: "Save 1 item", exact: true }).click();
+      await expect(review).not.toBeVisible();
+      await second.reload();
+      const imported = await ok(second, `/api/campaigns/${other.id}/items`);
+      assert.equal(imported.length, 1);
+      assert.equal(imported[0].name, "Other Owner Recovery Lantern");
+      const stored = await pool.query("SELECT name FROM campaign_items WHERE campaign_id=$1", [other.id]);
+      assert.deepEqual(stored.rows, [{ name: "Other Owner Recovery Lantern" }]);
+      assert.deepEqual(await ok(page, `/api/campaigns/${a.id}/items`), initialItems);
+      assert.deepEqual(await ok(page, `/api/campaigns/${a.id}/homebrew-bestiary`), initialNpcs);
+      assert.equal((await api(page, `/api/campaigns/${other.id}/items`)).status, 404);
+      t.diagnostic("Invalid/scanned/oversized UI errors recovered; unrelated signed-in owner saved a real import after failures and 429.");
+    });
     await select(page, a.id);
     await library(page, "items");
     let dialog = await upload(page, "items", itemText);
@@ -259,7 +371,8 @@ test("signed-in PDF imports persist and stay in their owner's campaign", {
     await signIn(page, accounts[1]);
     assert.deepEqual((await ok(page, "/api/campaigns")).map((entry: any) => entry.id), [other.id]);
     await expect(page.getByRole("dialog")).not.toBeVisible();
-    assert.equal((await ok(page, `/api/campaigns/${other.id}/items`)).length, 0);
+    assert.deepEqual((await ok(page, `/api/campaigns/${other.id}/items`)).map((entry: any) => entry.name),
+      ["Other Owner Recovery Lantern"]);
     assert.equal((await api(page, `/api/campaigns/${a.id}/items`)).status, 404);
     // Sign back into the original account and confirm the originals/imports.
     await page.getByRole("button", { name: "Sign out", exact: true }).click();

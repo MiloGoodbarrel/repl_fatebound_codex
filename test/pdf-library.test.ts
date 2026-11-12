@@ -9,6 +9,7 @@ import { pdf } from "./document-fixtures";
 import { insertCampaignItemSchema } from "../shared/schema";
 import { randomUUID } from "node:crypto";
 import { profileLibraryColumns } from "../shared/creatureProfiles";
+import { MAX_DOCUMENT_BYTES } from "../shared/journal";
 
 const block = `[[Page 3]]
 Frost Watcher
@@ -108,4 +109,89 @@ test("PDF endpoints enforce ownership, preview without saving, and append only r
     assert.equal(monsters.length, 2); assert.equal(monsters[1].monster.profileData.sourcePage, 3);
     assert.match(monsters[1].actions[0].actionDescription, /Spear/);
   } finally { server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); }
+});
+
+test("every rejected PDF leaves the processing slot available and never commits rows", async () => {
+  const app = express();
+  let commits = 0;
+  registerPdfLibraryRoutes(app, {
+    getCampaignItems: async () => [],
+    getCampaignHomebrew: async () => [],
+    commitPdfImport: async () => { commits++; throw new Error("Preview must never commit"); },
+  });
+  app.use((error: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    res.status(error.status ?? 500).json({ message: error.message });
+  });
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>(resolve => server.once("listening", resolve));
+  const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+  const preview = (bytes: Buffer, kind: string, filename = "fictional.pdf", type = "application/pdf") =>
+    fetch(`${base}/api/campaigns/1/pdf-import/preview?kind=${kind}&filename=${filename}`, {
+      method: "POST", headers: { "Content-Type": type }, body: bytes,
+    });
+  try {
+    const failures = [
+      { bytes: Buffer.from("not a PDF"), status: 400, message: /not a valid PDF/ },
+      { bytes: Buffer.from("%PDF-1.4\nbroken"), status: 400, message: /Could not read this PDF/ },
+      { bytes: pdf(undefined, { imageOnly: true }), status: 400, message: /OCR/ },
+      { bytes: Buffer.alloc(MAX_DOCUMENT_BYTES + 1), status: 413, message: /too large/i },
+      { bytes: pdf("Fictional notes", { pages: 101 }), status: 400, message: /100 pages/ },
+      { bytes: pdf(Array(40).fill("x".repeat(90)).join("\n"), { pages: 80 }), status: 400, message: /256 KiB/ },
+    ];
+    for (const kind of ["items", "creatures"]) {
+      for (const failure of failures) {
+        const response = await preview(failure.bytes, kind);
+        assert.equal(response.status, failure.status, `${kind}: ${failure.message}`);
+        assert.match((await response.json()).message, failure.message);
+        const recovery = await preview(pdf("Fictional recovery notes"), kind);
+        assert.equal(recovery.status, 200, `Lock must be released after ${failure.message}`);
+        await recovery.arrayBuffer();
+      }
+    }
+    assert.equal((await preview(Buffer.from("wrong media"), "items", "notes.pdf", "text/plain")).status, 415);
+    assert.equal((await preview(pdf("Notes"), "invalid")).status, 400);
+    assert.equal(commits, 0);
+  } finally { server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); }
+});
+
+test("a concurrent preview gets recoverable 429 and a repository failure also releases the slot", async () => {
+  const app = express();
+  let entered!: () => void;
+  let release!: () => void;
+  const reached = new Promise<void>(resolve => { entered = resolve; });
+  const held = new Promise<void>(resolve => { release = resolve; });
+  let fail = true;
+  registerPdfLibraryRoutes(app, {
+    getCampaignItems: async () => {
+      entered();
+      await held;
+      if (fail) throw new Error("Synthetic library read failure");
+      return [];
+    },
+    getCampaignHomebrew: async () => [],
+    commitPdfImport: async () => { throw new Error("Preview must never commit"); },
+  });
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise<void>(resolve => server.once("listening", resolve));
+  const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+  const preview = (campaign: number, kind: string) =>
+    fetch(`${base}/api/campaigns/${campaign}/pdf-import/preview?kind=${kind}&filename=fictional.pdf`, {
+      method: "POST", headers: { "Content-Type": "application/pdf" }, body: pdf("Fictional notes"),
+    });
+  try {
+    const first = preview(1, "items");
+    await reached;
+    const blocked = await preview(2, "creatures");
+    assert.equal(blocked.status, 429);
+    assert.match((await blocked.json()).message, /retry shortly/i);
+    release();
+    assert.equal((await first).status, 400);
+    fail = false;
+    assert.equal((await preview(2, "creatures")).status, 200);
+    assert.equal((await preview(1, "items")).status, 200);
+  } finally {
+    release();
+    server.closeAllConnections();
+    await new Promise<void>(resolve => server.close(() => resolve()));
+  }
 });

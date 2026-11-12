@@ -26,3 +26,13 @@ the pending sign-out redirect.
 
 **How to apply:** Synchronize on network and navigation completion rather than
 fixed sleeps, disabled verification, or retries that hide the race.
+
+Synthetic PDF text-limit fixtures need visible text distributed across pages,
+not one enormous line outside the page bounds.
+
+**Why:** The PDF engine clips off-page glyphs during extraction; a huge PDF text
+string can therefore yield very little extracted text and miss the intended
+limit entirely.
+
+**How to apply:** Keep synthetic lines within the page and repeat bounded pages
+when testing extracted-text limits separately from upload-size limits.
