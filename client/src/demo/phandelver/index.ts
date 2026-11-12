@@ -27,7 +27,7 @@ export function seedPhandelverDemo(data: WorkspaceDemoData): WorkspaceDemoData {
   data.items.push({ id: 300, campaignId: 1, name: "Talon", category: "Weapons", itemType: "Longsword",
     rarity: "Uncommon", description: "Adventure reference, NOT acquired loot: a +1 longsword associated with Tresendar Manor, hidden in the nothic's treasure (p. 23).",
     damage: "1d8+1 slashing (1d10+1 two-handed), plus wielder's modifier", weight: "3 lb.", cost: null,
-    properties: "Versatile, magic weapon (+1 to attack and damage)", attunement: null });
+    properties: "Versatile, magic weapon (+1 to attack and damage)", attunement: null, source: "LMoP · p. 23" });
   const fresh = () => ({
     initiative: 0, initiativeRolled: false, conditions: [] as string[], tempHp: 0,
     isDown: false, deathSaveSuccesses: 0, deathSaveFailures: 0, isStable: false, isDead: false,

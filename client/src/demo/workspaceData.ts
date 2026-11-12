@@ -61,10 +61,10 @@ export function createWorkspaceDemo(): WorkspaceDemoData {
   const items: CampaignItem[] = [
     { id: 300, campaignId: 1, name: "Lantern Lens", category: "Wondrous Item", itemType: null,
       rarity: "Uncommon", description: "An original fictional prism that glows near the tide caves.",
-      damage: null, weight: "1 lb.", cost: null, properties: null, attunement: null },
+      damage: null, weight: "1 lb.", cost: null, properties: null, attunement: null, source: null },
     { id: 301, campaignId: 2, name: "Star Chart Compass", category: "Wondrous Item", itemType: null,
       rarity: "Common", description: "A fictional compass pointing toward the observatory's vanished star.",
-      damage: null, weight: null, cost: null, properties: null, attunement: null },
+      damage: null, weight: null, cost: null, properties: null, attunement: null, source: null },
   ];
   const sessions: SessionDetail[] = old.sessions.map(s => ({
     session: { id: s.id, campaignId: campaignId(s.campaignId), title: s.title, date: s.date,

@@ -11,6 +11,8 @@ import { z } from "zod";
 export const appAccounts = pgTable("app_accounts", {
   userId: text("user_id").primaryKey(),
   isAdmin: boolean("is_admin").notNull().default(false),
+  // Already used by account appearance settings; retain it in schema diffs.
+  appearance: jsonb("appearance"),
 });
 export const appSetup = pgTable("app_setup", {
   key: text("key").primaryKey(),
@@ -145,6 +147,8 @@ export const campaignItems = pgTable("campaign_items", {
   cost: text("cost"),
   properties: text("properties"),
   attunement: text("attunement"),
+  // Preserve PDF filename/page references through the actual database, not just preview.
+  source: text("source"),
 });
 
 export const insertCampaignItemSchema = createInsertSchema(campaignItems).omit({ id: true });
