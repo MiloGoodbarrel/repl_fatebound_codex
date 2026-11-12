@@ -108,7 +108,8 @@ test("signed-in PDF imports persist and stay in their owner's campaign", {
   const itemText = "Moon Lantern\nWondrous item, uncommon\nIt shines with blue light.";
   const npcText = "Frost Watcher\nMedium humanoid, neutral\nArmor Class 14\nHit Points 22 (4d8 + 4)\nChallenge 1/2 (100 XP)\nActions\nSpear. Hit: 5 piercing damage.";
   const baselineItem = { name: "Existing Lantern", category: "Wondrous Items", rarity: "Common", description: "Keep this original.", source: "Fictional baseline" };
-  const baselineNpc = { index: "existing-watcher", name: "Existing Watcher", hp: 10, ac: 12, cr: "0", type: "humanoid", size: "Medium", source: "Fictional baseline" };
+  const baselineNpc = { index: "existing-watcher", name: "Existing Watcher", hp: 10, ac: 12, cr: "0", type: "humanoid", size: "Medium", source: "Fictional baseline",
+    actions: [{ name: "Practice staff", desc: "Fictional baseline attack; preserve exactly.", attack_bonus: 2 }] };
   try {
     await page.goto(`${origin}/sign-in`);
     await page.waitForFunction(() => (window as any).Clerk?.loaded);
@@ -189,6 +190,37 @@ test("signed-in PDF imports persist and stay in their owner's campaign", {
         assert.equal(retry.status, 200, "Both owners can retry once concurrent work settles");
       }
       t.diagnostic(`Real simultaneous previews: ${results.filter(result => result.status === 200).length} succeeded, ${results.filter(result => result.status === 429).length} recoverable 429 responses.`);
+    });
+
+    await t.test("simultaneous failing extractors release the slot for both authenticated owners", async () => {
+      // These synthetic documents require real page extraction before OCR/text
+      // limits reject them: no injected extractor, sleeps, or fake responses.
+      const [ownerResults, otherResults] = await Promise.all([
+        preview(page, a.id, "items", pdf(undefined, { imageOnly: true, pages: 100 }), 6),
+        preview(second, other.id, "creatures",
+          pdf(Array(40).fill("x".repeat(90)).join("\n"), { pages: 80 }), 6),
+      ]);
+      const results = [...ownerResults, ...otherResults];
+      assert.ok(results.some(result => result.status === 400), "At least one real extraction must fail");
+      // Extraction can reject before another authenticated request reaches the
+      // handler, especially after PDF.js warms up. Do not depend on that timing:
+      // the successful-contention subtest above separately requires real 429s.
+      for (const result of results) {
+        assert.ok([400, 429].includes(result.status), `Unexpected failing-preview status ${result.status}`);
+        assert.match(result.data.message, result.status === 429 ? /retry shortly/i : /OCR|256 KiB/);
+      }
+      assert.deepEqual(await libraryRows(), beforeFailures, "Rejected and busy previews must not write rows or receipts");
+      // All responses completed above; finally must have released the slot.
+      // Neither user should need a cooldown, restart or account change to retry.
+      for (const [client, id, kind] of [
+        [page, a.id, "items"], [second, other.id, "creatures"],
+      ] as const) {
+        const [retry] = await preview(client, id, kind, pdf(kind === "items" ? itemText : npcText));
+        assert.equal(retry.status, 200, "Either owner can immediately retry after concurrent extraction failures");
+        assert.equal(retry.data.candidates.length, 1);
+      }
+      assert.deepEqual(await libraryRows(), beforeFailures, "Successful recovery previews still must not save");
+      t.diagnostic(`Simultaneously submitted failing previews: ${results.filter(r => r.status === 400).length} rejected, ${results.filter(r => r.status === 429).length} busy; both owners immediately recovered without writes.`);
     });
 
     await t.test("browser rejection messages recover and another signed-in user can save afterward", async () => {
@@ -399,6 +431,15 @@ test("signed-in PDF imports persist and stay in their owner's campaign", {
         await pool.query("DELETE FROM app_accounts WHERE user_id=$1", [account.id]);
         await clerkClient.users.deleteUser(account.id);
       }
+      const ids = created.map(entry => entry.id);
+      const owners = accounts.map(account => account.id);
+      for (const table of ["campaign_items", "campaign_homebrew_monsters", "pdf_import_receipts"]) {
+        const remaining = await pool.query(`SELECT count(*)::int AS count FROM ${table} WHERE campaign_id = ANY($1::int[])`, [ids]);
+        assert.equal(remaining.rows[0].count, 0, `No disposable rows left in ${table}`);
+      }
+      assert.equal((await pool.query("SELECT count(*)::int AS count FROM campaigns WHERE id = ANY($1::int[])", [ids])).rows[0].count, 0);
+      assert.equal((await pool.query("SELECT count(*)::int AS count FROM app_accounts WHERE user_id = ANY($1::text[])", [owners])).rows[0].count, 0);
+      t.diagnostic("Disposable development accounts, campaigns, libraries and import receipts cleaned up.");
     } finally {
       await browser.close();
       await pool.end();
