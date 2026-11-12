@@ -17,3 +17,4 @@
 - [Public QA demo](public-qa-demo.md) — /dev is an accountless fictional browser simulation, never a privileged login or access to real campaigns.
 - [Latency evidence boundaries](latency-evidence.md) — handler timing and end-to-end latency cover different work; validate batching without claiming upstream delays are fixed.
 - [PDF import trust](pdf-import-trust.md) — use provider-free extraction until an AI provider is chosen; keep human review and setting-specific rules.
+- [Authenticated browser testing](authenticated-browser-testing.md) — use disposable provider accounts and normal sign-in; wait for verification preparation and sign-out redirects.

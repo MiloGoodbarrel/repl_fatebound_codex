@@ -6,6 +6,7 @@ import { registerPdfLibraryRoutes } from "../server/pdfLibraryRoutes";
 import { extractJournalDocument } from "../server/journal/documents";
 import { apiPolicy } from "../server/auth/policy";
 import { pdf } from "./document-fixtures";
+import { insertCampaignItemSchema } from "../shared/schema";
 
 const block = `[[Page 3]]
 Frost Watcher
@@ -38,6 +39,9 @@ test("PDF items keep text, rarity and source; invalid commits are rejected", () 
   assert.equal(result.candidates[0].category, "Wondrous Items");
   assert.equal(result.candidates[0].rarity, "Uncommon");
   assert.equal(result.candidates[0].sourcePage, 7);
+  assert.equal(insertCampaignItemSchema.parse({
+    ...result.candidates[0], campaignId: 1, source: "loot.pdf · p. 7",
+  }).source, "loot.pdf · p. 7", "Campaign storage must retain PDF provenance");
   assert.ok(pdfCommitSchema.safeParse({ kind: "items", entries: result.candidates }).success);
   assert.equal(pdfCommitSchema.safeParse({ kind: "items", entries: [{ name: "Bad" }] }).success, false);
   assert.equal(pdfCommitSchema.safeParse({ kind: "creatures", entries: [{ ...recognizePdfLibrary(block, "a.pdf", "creatures").candidates[0], hp: -1 }] }).success, false);

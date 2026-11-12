@@ -22,6 +22,7 @@ export async function migrateAccounts() {
     ALTER TABLE app_accounts ADD COLUMN IF NOT EXISTS appearance jsonb;
     ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS owner_user_id text;
     ALTER TABLE homebrew_items ADD COLUMN IF NOT EXISTS owner_user_id text;
+    ALTER TABLE campaign_items ADD COLUMN IF NOT EXISTS source text;
     CREATE INDEX IF NOT EXISTS campaigns_owner_idx ON campaigns(owner_user_id);
     CREATE INDEX IF NOT EXISTS homebrew_owner_idx ON homebrew_items(owner_user_id);
     `);

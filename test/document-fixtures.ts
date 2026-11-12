@@ -2,7 +2,9 @@ import JSZip from "jszip";
 
 // Synthetic documents generated in memory; never read private user files.
 export function pdf(text?: string) {
-  const stream = text ? `BT /F1 12 Tf 72 720 Td (${text}) Tj ET` : "";
+  const escape = (line: string) => line.replace(/[\\()]/g, "\\$&");
+  const stream = text ? `BT /F1 12 Tf 72 720 Td ${text.split("\n")
+    .map((line, i) => `${i ? "0 -16 Td " : ""}(${escape(line)}) Tj`).join("\n")} ET` : "";
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
