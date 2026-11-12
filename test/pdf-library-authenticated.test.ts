@@ -95,9 +95,9 @@ test("real Clerk sessions preserve reviewed PDF libraries and isolate owners, ca
     const [a, b] = campaigns;
     // Baselines are fictional fixtures created by this run, not existing campaign content.
     assert.equal((await api(ownerPage, `/api/campaigns/${a}/pdf-import/commit`, "POST", { kind: "items",
-      entries: [{ name: `${tag} Baseline Item`, category: "Wondrous Items", rarity: "Common", description: "Keep this fixture." }] })).status, 200);
+      idempotencyKey: randomUUID(), entries: [{ name: `${tag} Baseline Item`, category: "Wondrous Items", rarity: "Common", description: "Keep this fixture." }] })).status, 200);
     assert.equal((await api(ownerPage, `/api/campaigns/${a}/pdf-import/commit`, "POST", { kind: "creatures",
-      entries: [{ index: "qa-baseline", name: `${tag} Baseline NPC`, hp: 7, ac: 11, cr: "0", type: "humanoid", size: "Medium" }] })).status, 200);
+      idempotencyKey: randomUUID(), entries: [{ index: "qa-baseline", name: `${tag} Baseline NPC`, hp: 7, ac: 11, cr: "0", type: "humanoid", size: "Medium" }] })).status, 200);
     const select = async (id: number) => {
       await ownerPage!.goto(origin + "/campaigns", { waitUntil: "domcontentloaded" });
       const selectButton = ownerPage!.getByTestId(`button-select-campaign-${id}`);

@@ -36,6 +36,10 @@ The full authenticated browser test passed:
 - Previously saved items and NPCs remain unchanged.
 - A duplicate name disables saving until acknowledged; editing invalidates that
   acknowledgment. An explicitly acknowledged duplicate is appended.
+- After a real commit, interrupting its response leaves the review available for
+  retry. Save resends the exact operation key and entries, returns the original
+  result and leaves the database rows unchanged. A new acknowledged import uses
+  a fresh key and appends normally; another account cannot replay the receipt.
 - The other signed-in account receives 404 on private libraries, preview and
   commit; supplying another account's workspace assertion receives 409.
 - Navigating to another campaign with a pending preview discards the old draft
@@ -51,6 +55,17 @@ idempotent startup migration now creates that nullable field without changing
 existing library rows. It cannot recover references already discarded by older
 imports.
 
-Also passed: `npm run check`; standard `npm test` (108 passed, 17 opt-in tests
+Also passed: `npm run check`; standard `npm test` (110 passed, 19 opt-in tests
 skipped). The authenticated test runs separately; it is not counted as a standard
 suite pass when its flag is absent.
+
+Retry transaction coverage can also run independently of browser authentication:
+
+```sh
+PDF_IMPORT_DB_TEST=1 npx tsx --test test/pdf-library-idempotency-database.test.ts
+```
+
+This uses disposable fictional campaigns and real PostgreSQL transactions. It
+checks items, creatures and actions, concurrent first attempts and retries,
+changed-payload conflicts, campaign/owner boundaries, rollback after failure,
+fresh storage instances, deliberate repeated content and receipt cleanup.

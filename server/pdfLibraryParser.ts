@@ -17,12 +17,14 @@ export const pdfItemSchema = z.object({
 });
 
 export const pdfCommitSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("creatures"), entries: z.array(creatureProfileSchema.extend({
+  z.object({ idempotencyKey: z.uuid(), kind: z.literal("creatures"), entries: z.array(creatureProfileSchema.extend({
     hp: z.number().finite().nonnegative(), ac: z.number().finite().nonnegative(),
     name: z.string().trim().min(1).max(250),
   })).min(1).max(100) }),
-  z.object({ kind: z.literal("items"), entries: z.array(pdfItemSchema).min(1).max(100) }),
+  z.object({ idempotencyKey: z.uuid(), kind: z.literal("items"), entries: z.array(pdfItemSchema).min(1).max(100) }),
 ]);
+
+export type PdfCommit = z.infer<typeof pdfCommitSchema>;
 
 /** Conservative, provider-free recognition. Never invent missing combat stats. */
 export function recognizePdfLibrary(text: string, filename: string, kind: "creatures" | "items") {

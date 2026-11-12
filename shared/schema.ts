@@ -19,6 +19,15 @@ export const appSetup = pgTable("app_setup", {
   completedAt: timestamp("completed_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// A receipt commits atomically with its imported rows, never before or after them.
+export const pdfImportReceipts = pgTable("pdf_import_receipts", {
+  ownerUserId: text("owner_user_id").notNull(),
+  campaignId: integer("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  idempotencyKey: text("idempotency_key").notNull(),
+  requestHash: text("request_hash").notNull(),
+  result: jsonb("result").$type<{ count: number; message: string }>().notNull(),
+}, table => [primaryKey({ columns: [table.ownerUserId, table.campaignId, table.idempotencyKey] })]);
+
 // ─── 5e Compendium ────────────────────────────────────────────────────────────
 
 const itemColumns = {

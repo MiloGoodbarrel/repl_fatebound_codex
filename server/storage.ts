@@ -17,11 +17,18 @@ import { eq, inArray, sql, and, or, ilike, asc, desc } from "drizzle-orm";
 import { encounterBaseRevisionPredicate } from "./encounterPersistence";
 import { currentActor } from "./auth/context";
 import { hydrateHomebrewLibrary } from "./homebrewLibrary";
+import { createHash } from "node:crypto";
+import { pdfImportReceipts } from "@shared/schema";
+import { profileLibraryColumns } from "@shared/creatureProfiles";
+import type { PdfCommit } from "./pdfLibraryParser";
+
+export class PdfImportConflict extends Error {}
 
 // SQL boundary for directly linked records: a link never grants access by itself.
 const ownedSource = () => eq(campaigns.ownerUserId, currentActor().userId);
 
 export interface IStorage {
+  commitPdfImport(campaignId: number, data: PdfCommit): Promise<{ count: number; message: string }>;
   // 5e compendium
   getItems5e(): Promise<Item[]>;
   createItems5e(items: InsertItem[]): Promise<Item[]>;
@@ -81,6 +88,58 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+
+  async commitPdfImport(campaignId: number, data: PdfCommit) {
+    const ownerUserId = currentActor().userId;
+    // Parsed schema objects have stable field ordering; ignore the operation key.
+    const requestHash = createHash("sha256").update(JSON.stringify({
+      kind: data.kind, entries: data.entries,
+    })).digest("hex");
+    return db.transaction(async tx => {
+      const [owned] = await tx.select({ id: campaigns.id }).from(campaigns)
+        .where(and(eq(campaigns.id, campaignId), eq(campaigns.ownerUserId, ownerUserId))).for("share");
+      if (!owned) throw new Error("Campaign not found.");
+      const scope = and(
+        eq(pdfImportReceipts.ownerUserId, ownerUserId),
+        eq(pdfImportReceipts.campaignId, campaignId),
+        eq(pdfImportReceipts.idempotencyKey, data.idempotencyKey),
+      );
+      const result = {
+        count: data.entries.length,
+        message: `Added ${data.entries.length} reviewed entries to this campaign. Existing entries were kept.`,
+      };
+      // The unique constraint serializes concurrent retries across server processes.
+      // A failed insert of any child row rolls back this receipt too.
+      const claimed = await tx.insert(pdfImportReceipts).values({
+        ownerUserId, campaignId, idempotencyKey: data.idempotencyKey, requestHash, result,
+      }).onConflictDoNothing().returning();
+      if (!claimed.length) {
+        const [receipt] = await tx.select().from(pdfImportReceipts).where(scope);
+        if (!receipt || receipt.requestHash !== requestHash) {
+          throw new PdfImportConflict("This import key was already used for a different review.");
+        }
+        return receipt.result;
+      }
+      if (data.kind === "items") {
+        await tx.insert(campaignItems).values(data.entries.map(({ sourcePage, source, ...entry }) => ({
+          ...entry, campaignId,
+          source: sourcePage ? `${source ?? "PDF import"} · p. ${sourcePage}` : source ?? "PDF import",
+        })));
+      } else {
+        for (const profile of data.entries) {
+          const [monster] = await tx.insert(campaignHomebrewMonsters)
+            .values({ ...profileLibraryColumns(profile), campaignId }).returning();
+          if (profile.actions?.length) {
+            await tx.insert(campaignHomebrewActions).values(profile.actions.map((action, actionOrder) => ({
+              monsterRefId: monster.id, actionOrder, actionName: action.name,
+              actionDescription: action.desc, attackBonus: action.attack_bonus ?? null,
+            })));
+          }
+        }
+      }
+      return result;
+    });
+  }
 
   // ── 5e compendium ─────────────────────────────────────────────────────────
 

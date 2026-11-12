@@ -1,10 +1,9 @@
 import express, { type Express } from "express";
 import { extractJournalDocument } from "./journal/documents";
 import { recognizePdfLibrary, pdfCommitSchema } from "./pdfLibraryParser";
-import { profileLibraryColumns } from "../shared/creatureProfiles";
-import { storage } from "./storage";
+import { storage, PdfImportConflict } from "./storage";
 
-type LibraryStorage = Pick<typeof storage, "getCampaignItems" | "getCampaignHomebrew" | "importCampaignHomebrew" | "importCampaignItems">;
+type LibraryStorage = Pick<typeof storage, "getCampaignItems" | "getCampaignHomebrew" | "commitPdfImport">;
 
 // Mounted after account policy: same-origin writes and campaign ownership are mandatory.
 export function registerPdfLibraryRoutes(app: Express, repo: LibraryStorage = storage) {
@@ -35,26 +34,12 @@ export function registerPdfLibraryRoutes(app: Express, repo: LibraryStorage = st
     const parsed = pdfCommitSchema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ message: "Correct the entry fields before importing.", issues: parsed.error.issues }); return; }
     try {
-      const id = Number(req.params.id);
-      const data = parsed.data;
-      let count: number;
-      if (data.kind === "creatures") {
-        count = await repo.importCampaignHomebrew(id, data.entries.map(profile => ({
-          monster: profileLibraryColumns(profile),
-          actions: (profile.actions ?? []).map((action, actionOrder) => ({
-            actionOrder, actionName: action.name, actionDescription: action.desc,
-            attackBonus: action.attack_bonus ?? null,
-          })),
-        })));
-      } else {
-        const items = data.entries.map(({ sourcePage, source, ...entry }) => ({
-          ...entry, source: sourcePage ? `${source ?? "PDF import"} · p. ${sourcePage}` : source ?? "PDF import",
-        }));
-        count = (await repo.importCampaignItems(id, items)).length;
+      res.json(await repo.commitPdfImport(Number(req.params.id), parsed.data));
+    } catch (error) {
+      if (error instanceof PdfImportConflict) {
+        res.status(409).json({ message: error.message }); return;
       }
-      res.json({ count, message: `Added ${count} reviewed entries to this campaign. Existing entries were kept.` });
-    } catch {
-      res.status(500).json({ message: "Import could not be completed. Check the library before retrying to avoid duplicates." });
+      res.status(500).json({ message: "Could not confirm this import. Retry Save with this review; it will not add the same import twice." });
     }
   });
 }

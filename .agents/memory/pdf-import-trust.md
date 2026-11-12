@@ -14,3 +14,9 @@ Authenticated QA must exercise real provider-issued test sessions, normal author
 **Why:** The user explicitly required authenticated accounts and the actual database, with no auth bypass or real campaign content.
 
 **How to apply:** Restrict identities to temporary development test users, verify records after reload and across separate accounts, and explicitly clean up every fixture, including child rows without cascading foreign keys. Distinguish synthetic/mock coverage from real signed-in evidence in reports.
+
+Retry protection identifies a reviewed save operation, not the PDF or its content.
+
+**Why:** The user requires interrupted saves to be safely retried while deliberately acknowledged duplicate imports remain possible.
+
+**How to apply:** Preserve the operation identity and reviewed payload while the outcome is uncertain. A fresh intentional import must have a new identity even when its content is identical; never replace this with content-based deduplication.

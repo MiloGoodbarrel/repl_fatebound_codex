@@ -66,6 +66,8 @@ export function PdfLibraryImport({ campaignId, kind, disabled = false, onImporte
   const [acknowledgeDuplicates, setAcknowledgeDuplicates] = useState(false);
   const [busy, setBusy] = useState(false);
   const [reviewError, setReviewError] = useState("");
+  const [pendingSave, setPendingSave] = useState(false);
+  const pendingBody = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const submitLock = useRef(false);
   const requestSequence = useRef(0);
@@ -108,6 +110,8 @@ export function PdfLibraryImport({ campaignId, kind, disabled = false, onImporte
   const title = kind === "creatures" ? "Import creatures from PDF" : "Import items from PDF";
 
   const resetReview = () => {
+    pendingBody.current = null;
+    setPendingSave(false);
     setFilename("");
     setSourceText("");
     setWarnings([]);
@@ -288,17 +292,32 @@ export function PdfLibraryImport({ campaignId, kind, disabled = false, onImporte
     submitLock.current = true;
     setBusy(true);
     setReviewError("");
+    // Keep the exact operation after an uncertain response, not a new import.
+    // A new review (after success, cancel, upload or scope change) gets a new key.
+    pendingBody.current ??= JSON.stringify({
+      idempotencyKey: crypto.randomUUID(), kind: requestKind, entries: parsedEntries,
+    });
+    setPendingSave(true);
     try {
       const response = await fetch(`/api/campaigns/${requestCampaignId}/pdf-import/commit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: requestKind, entries: parsedEntries }),
+        body: pendingBody.current,
       });
       const result = await response.json().catch(() => null);
       if (requestSequence.current !== requestId
         || liveScope.current.campaignId !== requestCampaignId
         || liveScope.current.kind !== requestKind) return;
-      if (!response.ok) throw new Error(errorMessage(result, `Could not save entries (${response.status}).`));
+      if (!response.ok) {
+        if (response.status >= 400 && response.status < 500) {
+          pendingBody.current = null;
+          setPendingSave(false);
+        }
+        throw new Error(errorMessage(result, `Could not save entries (${response.status}).`));
+      }
+      if (!result || typeof result.count !== "number" || typeof result.message !== "string") {
+        throw new Error("Could not confirm this import. Retry Save with this unchanged review; it will not add the same import twice.");
+      }
       toast({
         title: "PDF import saved",
         description: result && typeof result.message === "string"
@@ -312,7 +331,9 @@ export function PdfLibraryImport({ campaignId, kind, disabled = false, onImporte
       if (requestSequence.current === requestId
         && liveScope.current.campaignId === requestCampaignId
         && liveScope.current.kind === requestKind) {
-        setReviewError(error instanceof Error ? error.message : "Could not save these entries. Your review is still here.");
+        setReviewError(pendingBody.current
+          ? "Could not confirm this import. Retry Save with this unchanged review; it will not add the same import twice."
+          : error instanceof Error ? error.message : "Could not save these entries. Your review is still here.");
       }
     } finally {
       if (requestSequence.current === requestId
@@ -362,7 +383,7 @@ export function PdfLibraryImport({ campaignId, kind, disabled = false, onImporte
               Review and correct every entry before saving. Nothing is added until you choose Save.
             </DialogDescription>
           </DialogHeader>
-          <div className="min-h-0 space-y-4 overflow-y-auto px-5 py-4">
+          <fieldset disabled={busy || pendingSave} className="min-h-0 min-w-0 space-y-4 overflow-y-auto px-5 py-4">
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/70 bg-background/50 px-3 py-2">
               <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">Source PDF</p>
@@ -396,7 +417,7 @@ export function PdfLibraryImport({ campaignId, kind, disabled = false, onImporte
                 <h3 className="text-sm font-semibold">Entries to review</h3>
                 <p className="text-xs text-muted-foreground">{selectedCount} selected · {entries.length} detected</p>
               </div>
-              <Button type="button" variant="outline" size="sm" onClick={addBlankEntry} disabled={busy}>
+              <Button type="button" variant="outline" size="sm" onClick={addBlankEntry} disabled={busy || pendingSave}>
                 <Plus className="mr-1.5 h-4 w-4" /> Add blank
               </Button>
             </div>
@@ -431,7 +452,7 @@ export function PdfLibraryImport({ campaignId, kind, disabled = false, onImporte
                           : nextValue);
                       }}
                       aria-required={options.required}
-                      disabled={busy}
+                      disabled={busy || pendingSave}
                       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none transition focus-visible:ring-1 focus-visible:ring-ring"
                     />
                   </label>
@@ -523,7 +544,7 @@ export function PdfLibraryImport({ campaignId, kind, disabled = false, onImporte
                 <Checkbox
                   checked={acknowledgeDuplicates}
                   onCheckedChange={value => setAcknowledgeDuplicates(value === true)}
-                  disabled={busy}
+                  disabled={busy || pendingSave}
                   aria-label="Acknowledge importing duplicate names"
                 />
                 <span>I reviewed the name matches and explicitly want to import the selected duplicates.</span>
@@ -542,7 +563,7 @@ export function PdfLibraryImport({ campaignId, kind, disabled = false, onImporte
                 className="h-36 min-h-28 max-h-56 resize-y overflow-y-auto font-mono text-xs leading-relaxed"
               />
             </section>
-          </div>
+          </fieldset>
           <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-border bg-card px-5 py-3 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={busy}>
               <X className="mr-1.5 h-4 w-4" /> Cancel

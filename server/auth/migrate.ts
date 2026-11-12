@@ -6,6 +6,7 @@ import path from "node:path";
 export async function migrateAccounts() {
   const journalSql = await readFile(path.resolve(process.cwd(), "scripts/migrations/20261026-journal.sql"), "utf8");
   const summarySql = await readFile(path.resolve(process.cwd(), "scripts/migrations/20261029-session-summaries.sql"), "utf8");
+  const pdfImportSql = await readFile(path.resolve(process.cwd(), "scripts/migrations/20261112-pdf-import-receipts.sql"), "utf8");
   const cx = await pool.connect();
   try {
     await cx.query("BEGIN");
@@ -28,6 +29,7 @@ export async function migrateAccounts() {
     `);
     await cx.query(journalSql.replace(/^\s*BEGIN;/, "").replace(/COMMIT;\s*$/, ""));
     await cx.query(summarySql.replace(/^\s*BEGIN;/, "").replace(/COMMIT;\s*$/, ""));
+    await cx.query(pdfImportSql);
     await cx.query("COMMIT");
   } catch (e) {
     await cx.query("ROLLBACK"); throw e;

@@ -29,7 +29,8 @@ test("signed-in PDF imports persist and stay in their owner's campaign", {
       return { status: response.status, data: await response.json() };
     }, { path, method, body, headers });
   const ok = async (page: Page, path: string, method = "GET", body?: unknown) => {
-    const result = await api(page, path, method, body);
+    const result = await api(page, path, method, path.endsWith("/pdf-import/commit") && body
+      ? { idempotencyKey: randomUUID(), ...body as object } : body);
     assert.equal(result.status, 200, `${method} ${path} failed (${result.status})`);
     return result.data;
   };
@@ -121,10 +122,33 @@ test("signed-in PDF imports persist and stay in their owner's campaign", {
     await dialog.getByLabel("Name", { exact: false }).first().fill("Reviewed Moon Lantern");
     await dialog.getByLabel("Description", { exact: false }).fill("Reviewed blue light.");
     await dialog.getByLabel("Source page", { exact: true }).fill("7");
+    // Commit for real, then interrupt only the response reaching the browser.
+    let interruptedBody: any;
+    let committedResult: any;
+    await page.route(`**/api/campaigns/${a.id}/pdf-import/commit`, async route => {
+      interruptedBody = route.request().postDataJSON();
+      const token = await page.evaluate(async () => (window as any).Clerk.session.getToken());
+      const actual = await route.fetch({
+        headers: { ...await route.request().allHeaders(), Authorization: `Bearer ${token}` },
+      });
+      assert.equal(actual.status(), 200);
+      committedResult = await actual.json();
+      await route.abort("connectionreset");
+    }, { times: 1 });
     await dialog.getByRole("button", { name: "Save 1 item", exact: true }).click();
+    await expect(dialog.getByRole("alert")).toContainText("Retry Save");
+    await expect(dialog.getByLabel("Name", { exact: false }).first()).toBeDisabled();
+    const afterInterrupted = await ok(page, `/api/campaigns/${a.id}/items`);
+    assert.equal(afterInterrupted.length, 2, "Server committed before the response was lost");
+    const retried = page.waitForResponse(response => response.url().endsWith(`/api/campaigns/${a.id}/pdf-import/commit`));
+    await dialog.getByRole("button", { name: "Save 1 item", exact: true }).click();
+    const retryResponse = await retried;
+    assert.deepEqual(retryResponse.request().postDataJSON(), interruptedBody, "Retry must retain the exact operation");
+    assert.deepEqual(await retryResponse.json(), committedResult, "Retry returns the original result");
     await expect(dialog).not.toBeVisible();
     await page.reload();
     const items = await ok(page, `/api/campaigns/${a.id}/items`);
+    assert.deepEqual(items, afterInterrupted, "Retry added no extra rows");
     assert.deepEqual(items.find((entry: any) => entry.id === initialItems[0].id), initialItems[0]);
     const reviewed = items.find((entry: any) => entry.name === "Reviewed Moon Lantern");
     assert.equal(reviewed.description, "Reviewed blue light.");
@@ -165,9 +189,13 @@ test("signed-in PDF imports persist and stay in their owner's campaign", {
     await dialog.getByLabel("Description", { exact: false }).fill("Explicit duplicate.");
     await expect(save).toBeDisabled();
     await acknowledge.check();
+    const deliberate = page.waitForRequest(request => request.url().endsWith(`/api/campaigns/${a.id}/pdf-import/commit`));
     await save.click();
+    assert.notEqual((await deliberate).postDataJSON().idempotencyKey, interruptedBody.idempotencyKey);
     await expect(dialog).not.toBeVisible();
     assert.equal((await ok(page, `/api/campaigns/${a.id}/items`)).length, 3);
+    assert.equal((await api(second, `/api/campaigns/${a.id}/pdf-import/commit`, "POST", interruptedBody)).status, 404,
+      "Another owner cannot replay a receipt");
     t.diagnostic("Duplicate acknowledgement is required and is invalidated when the reviewed entry changes.");
 
     for (const path of ["items", "homebrew-bestiary", "pdf-import/preview?kind=items&filename=fictional.pdf", "pdf-import/commit"]) {
@@ -223,6 +251,9 @@ test("signed-in PDF imports persist and stay in their owner's campaign", {
     await sibling.goto(`${origin}/campaigns`);
     await sibling.waitForFunction(() => (window as any).Clerk?.loaded);
     await sibling.getByRole("button", { name: "Sign out", exact: true }).click();
+    await sibling.waitForURL(origin + "/");
+    // A background tab can defer provider session synchronization until focused.
+    await page.bringToFront();
     await expect(page.getByRole("dialog")).not.toBeVisible();
     await page.waitForURL(origin + "/");
     await signIn(page, accounts[1]);
