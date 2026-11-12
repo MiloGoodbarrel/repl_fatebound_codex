@@ -230,4 +230,28 @@ API/identity requests, and continued authentication on real APIs.
 
 ## License
 
-The original `main` branch contains a GNU GPL v3 `LICENSE` file, while the application package metadata declares MIT. Both declarations have been preserved during the branch merge; the project owner should reconcile them before relying on either as a definitive licensing statement. Third-party game content retains its own rights.
+The project's original application code is licensed under the **GNU General
+Public License, version 3 only** (`GPL-3.0-only`), as selected by the project
+owner. See [LICENSE](LICENSE) for the full terms. This is version 3 only, not
+version 3 or any later version. The previous MIT declaration in the application
+package metadata was inconsistent with the repository's GPL v3 license and has
+been corrected.
+
+© 2026 Luis Ramirez. Original Fatebound Codex content and software.
+
+### Third-party materials and user content
+
+The application code license does **not** grant rights to third-party game
+material, artwork, trademarks, sourcebook text, adventure-derived demo content,
+or user-uploaded campaign content. Third-party materials and user content remain
+with their respective owners and are subject to their own applicable licenses
+and permissions. Dependencies retain their own licenses, copyright notices, and
+attribution requirements; their licenses are not replaced by this project's GPL
+declaration.
+
+Source citations identify provenance, not permission to redistribute. Inclusion
+in this repository does not establish that every game-content entry is cleared
+for redistribution. Before redistributing or publishing bundled third-party
+materials, verify the applicable permissions and preserve all required notices
+and attributions. This software license decision is not a third-party rights
+clearance or a claim of ownership over those materials.
