@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { BookOpen, Compass, Dices, Package, Swords } from "lucide-react";
+import { BookOpen, Compass, Dices, FileText, Package, Swords } from "lucide-react";
 import { useCampaign } from "@/lib/campaignContext";
 import { AccountControls } from "@/components/AccountControls";
 import { useWorkspaceAccount } from "@/lib/workspaceAccount";
@@ -21,6 +21,7 @@ export default function FeatureNavigation() {
   const currentPath = location.split("?")[0];
   const account = useWorkspaceAccount();
   const check = useCheckNavigation();
+  const toggleModule = () => window.dispatchEvent(new Event("fatebound:module-toggle"));
   const signOut = async () => {
     if (!await check()) return;
     if (account.demo) return account.signOut();
@@ -79,6 +80,20 @@ export default function FeatureNavigation() {
               </li>
             );
           })}
+          <li className="shrink-0">
+            <button
+              type="button"
+              onClick={toggleModule}
+              disabled={account.demo}
+              title={account.demo ? "Private campaign modules are available after signing in." : "Open or close the campaign adventure reference"}
+              aria-label={account.demo ? "Module reference unavailable in demo. Sign in to use private campaign modules." : "Toggle adventure module reference"}
+              className="group relative flex min-h-10 items-center justify-center gap-2 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/70 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:text-sm"
+            >
+              <FileText aria-hidden="true" className="hidden size-4 shrink-0 sm:block" />
+              <span>Module</span>
+              {account.demo && <span className="sr-only">Private signed-in feature</span>}
+            </button>
+          </li>
         </ul>
 
         <div

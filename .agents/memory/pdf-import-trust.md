@@ -20,3 +20,15 @@ Retry protection identifies a reviewed save operation, not the PDF or its conten
 **Why:** The user requires interrupted saves to be safely retried while deliberately acknowledged duplicate imports remain possible.
 
 **How to apply:** Preserve the operation identity and reviewed payload while the outcome is uncertain. A fresh intentional import must have a new identity even when its content is identical; never replace this with content-based deduplication.
+
+Module reference and content extraction have different trust and fidelity goals.
+Preserve adventure layout, maps and handouts in the reader; adapt the surrounding
+workspace rather than rewriting the PDF. Uploading or reading is not approval to
+change the campaign's game records.
+
+**Why:** The DM wants the selected adventure available during live play, including
+large illustrated modules, without disturbing the active fight or prepared content.
+
+**How to apply:** Keep private reference storage and viewer limits independent of
+reviewed statblock extraction. Planning exports may become reference documents,
+but must not silently become played journal history or library imports.

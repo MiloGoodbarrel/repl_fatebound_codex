@@ -89,6 +89,29 @@ export const insertCampaignSchema = createInsertSchema(campaigns).omit({ id: tru
 export type Campaign = typeof campaigns.$inferSelect;
 export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
 
+// Deleting a campaign leaves only a private storage tombstone for the sweeper.
+export const campaignModules = pgTable("campaign_modules", {
+  id: text("id").primaryKey(),
+  campaignId: integer("campaign_id").references(() => campaigns.id, { onDelete: "set null" }),
+  ownerUserId: text("owner_user_id").notNull(),
+  objectKey: text("object_key").notNull().unique(),
+  name: text("name").notNull(),
+  filename: text("filename").notNull(),
+  size: integer("size").notNull(),
+  page: integer("page").notNull().default(1),
+  bookmarks: jsonb("bookmarks").$type<import("./modules").ModuleBookmark[]>().notNull().default([]),
+  status: text("status").notNull().default("pending"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, table => [
+  check("campaign_modules_size_check", sql`${table.size} > 0 AND ${table.size} <= 104857600`),
+  check("campaign_modules_page_check", sql`${table.page} > 0`),
+  check("campaign_modules_status_check", sql`${table.status} IN ('pending','ready','deleting')`),
+]);
+export const campaignModuleSelection = pgTable("campaign_module_selection", {
+  campaignId: integer("campaign_id").primaryKey().references(() => campaigns.id, { onDelete: "cascade" }),
+  moduleId: text("module_id").references(() => campaignModules.id, { onDelete: "set null" }),
+});
+
 // Private journal tables. No access is granted merely by knowing a campaign id.
 export const journalSessions = pgTable("journal_sessions", {
   id: text("id").primaryKey(),

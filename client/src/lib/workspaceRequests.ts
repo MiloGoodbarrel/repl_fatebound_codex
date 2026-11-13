@@ -31,6 +31,13 @@ export function activateWorkspace(userId: string | null) {
     }
   };
 }
+// Lets non-fetch transports (notably an upload XHR with progress events) join the
+// same account-close abort boundary as normal workspace requests.
+export function registerWorkspaceAbort(controller: AbortController) {
+  if (stopped) controller.abort();
+  else pending.add(controller);
+  return () => pending.delete(controller);
+}
 export function closeWorkspace() {
   if (user && typeof sessionStorage !== "undefined") {
     try {

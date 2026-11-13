@@ -17,11 +17,20 @@ import { importAetherfallSession5 } from "./importAetherfallSession5";
 import { isDemoDocument } from "../shared/demoPath";
 import { publicStockLibrary } from "./publicStockLibrary";
 import { storage } from "./storage";
+import { registerModuleRoutes } from "./modules/routes";
 
 const app = express();
 const httpServer = createServer(app);
 
 app.disable("x-powered-by");
+// Public renderer support files only, never campaign uploads or original PDFs.
+// Same-origin assets keep non-Latin glyphs/fonts working without a hosted viewer.
+for (const directory of ["cmaps", "standard_fonts", "wasm"]) {
+  app.use(`/pdf-assets/${directory}`, express.static(`node_modules/pdfjs-dist/${directory}`, {
+    index: false, dotfiles: "deny", immutable: false, maxAge: 0,
+    setHeaders: res => { res.set("X-Content-Type-Options", "nosniff"); },
+  }));
+}
 // The only anonymous server data is the explicitly shared stock catalog.
 // This router terminates all paths/methods and never reaches private APIs.
 app.use("/demo-library", publicStockLibrary(storage));
@@ -49,6 +58,7 @@ const jsonParser = express.json({ limit: "1mb" });
 app.use((req, res, next) => /\/journal(?:\/|$)/.test(req.path) ? next() : jsonParser(req, res, next));
 app.use((req, res, next) => /\/journal(?:\/|$)/.test(req.path) ? next() : express.urlencoded({ extended: false, limit: "1mb" })(req, res, next));
 registerAccountPolicy(app);
+registerModuleRoutes(app);
 registerJournalRoutes(app, new DatabaseJournalRepository(), {
   authorizeCampaign: async (req, campaignId) => {
     const actor = requestActors.get(req);

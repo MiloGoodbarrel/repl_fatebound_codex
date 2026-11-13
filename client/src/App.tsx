@@ -24,6 +24,7 @@ import { isDemoPath } from "@/demo/model";
 import { WorkspaceAccountContext } from "@/lib/workspaceAccount";
 import PageTitle from "@/components/PageTitle";
 import { useWorkspaceAccount } from "@/lib/workspaceAccount";
+import ModuleWorkspace from "@/components/modules/ModuleWorkspace";
 
 const DemoApp = lazy(() => import("@/demo/DemoApp"));
 
@@ -57,21 +58,23 @@ export function WorkspaceRouter({ banner }: { banner?: React.ReactNode }) {
       <PageTitle demo={demo} />
       {banner}
       <FeatureNavigation />
-      <div className="min-h-0 flex-1 overflow-auto">
-        {persistentFeatures.map(({ path, Component }) => (visited.includes(path) || location === path) && (
-          <section key={path} aria-label={path.slice(1)} className="h-full overflow-auto" style={{ display: location === path ? "block" : "none" }}>
-            <Component />
-          </section>
-        ))}
-        {!persistent && <div className="h-full overflow-auto"><Switch>
-          <Route path="/" ><Redirect to="/campaigns" /></Route>
-          <Route path="/campaigns" component={Landing} />
-          <Route path="/sessions" component={Sessions} />
-          <Route path="/settings" component={Settings} />
-          <Route path="/privacy" component={PrivacyPage} />
-          <Route component={NotFound} />
-        </Switch></div>}
-      </div>
+      <ModuleWorkspace>
+        <div className="min-h-0 h-full overflow-auto">
+          {persistentFeatures.map(({ path, Component }) => (visited.includes(path) || location === path) && (
+            <section key={path} aria-label={path.slice(1)} className="h-full overflow-auto" style={{ display: location === path ? "block" : "none" }}>
+              <Component />
+            </section>
+          ))}
+          {!persistent && <div className="h-full overflow-auto"><Switch>
+            <Route path="/" ><Redirect to="/campaigns" /></Route>
+            <Route path="/sessions" component={Sessions} />
+            <Route path="/settings" component={Settings} />
+            <Route path="/privacy" component={PrivacyPage} />
+            <Route path="/campaigns" component={Landing} />
+            <Route component={NotFound} />
+          </Switch></div>}
+        </div>
+      </ModuleWorkspace>
       <footer className="shrink-0 border-t border-border/60 bg-background px-4 py-2 text-center">
         <CopyrightNotice compact />
       </footer>

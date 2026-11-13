@@ -1,7 +1,7 @@
 import JSZip from "jszip";
 
 // Synthetic documents generated in memory; never read private user files.
-export function pdf(text?: string, options: { pages?: number; imageOnly?: boolean } = {}) {
+export function pdf(text?: string, options: { pages?: number; imageOnly?: boolean; paddingBytes?: number } = {}) {
   const escape = (line: string) => line.replace(/[\\()]/g, "\\$&");
   const stream = options.imageOnly
     ? "q 100 0 0 100 72 620 cm BI /W 1 /H 1 /CS /RGB /BPC 8 /F /AHx ID ffffff> EI Q"
@@ -16,6 +16,7 @@ export function pdf(text?: string, options: { pages?: number; imageOnly?: boolea
     `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
     ...Array.from({ length: pages - 1 }, () =>
       "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>"),
+    ...(options.paddingBytes ? [`<< /Length ${options.paddingBytes} >>\nstream\n${" ".repeat(options.paddingBytes)}\nendstream`] : []),
   ];
   let body = "%PDF-1.4\n";
   const offsets = [0];
